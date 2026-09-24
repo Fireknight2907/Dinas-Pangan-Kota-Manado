@@ -1,0 +1,7 @@
+{
+  "name": "temp-mobile",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue-vite"
+}
