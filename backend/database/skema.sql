@@ -16,8 +16,11 @@ CREATE TABLE informasi_pangan (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     judul VARCHAR(255) NOT NULL,
     konten TEXT NOT NULL,
+    kategori VARCHAR(100) DEFAULT 'Umum', -- Contoh: 'Berita', 'Pengumuman', 'Tips Gizi', 'Umum'
+    gambar_url TEXT,                      -- URL gambar opsional
     penulis_id UUID REFERENCES pengguna(id),
-    dibuat_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    dibuat_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    diperbarui_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 3. Tabel Ketersediaan Pangan

@@ -3,6 +3,7 @@ const cors = require('cors');
 
 // Impor rute
 const rutePengguna = require('./routes/PenggunaRoutes');
+const ruteInformasiPangan = require('./routes/InformasiPanganRoutes');
 
 class ServerUtama {
     constructor() {
@@ -21,6 +22,7 @@ class ServerUtama {
     muatRute() {
         // Mendaftarkan rute API
         this.aplikasi.use('/api/pengguna', rutePengguna);
+        this.aplikasi.use('/api/informasi-pangan', ruteInformasiPangan);
 
         this.aplikasi.get('/', (req, res) => {
             res.json({ pesan: 'Selamat datang di API Dinas Pangan' });

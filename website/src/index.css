@@ -96,3 +96,160 @@ body {
 .btn-admin:hover {
   background-color: #000;
 }
+
+/* =========================================
+   INFORMASI PANGAN - HALAMAN PUBLIK
+   ========================================= */
+.halaman-informasi { padding: 10px 0; }
+.info-header { margin-bottom: 20px; }
+.info-header h1 { color: #2a5298; margin-bottom: 8px; }
+.info-header p { color: #666; }
+
+.info-kontrol { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+.input-pencarian {
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  width: 100%;
+}
+.filter-kategori { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-filter {
+  padding: 6px 14px;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  cursor: pointer;
+  background: white;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+.btn-filter.aktif { background: #2a5298; color: white; border-color: #2a5298; }
+.btn-filter:hover { background: #e9ecef; }
+.btn-filter.aktif:hover { background: #1e3c72; }
+
+.grid-informasi {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.kartu-informasi {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.kartu-informasi:hover { transform: translateY(-4px); box-shadow: 0 6px 16px rgba(0,0,0,0.12); }
+.kartu-gambar { width: 100%; height: 180px; object-fit: cover; }
+.kartu-isi { padding: 16px; }
+.kartu-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+  background: #6b7280;
+}
+.kartu-judul { font-size: 1rem; font-weight: bold; color: #1a1a2e; margin-bottom: 8px; line-height: 1.4; }
+.kartu-preview { color: #555; font-size: 0.88rem; line-height: 1.5; margin-bottom: 12px; }
+.kartu-meta { display: flex; gap: 12px; font-size: 0.8rem; color: #888; }
+
+.status-pesan { text-align: center; padding: 30px; color: #666; font-size: 0.95rem; }
+.status-pesan.error { color: #c62828; background: #fdecea; border-radius: 8px; }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 20px;
+}
+.modal-kotak {
+  background: white; border-radius: 12px;
+  max-width: 700px; width: 100%; max-height: 85vh;
+  overflow-y: auto; position: relative;
+}
+.modal-tutup {
+  position: absolute; top: 14px; right: 14px;
+  background: none; border: none; font-size: 1.3rem;
+  cursor: pointer; color: #666; z-index: 1;
+}
+.modal-gambar { width: 100%; height: 260px; object-fit: cover; border-radius: 12px 12px 0 0; }
+.modal-isi { padding: 24px; }
+.modal-isi h2 { font-size: 1.4rem; color: #1a1a2e; margin-bottom: 8px; }
+.modal-meta { color: #888; font-size: 0.85rem; margin-bottom: 16px; }
+.modal-konten p { color: #444; line-height: 1.7; margin-bottom: 12px; }
+
+/* =========================================
+   ADMIN PANEL - INFORMASI PANGAN
+   ========================================= */
+.admin-panel-informasi h2 { color: #2a5298; margin-bottom: 20px; }
+.admin-panel-informasi h3 { color: #444; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+
+.form-admin {
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 30px;
+}
+.form-admin h3 { color: #2a5298; }
+.form-grup { margin-bottom: 14px; }
+.form-grup label { display: block; font-size: 0.85rem; font-weight: bold; color: #555; margin-bottom: 5px; }
+.form-grup input,
+.form-grup select,
+.form-grup textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+.form-grup textarea { resize: vertical; }
+.form-aksi { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; }
+.btn-simpan {
+  padding: 10px 22px; background: #2a5298; color: white;
+  border: none; border-radius: 6px; cursor: pointer; font-weight: bold;
+}
+.btn-simpan:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-batal {
+  padding: 10px 22px; background: #6c757d; color: white;
+  border: none; border-radius: 6px; cursor: pointer;
+}
+
+.pesan-form {
+  padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; font-size: 0.9rem;
+}
+.pesan-form.sukses { background: #d4edda; color: #155724; }
+.pesan-form.error { background: #f8d7da; color: #721c24; }
+
+.tabel-wrapper { overflow-x: auto; }
+.tabel-admin {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.9rem; background: white;
+}
+.tabel-admin thead tr { background: #2a5298; color: white; }
+.tabel-admin th { padding: 12px; text-align: left; }
+.tabel-admin td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+.tabel-admin tbody tr:hover { background: #f8f9fa; }
+
+.badge-tabel {
+  padding: 3px 10px; border-radius: 20px;
+  background: #e0e7ff; color: #3730a3;
+  font-size: 0.78rem; font-weight: bold;
+}
+.btn-edit {
+  background: none; border: none; cursor: pointer;
+  font-size: 1.1rem; margin-right: 6px; padding: 4px;
+}
+.btn-hapus {
+  background: none; border: none; cursor: pointer;
+  font-size: 1.1rem; padding: 4px;
+}
+.btn-hapus:hover { filter: brightness(0.7); }
+

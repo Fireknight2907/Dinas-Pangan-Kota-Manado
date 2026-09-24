@@ -2,10 +2,84 @@ import { useState, useEffect } from 'react'
 import PetaKerawanan from './PetaKerawanan'
 import PetaKetersediaan from './PetaKetersediaan'
 import PetaAdmin from './PetaAdmin'
+import InformasiPangan from './InformasiPangan'
+import AdminInformasiPangan from './AdminInformasiPangan'
 import Barcode from 'react-barcode'
 import './index.css'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+// ─────────────────────────────────────────────
+// Komponen Form Login Admin
+// ─────────────────────────────────────────────
+function FormLoginAdmin({ onLogin }) {
+  const [email, setEmail] = useState('');
+  const [kataSandi, setKataSandi] = useState('');
+  const [memuat, setMemuat] = useState(false);
+  const [errorPesan, setErrorPesan] = useState('');
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setMemuat(true);
+    setErrorPesan('');
+    try {
+      const respon = await fetch(`${API_URL}/api/pengguna/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, kata_sandi: kataSandi }),
+      });
+      const json = await respon.json();
+      if (json.sukses) {
+        onLogin(json.data.token);
+      } else {
+        setErrorPesan(json.pesan || 'Login gagal. Periksa email dan kata sandi.');
+      }
+    } catch (err) {
+      setErrorPesan('Gagal menghubungi server. Pastikan backend berjalan.');
+    } finally {
+      setMemuat(false);
+    }
+  };
+
+  return (
+    <div style={{maxWidth: '400px', margin: '0 auto'}}>
+      <h2>🔐 Login Panel Admin / Petugas</h2>
+      <form onSubmit={handleLogin}>
+        {errorPesan && (
+          <div style={{background: '#fdecea', color: '#c62828', padding: '10px', borderRadius: '6px', marginBottom: '10px'}}>
+            ⚠️ {errorPesan}
+          </div>
+        )}
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          style={{padding: '10px', width: '100%', marginTop: '10px', display: 'block', boxSizing: 'border-box'}}
+          required
+        />
+        <input
+          type="password"
+          placeholder="Kata Sandi"
+          value={kataSandi}
+          onChange={e => setKataSandi(e.target.value)}
+          style={{padding: '10px', width: '100%', marginTop: '10px', display: 'block', boxSizing: 'border-box'}}
+          required
+        />
+        <button
+          type="submit"
+          className="btn btn-admin"
+          style={{marginTop: '15px', width: '100%'}}
+          disabled={memuat}
+        >
+          {memuat ? '⏳ Masuk...' : '🚀 Masuk'}
+        </button>
+      </form>
+    </div>
+  );
+}
 
 function App() {
+
   const [dataPesan, setDataPesan] = useState('');
   const [activeView, setActiveView] = useState('home'); // home, peta, gpm, data, admin
   
@@ -18,7 +92,8 @@ function App() {
 
   // State untuk Panel Admin
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [adminMenu, setAdminMenu] = useState('dashboard'); // dashboard, ketersediaan, kerawanan, gpm, pengguna
+  const [tokenAdmin, setTokenAdmin] = useState(null);
+  const [adminMenu, setAdminMenu] = useState('dashboard'); // dashboard, informasi, ketersediaan, kerawanan, gpm, pengguna
 
   // Cek koneksi ke backend
   useEffect(() => {
@@ -65,27 +140,38 @@ function App() {
 
             <div className="grid">
               <div className="card feature">
-                <h3>Peta Kerawanan</h3>
+                <h3>📰 Informasi Pangan</h3>
+                <p>Baca berita, pengumuman, dan informasi seputar pangan terkini dari Dinas Pangan.</p>
+                <button className="btn" onClick={() => setActiveView('informasi')}>Baca Informasi</button>
+              </div>
+              <div className="card feature">
+                <h3>🗺️ Peta Kerawanan</h3>
                 <p>Lihat status kerawanan pangan perkecamatan berdasarkan indikator warna (Hijau, Oranye, Merah).</p>
                 <button className="btn" onClick={() => setActiveView('peta')}>Buka Peta</button>
               </div>
               <div className="card feature">
-                <h3>Gerakan Pangan Murah (GPM)</h3>
+                <h3>🎟️ Gerakan Pangan Murah (GPM)</h3>
                 <p>Daftarkan diri Anda untuk mendapatkan nomor antrean dan barcode acara GPM.</p>
                 <button className="btn" onClick={() => setActiveView('gpm')}>Daftar Sekarang</button>
               </div>
               <div className="card feature">
-                <h3>Informasi Ketersediaan</h3>
+                <h3>📦 Ketersediaan Pangan</h3>
                 <p>Pantau jumlah dan kondisi stok pangan di setiap wilayah Kota Manado.</p>
                 <button className="btn" onClick={() => setActiveView('data')}>Lihat Data</button>
               </div>
               <div className="card feature admin-panel">
-                <h3>Panel Admin & Petugas</h3>
+                <h3>⚙️ Panel Admin & Petugas</h3>
                 <p>Login khusus pengurus untuk mengelola data dan mendaftarkan pengguna baru.</p>
                 <button className="btn btn-admin" onClick={() => setActiveView('admin')}>Masuk ke Panel</button>
               </div>
             </div>
           </>
+        )}
+
+        {activeView === 'informasi' && (
+          <div className="card">
+            <InformasiPangan />
+          </div>
         )}
 
         {activeView === 'peta' && (
@@ -163,24 +249,20 @@ function App() {
         {activeView === 'admin' && (
           <div className="card">
             {!isLoggedIn ? (
-              <>
-                <h2>Login Panel Admin / Petugas</h2>
-                <input type="email" placeholder="Email (contoh: admin@dinaspangan.com)" style={{padding: '10px', width: '100%', marginTop: '10px', display: 'block'}} />
-                <input type="password" placeholder="Kata Sandi (contoh: 12345678)" style={{padding: '10px', width: '100%', marginTop: '10px', display: 'block'}} />
-                <button className="btn btn-admin" style={{marginTop: '15px'}} onClick={() => setIsLoggedIn(true)}>Login (Simulasi)</button>
-              </>
+              <FormLoginAdmin onLogin={(tok) => { setIsLoggedIn(true); setTokenAdmin(tok); }} />
             ) : (
               <div style={{ display: 'flex', minHeight: '600px' }}>
                 {/* Sidebar Admin */}
                 <div style={{ width: '250px', borderRight: '2px solid #eee', paddingRight: '20px', marginRight: '20px' }}>
                   <h3 style={{color: '#2a5298', marginBottom: '20px'}}>Menu Pengurus</h3>
                   <button onClick={() => setAdminMenu('dashboard')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'dashboard' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'dashboard' ? 'white' : 'black'}}>🏠 Dashboard</button>
+                  <button onClick={() => setAdminMenu('informasi')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'informasi' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'informasi' ? 'white' : 'black'}}>📰 Informasi Pangan</button>
                   <button onClick={() => setAdminMenu('ketersediaan')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'ketersediaan' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'ketersediaan' ? 'white' : 'black'}}>📦 Ketersediaan Pangan</button>
                   <button onClick={() => setAdminMenu('kerawanan')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'kerawanan' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'kerawanan' ? 'white' : 'black'}}>🗺️ Kerawanan Pangan</button>
                   <button onClick={() => setAdminMenu('gpm')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'gpm' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'gpm' ? 'white' : 'black'}}>🎟️ Kelola Acara GPM</button>
                   <button onClick={() => setAdminMenu('pengguna')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'pengguna' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'pengguna' ? 'white' : 'black'}}>👥 Kelola Pengguna</button>
                   
-                  <button onClick={() => setIsLoggedIn(false)} style={{...adminBtnStyle, backgroundColor: '#e74c3c', color: 'white', marginTop: '50px'}}>🚪 Keluar (Logout)</button>
+                  <button onClick={() => { setIsLoggedIn(false); setTokenAdmin(null); }} style={{...adminBtnStyle, backgroundColor: '#e74c3c', color: 'white', marginTop: '50px'}}>🚪 Keluar (Logout)</button>
                 </div>
 
                 {/* Konten Admin */}
@@ -200,6 +282,10 @@ function App() {
                         </div>
                       </div>
                     </>
+                  )}
+
+                  {adminMenu === 'informasi' && (
+                    <AdminInformasiPangan token={tokenAdmin} />
                   )}
 
                   {adminMenu === 'ketersediaan' && (
