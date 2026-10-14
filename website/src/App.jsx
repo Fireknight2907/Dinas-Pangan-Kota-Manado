@@ -4,6 +4,10 @@ import PetaKetersediaan from './PetaKetersediaan'
 import PetaAdmin from './PetaAdmin'
 import InformasiPangan from './InformasiPangan'
 import AdminInformasiPangan from './AdminInformasiPangan'
+import HargaPanganWeb from './components/HargaPanganWeb'
+import LoginPortal from './components/LoginPortal'
+import PetugasDashboard from './components/PetugasDashboard'
+import { hargaPanganService } from './services/HargaPanganService'
 import Barcode from 'react-barcode'
 import './index.css'
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -81,7 +85,8 @@ function FormLoginAdmin({ onLogin }) {
 function App() {
 
   const [dataPesan, setDataPesan] = useState('');
-  const [activeView, setActiveView] = useState('home'); // home, peta, gpm, data, admin
+  const [activeView, setActiveView] = useState('harga-pangan'); // 'harga-pangan', 'login', 'petugas', 'home', etc.
+  const [penggunaAktif, setPenggunaAktif] = useState(hargaPanganService.ambilUser());
   
   // State untuk GPM
   const [namaPendaftar, setNamaPendaftar] = useState('');
@@ -117,6 +122,49 @@ function App() {
       kode: kodeBarcode
     });
   };
+
+  // 1. Tampilan Halaman Login Petugas (Sesuai Gambar 4)
+  if (activeView === 'login') {
+    return (
+      <LoginPortal 
+        onLoginSukses={(user) => {
+          setPenggunaAktif(user);
+          setActiveView('petugas');
+        }}
+        onKembaliKePublik={() => setActiveView('harga-pangan')}
+      />
+    );
+  }
+
+  // 2. Tampilan Dashboard Petugas Desktop & Responsive (Sesuai Gambar 1, 2, 3)
+  if (activeView === 'petugas') {
+    return (
+      <PetugasDashboard 
+        pengguna={penggunaAktif}
+        onKeluar={() => {
+          hargaPanganService.keluar();
+          setPenggunaAktif(null);
+          setActiveView('harga-pangan');
+        }}
+      />
+    );
+  }
+
+  // 3. Tampilan Beranda Publik Harga Pangan (Sesuai Gambar 1 Pertama)
+  if (activeView === 'harga-pangan') {
+    return (
+      <HargaPanganWeb 
+        onBukaLogin={() => {
+          // Jika sudah login, langsung ke dashboard petugas, jika belum ke login portal
+          if (hargaPanganService.ambilToken() && penggunaAktif) {
+            setActiveView('petugas');
+          } else {
+            setActiveView('login');
+          }
+        }} 
+      />
+    );
+  }
 
   return (
     <div className="container">

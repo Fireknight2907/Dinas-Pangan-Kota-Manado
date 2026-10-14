@@ -1,0 +1,659 @@
+/* ===================================================================================
+   STYLING SIPATOKAAN - HARGA PANGAN KOTA MANADO (WEBSITE)
+   Warna Utama: Maroon / Crimson (#8B1E1E & #9C2222), Neutral Clean (#FFFFFF, #F3F4F6)
+   =================================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --primary-maroon: #8B1E1E;
+  --primary-maroon-dark: #701616;
+  --primary-maroon-light: #fbebee;
+  --primary-pill-active: #d69595;
+  --primary-pill-text: #6b1414;
+  --accent-pink-badge: #ffe6e8;
+  --accent-pink-text: #a8202b;
+  --text-dark: #1f2937;
+  --text-muted: #6b7280;
+  --border-light: #e5e7eb;
+  --bg-page: #f9fafb;
+  --card-bg: #ffffff;
+}
+
+.sipatokean-page-wrapper {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  background-color: var(--bg-page);
+  color: var(--text-dark);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─────────────────────────────────────────────
+   1. NAVBAR HEADER
+   ───────────────────────────────────────────── */
+.sipatokean-navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 40px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-light);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-logo-badge {
+  width: 44px;
+  height: 44px;
+  background-color: var(--primary-maroon);
+  color: #ffffff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(139, 30, 30, 0.25);
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.brand-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.navbar-menu {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-tab {
+  background: transparent;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #4b5563;
+  transition: all 0.2s ease;
+}
+
+.nav-tab.active {
+  background-color: #d69898;
+  color: #5f1414;
+}
+
+.nav-tab:hover:not(.active) {
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-kelola-data {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  background-color: #f3f4f6;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-kelola-data:hover {
+  background-color: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.btn-login-petugas {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--primary-maroon);
+  color: #ffffff;
+  border: none;
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-login-petugas:hover {
+  background-color: var(--primary-maroon-dark);
+}
+
+/* ─────────────────────────────────────────────
+   2. HERO BANNER
+   ───────────────────────────────────────────── */
+.hero-banner-maroon {
+  background-color: #912222;
+  color: #ffffff;
+  padding: 42px 40px;
+}
+
+.hero-content {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.hero-tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(4px);
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.hero-headline {
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 10px;
+}
+
+.hero-description {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.92);
+  max-width: 820px;
+  margin-bottom: 22px;
+}
+
+.hero-date-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+/* ─────────────────────────────────────────────
+   3. KONTEN UTAMA & FILTER CHIPS
+   ───────────────────────────────────────────── */
+.sipatokean-main-container {
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 30px 40px;
+  flex: 1;
+}
+
+.category-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.filter-chip-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 24px;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-chip-btn:hover {
+  border-color: #9ca3af;
+  background-color: #f9fafb;
+}
+
+.filter-chip-btn.active {
+  background-color: var(--primary-maroon);
+  color: #ffffff;
+  border-color: var(--primary-maroon);
+}
+
+.chip-icon {
+  font-size: 1rem;
+}
+
+.chip-count {
+  background-color: #e5e7eb;
+  color: #374151;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 12px;
+}
+
+.filter-chip-btn.active .chip-count {
+  background-color: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+}
+
+/* ─────────────────────────────────────────────
+   4. SEARCH BAR & DROPDOWN FILTER
+   ───────────────────────────────────────────── */
+.search-filter-card {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 30px;
+  background-color: #ffffff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px 18px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 8px;
+  position: relative;
+}
+
+.search-prefix-label {
+  font-weight: 700;
+  color: #1f2937;
+  font-size: 0.92rem;
+  white-space: nowrap;
+}
+
+.search-input-field {
+  width: 100%;
+  border: none;
+  outline: none;
+  font-size: 0.92rem;
+  color: #111827;
+  background: transparent;
+}
+
+.search-input-field::placeholder {
+  color: #9ca3af;
+}
+
+.clear-search-btn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.category-select-wrapper {
+  min-width: 220px;
+  border-left: 1.5px solid #e5e7eb;
+  padding-left: 16px;
+}
+
+.custom-category-select {
+  width: 100%;
+  border: none;
+  outline: none;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #374151;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* ─────────────────────────────────────────────
+   5. GRID KARTU KOMODITAS
+   ───────────────────────────────────────────── */
+.commodity-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+
+@media (max-width: 1024px) {
+  .commodity-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .commodity-cards-grid {
+    grid-template-columns: 1fr;
+  }
+  .sipatokean-navbar {
+    padding: 14px 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .hero-banner-maroon, .sipatokean-main-container {
+    padding: 24px 20px;
+  }
+  .search-filter-card {
+    flex-direction: column;
+  }
+  .category-select-wrapper {
+    border-left: none;
+    border-top: 1px solid #e5e7eb;
+    padding-left: 0;
+    padding-top: 10px;
+  }
+}
+
+.commodity-card-item {
+  background: #ffffff;
+  border: 1.5px solid #dedede;
+  border-radius: 12px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.commodity-card-item:hover {
+  border-color: #b91c1c;
+  box-shadow: 0 6px 18px rgba(185, 28, 28, 0.08);
+  transform: translateY(-2px);
+}
+
+.card-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.satuan-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.market-pill-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  background-color: #fee2e2;
+  color: #991b1b;
+  padding: 3px 10px;
+  border-radius: 16px;
+  max-width: 170px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.commodity-name-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.commodity-price-amount {
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: #a81c1c;
+  margin-bottom: 16px;
+}
+
+.card-bottom-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.date-set-text {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.card-staff-quick-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-quick-edit, .btn-quick-delete {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: background 0.15s;
+}
+
+.btn-quick-edit:hover { background-color: #e0f2fe; }
+.btn-quick-delete:hover { background-color: #fee2e2; }
+
+/* ─────────────────────────────────────────────
+   6. MODAL FORM TEMPAT ISI DATA STAF
+   ───────────────────────────────────────────── */
+.modal-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(17, 24, 39, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.modal-container-card {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 580px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.modal-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  background-color: #912222;
+  color: #ffffff;
+}
+
+.modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-badge-icon {
+  font-size: 1.5rem;
+}
+
+.modal-heading {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.modal-subheading {
+  font-size: 0.75rem;
+  opacity: 0.88;
+  margin: 0;
+}
+
+.modal-close-button {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.modal-form-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.form-group-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-row-two-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-label-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-label-text .req {
+  color: #dc2626;
+}
+
+.form-input-control {
+  padding: 10px 14px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  color: #111827;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.form-input-control:focus {
+  border-color: #912222;
+  box-shadow: 0 0 0 3px rgba(145, 34, 34, 0.15);
+}
+
+.modal-actions-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.btn-modal-cancel {
+  padding: 10px 20px;
+  border-radius: 8px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  font-weight: 600;
+  color: #4b5563;
+  cursor: pointer;
+}
+
+.btn-modal-save {
+  padding: 10px 24px;
+  border-radius: 8px;
+  background-color: #912222;
+  border: none;
+  font-weight: 700;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.btn-modal-save:hover {
+  background-color: #701616;
+}
+
+/* ─────────────────────────────────────────────
+   7. FOOTER & ALERTS
+   ───────────────────────────────────────────── */
+.sipatokean-footer {
+  text-align: center;
+  padding: 24px;
+  color: #6b7280;
+  font-size: 0.85rem;
+  border-top: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.alert-sukses-banner {
+  background-color: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  padding: 12px 24px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.loading-state-box, .empty-state-box {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+}
+
+.spinner-loader {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top-color: #912222;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px auto;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.btn-reset-filter {
+  margin-top: 12px;
+  padding: 8px 18px;
+  border-radius: 6px;
+  background-color: #912222;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}

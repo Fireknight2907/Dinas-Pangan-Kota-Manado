@@ -62,3 +62,20 @@ CREATE TABLE pendaftar_gpm (
     kode_barcode VARCHAR(100) UNIQUE NOT NULL,
     waktu_mendaftar TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 7. Tabel Harga Pangan (Bidang Cadangan dan Distribusi Pangan)
+CREATE TABLE harga_pangan (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nama_komoditas VARCHAR(150) NOT NULL,
+    kategori VARCHAR(50) NOT NULL CHECK (kategori IN ('Bahan Pokok', 'Hewani', 'Sayuran', 'Buah', 'Lainnya')),
+    satuan VARCHAR(20) NOT NULL DEFAULT 'KG',
+    harga NUMERIC(12, 2) NOT NULL,
+    nama_pasar VARCHAR(150) NOT NULL,
+    tanggal_penetapan DATE NOT NULL DEFAULT CURRENT_DATE,
+    catatan_perubahan TEXT,
+    bidang VARCHAR(100) DEFAULT 'Bidang Cadangan dan Distribusi Pangan',
+    petugas_id UUID REFERENCES pengguna(id) ON DELETE SET NULL,
+    dibuat_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    diperbarui_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+

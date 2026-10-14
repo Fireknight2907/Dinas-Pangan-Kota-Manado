@@ -1,0 +1,256 @@
+/* ===================================================================================
+   STYLING LOGIN PORTAL UTAMA: SI PATOKAAN (SESUAI GAMBAR 4)
+   =================================================================================== */
+
+.login-portal-backdrop {
+  min-height: 100vh;
+  width: 100%;
+  background: url('/login-bg.png') no-repeat center center fixed;
+  background-size: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 24px;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+/* Tombol Kembali di Pojok Kiri Atas */
+.btn-kembali-publik {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #8b1e1e;
+  border: 1px solid #fee2e2;
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.btn-kembali-publik:hover {
+  background: #ffffff;
+  transform: translateX(-3px);
+}
+
+/* Card Merah Maroon Glassy di Tengah (Gambar 4) */
+.login-portal-card {
+  width: 100%;
+  max-width: 440px;
+  background: linear-gradient(145deg, rgba(163, 29, 29, 0.94) 0%, rgba(130, 20, 20, 0.97) 100%);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 20px;
+  padding: 38px 34px;
+  color: #ffffff;
+  box-shadow: 0 25px 50px -12px rgba(90, 10, 10, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  animation: cardScaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes cardScaleUp {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Header Logo & Brand */
+.login-header-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.login-logo-box {
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.login-title-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.portal-brand-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin: 0;
+  line-height: 1.1;
+  color: #ffffff;
+}
+
+.portal-sub-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 2px 0 0 0;
+}
+
+/* Welcome Text */
+.login-welcome-text {
+  text-align: center;
+  margin-bottom: 26px;
+}
+
+.login-welcome-text h3 {
+  font-size: 1.45rem;
+  font-weight: 800;
+  margin: 0 0 6px 0;
+  color: #ffffff;
+}
+
+.login-welcome-text p {
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+}
+
+/* Error Alert */
+.login-error-alert {
+  background: rgba(254, 226, 226, 0.95);
+  color: #991b1b;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 18px;
+  text-align: center;
+}
+
+/* Form Fields */
+.login-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.login-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.login-input-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.input-with-icon {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+  padding: 0 14px;
+  transition: all 0.2s;
+}
+
+.input-with-icon:focus-within {
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+}
+
+.input-icon {
+  color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  margin-right: 10px;
+}
+
+.login-input-field {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  padding: 12px 0;
+  font-size: 0.9rem;
+}
+
+.login-input-field::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.btn-toggle-eye {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Options Row */
+.login-options-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  margin-top: -2px;
+}
+
+.checkbox-remember-me {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+}
+
+.checkbox-remember-me input {
+  accent-color: #ffffff;
+  cursor: pointer;
+}
+
+.forgot-password-link {
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: underline;
+  font-size: 0.8rem;
+}
+
+/* Submit Button */
+.btn-login-submit {
+  margin-top: 8px;
+  padding: 13px;
+  background: linear-gradient(180deg, #c52222 0%, #9e1414 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(100, 10, 10, 0.35);
+  transition: all 0.2s;
+}
+
+.btn-login-submit:hover:not(:disabled) {
+  background: linear-gradient(180deg, #d32828 0%, #ab1717 100%);
+  transform: translateY(-1px);
+}
+
+.btn-login-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+@media (max-width: 480px) {
+  .login-portal-card {
+    padding: 28px 20px;
+  }
+}
