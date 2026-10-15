@@ -5,7 +5,8 @@
 // ===================================================================================
 
 const klienBasisData = require('../config/database');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
+const uuidv4 = () => crypto.randomUUID();
 
 class ModelHargaPangan {
     constructor() {

@@ -6,6 +6,8 @@ const rutePengguna = require('./routes/PenggunaRoutes');
 const ruteInformasiPangan = require('./routes/InformasiPanganRoutes');
 // Rute Bidang Cadangan dan Distribusi Pangan (Harga Pangan & Pemantauan Pasar)
 const ruteHargaPangan = require('./routes/HargaPanganRoutes');
+// Rute Gerakan Pangan Murah (GPM) & Pendaftaran Antrean Barcode
+const ruteGPM = require('./routes/GPMRoutes');
 
 class ServerUtama {
     constructor() {
@@ -31,6 +33,8 @@ class ServerUtama {
         this.aplikasi.use('/api/informasi-pangan', ruteInformasiPangan);
         // Mendaftarkan rute Harga Pangan (Bidang Cadangan dan Distribusi Pangan)
         this.aplikasi.use('/api/harga-pangan', ruteHargaPangan);
+        // Mendaftarkan rute Gerakan Pangan Murah (GPM) & Antrean
+        this.aplikasi.use('/api/gpm', ruteGPM);
 
         this.aplikasi.get('/', (req, res) => {
             res.json({ 

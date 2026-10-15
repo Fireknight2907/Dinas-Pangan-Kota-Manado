@@ -1,0 +1,432 @@
+/* ===================================================================================
+   STYLING MODUL PENGELOLAAN GPM OLEH PETUGAS (DESKTOP & RESPONSIVE)
+   Tema: SIPATOKAAN Maroon Tua (#3c0b0b / #8b1e1e) & Clean White
+   =================================================================================== */
+
+.petugas-gpm-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* 1. Header & Tab Navigasi Petugas GPM */
+.gpm-officer-subnav {
+  display: flex;
+  gap: 10px;
+  background: #ffffff;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.subnav-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: #495057;
+  font-weight: 700;
+  font-size: 0.95rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.subnav-btn:hover {
+  background: #fdf2f2;
+  color: #8b1e1e;
+}
+
+.subnav-btn.active {
+  background: #8b1e1e;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(139, 30, 30, 0.25);
+}
+
+/* 2. Kartu Statistik Antrean */
+.gpm-stats-grid-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .gpm-stats-grid-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.gpm-mini-stat-card {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-card-val {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #8b1e1e;
+  line-height: 1;
+}
+
+.stat-card-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #212529;
+  margin-top: 4px;
+}
+
+.stat-card-sub {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+/* 3. Panel Scan Barcode */
+.scan-panel-card {
+  background: #ffffff;
+  padding: 30px;
+  border-radius: 14px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+}
+
+.scan-box-header {
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto 24px auto;
+}
+
+.scan-box-icon {
+  font-size: 2.5rem;
+  margin-bottom: 8px;
+}
+
+.scan-box-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin: 0 0 6px 0;
+}
+
+.scan-box-desc {
+  font-size: 0.92rem;
+  color: #6c757d;
+  margin: 0;
+}
+
+.scan-input-row {
+  display: flex;
+  gap: 12px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.scan-input-text {
+  flex: 1;
+  padding: 14px 18px;
+  font-size: 1.1rem;
+  font-family: monospace;
+  font-weight: 700;
+  letter-spacing: 1px;
+  border: 2px solid #ced4da;
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.scan-input-text:focus {
+  outline: none;
+  border-color: #8b1e1e;
+  box-shadow: 0 0 0 3px rgba(139, 30, 30, 0.15);
+}
+
+.btn-exec-scan {
+  background: #8b1e1e;
+  color: #ffffff;
+  border: none;
+  padding: 0 24px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.btn-exec-scan:hover {
+  background: #a02222;
+}
+
+/* Quick test badges */
+.scan-quick-samples {
+  max-width: 600px;
+  margin: 16px auto 0 auto;
+  font-size: 0.84rem;
+  color: #666;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sample-barcode-chip {
+  background: #f1f3f5;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-family: monospace;
+  cursor: pointer;
+  border: 1px solid #dee2e6;
+  font-weight: 600;
+}
+
+.sample-barcode-chip:hover {
+  background: #fdf2f2;
+  border-color: #8b1e1e;
+  color: #8b1e1e;
+}
+
+/* Hasil Scan Profil Masyarakat */
+.scan-result-profile-card {
+  max-width: 650px;
+  margin: 30px auto 0 auto;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 2px solid #27ae60;
+  box-shadow: 0 8px 24px rgba(39, 174, 96, 0.15);
+  overflow: hidden;
+  animation: slideUpResult 0.3s ease;
+}
+
+@keyframes slideUpResult {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.result-card-banner {
+  background: #27ae60;
+  color: #ffffff;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.result-banner-title {
+  font-weight: 800;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.result-card-body {
+  padding: 24px;
+}
+
+.result-data-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.data-item-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.data-item-lbl {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #6c757d;
+}
+
+.data-item-val {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #212529;
+}
+
+.data-item-val.big-queue {
+  font-size: 2.2rem;
+  color: #8b1e1e;
+}
+
+.btn-verify-success {
+  width: 100%;
+  background: #27ae60;
+  color: #ffffff;
+  border: none;
+  padding: 14px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.btn-verify-success:hover {
+  background: #219653;
+  transform: translateY(-1px);
+}
+
+.badge-verified-done {
+  background: #d4edda;
+  color: #155724;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 700;
+  text-align: center;
+  display: block;
+}
+
+/* 4. Tabel Data Pendaftar */
+.gpm-table-panel {
+  background: #ffffff;
+  padding: 24px;
+  border-radius: 14px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+}
+
+.table-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.filter-select-event {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1.5px solid #ced4da;
+  font-size: 0.92rem;
+  font-weight: 600;
+  background: #ffffff;
+}
+
+.filter-search-box {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1.5px solid #ced4da;
+  font-size: 0.92rem;
+  min-width: 250px;
+}
+
+.pendaftar-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.pendaftar-data-table th {
+  background: #f8f9fa;
+  padding: 12px 14px;
+  font-weight: 700;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+  text-align: left;
+}
+
+.pendaftar-data-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f3f5;
+  color: #212529;
+}
+
+.badge-status-attend {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.badge-status-attend.hadir {
+  background: #d4edda;
+  color: #155724;
+}
+
+.badge-status-attend.menunggu {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.btn-toggle-verify {
+  background: #2a5298;
+  color: #ffffff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 5. Form Tambah Acara Baru */
+.gpm-add-event-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .gpm-add-event-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-field-full {
+  grid-column: 1 / -1;
+}
+
+.event-input-box {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1.5px solid #ced4da;
+  font-size: 0.92rem;
+  box-sizing: border-box;
+}
+
+.preset-loc-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.btn-preset-chip {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: #495057;
+}
+
+.btn-preset-chip:hover {
+  background: #fdf2f2;
+  border-color: #8b1e1e;
+  color: #8b1e1e;
+}

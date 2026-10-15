@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { hargaPanganService } from '../services/HargaPanganService';
+import PetugasGPMManager from './PetugasGPMManager';
 import './PetugasDashboard.css';
 
 export default function PetugasDashboard({ pengguna, onKeluar }) {
@@ -600,14 +601,15 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           </div>
         )}
 
-        {/* VIEW 3: KELOLA GPM / LAPORAN PLACEHOLDER */}
+        {/* VIEW 3: KELOLA GPM, SCAN BARCODE & DAFTAR ANTREAN */}
         {menuAktif === 'kelola-gpm' && (
           <div className="dashboard-page-container">
             <h1 className="dashboard-main-heading">Pengelolaan Gerakan Pangan Murah (GPM)</h1>
-            <p className="dashboard-main-subheading">Jadwal dan kuota pelaksanaan Gerakan Pangan Murah di Kota Manado</p>
-            <div className="stat-card-white" style={{marginTop: '20px'}}>
-              <p>📍 <strong>GPM Terjadwal:</strong> 2 Kegiatan mendatang (Kec. Tuminting & Kec. Malalayang)</p>
-              <p style={{marginTop: '10px'}}>✅ <strong>GPM Selesai:</strong> 1 Kegiatan telah selesai dieksekusi bulan ini.</p>
+            <p className="dashboard-main-subheading">
+              Jadwal pelaksanaan, titik koordinat peta, scan barcode antrean masyarakat, dan rekapitulasi kehadiran warga
+            </p>
+            <div style={{ marginTop: '20px' }}>
+              <PetugasGPMManager token={hargaPanganService.ambilToken()} />
             </div>
           </div>
         )}

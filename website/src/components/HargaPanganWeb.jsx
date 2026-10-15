@@ -6,12 +6,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { hargaPanganService } from '../services/HargaPanganService';
+import GPMWeb from './GPMWeb';
 import './HargaPanganWeb.css';
 
 export default function HargaPanganWeb({ onBukaLogin }) {
   // ─────────────────────────────────────────────
   // 1. STATE MANAGEMENT
   // ─────────────────────────────────────────────
+  
+  // Tab Navigasi Aktif ('harga' | 'gpm')
+  const [tabNavAktif, setTabNavAktif] = useState('harga');
   
   // Data komoditas harga pangan
   const [daftarKomoditas, setDaftarKomoditas] = useState([]);
@@ -192,10 +196,16 @@ export default function HargaPanganWeb({ onBukaLogin }) {
 
         {/* Tab Menu Header */}
         <nav className="navbar-menu">
-          <button className="nav-tab active">
+          <button 
+            className={`nav-tab ${tabNavAktif === 'harga' ? 'active' : ''}`}
+            onClick={() => setTabNavAktif('harga')}
+          >
             Harga Pangan
           </button>
-          <button className="nav-tab">
+          <button 
+            className={`nav-tab ${tabNavAktif === 'gpm' ? 'active' : ''}`}
+            onClick={() => setTabNavAktif('gpm')}
+          >
             Gerakan pangan murah
           </button>
         </nav>
@@ -222,17 +232,25 @@ export default function HargaPanganWeb({ onBukaLogin }) {
         </div>
       </header>
 
-      {/* Notifikasi Floating jika ada update */}
-      {pesanNotifikasi && (
-        <div className="alert-sukses-banner">
-          ✅ {pesanNotifikasi}
-        </div>
-      )}
+      {/* JIKA TAB GPM AKTIF, TAMPILKAN MODUL GPM PUBLIK */}
+      {tabNavAktif === 'gpm' ? (
+        <GPMWeb 
+          onKembaliKeHarga={() => setTabNavAktif('harga')}
+          onBukaLogin={onBukaLogin}
+        />
+      ) : (
+        <>
+          {/* Notifikasi Floating jika ada update */}
+          {pesanNotifikasi && (
+            <div className="alert-sukses-banner">
+              ✅ {pesanNotifikasi}
+            </div>
+          )}
 
-      {/* ─────────────────────────────────────────────
-          5. HERO SECTION (Banner Merah Tua / Maroon)
-          ───────────────────────────────────────────── */}
-      <section className="hero-banner-maroon">
+          {/* ─────────────────────────────────────────────
+              5. HERO SECTION (Banner Merah Tua / Maroon)
+              ───────────────────────────────────────────── */}
+          <section className="hero-banner-maroon">
         <div className="hero-content">
           <div className="hero-tag-badge">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -538,6 +556,8 @@ export default function HargaPanganWeb({ onBukaLogin }) {
       <footer className="sipatokean-footer">
         <p>Sumber Data: Dinas Pangan Kota Manado • Bidang Cadangan dan Distribusi Pangan</p>
       </footer>
+        </>
+      )}
     </div>
   );
 }

@@ -1,0 +1,547 @@
+/* ===================================================================================
+   STYLING KOMPONEN GPM (GERAKAN PANGAN MURAH) - WEBSITE
+   Warna Utama: Merah Marun Pemkot (#8b1e1e / #5a1010) & Putih / Abu Bersih (#f8f9fa)
+   Responsif untuk Desktop & Mobile Layar Sentuh
+   =================================================================================== */
+
+.gpm-page-wrapper {
+  min-height: 100vh;
+  background-color: #f7f9fa;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #2c3e50;
+  padding-bottom: 60px;
+}
+
+/* 1. HERO BANNER GPM */
+.gpm-hero-section {
+  background: linear-gradient(135deg, #741616 0%, #8b1e1e 50%, #5a1010 100%);
+  color: #ffffff;
+  padding: 40px 24px;
+  border-bottom: 4px solid #f39c12;
+  box-shadow: 0 4px 20px rgba(90, 16, 16, 0.25);
+}
+
+.gpm-hero-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.gpm-hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  padding: 6px 14px;
+  border-radius: 30px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.gpm-hero-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  margin: 0 0 10px 0;
+  line-height: 1.2;
+}
+
+.gpm-hero-desc {
+  font-size: 1.05rem;
+  max-width: 800px;
+  margin: 0 0 20px 0;
+  opacity: 0.92;
+  line-height: 1.6;
+}
+
+.gpm-hero-meta-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.gpm-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+/* 2. LAYOUT UTAMA GPM */
+.gpm-main-content {
+  max-width: 1200px;
+  margin: -25px auto 0 auto;
+  padding: 0 20px;
+}
+
+.gpm-split-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 24px;
+  margin-top: 25px;
+}
+
+@media (max-width: 900px) {
+  .gpm-split-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 3. KARTU PETA & SELEKSI */
+.gpm-card-box {
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  padding: 24px;
+  border: 1px solid #e9ecef;
+}
+
+.gpm-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f1f3f5;
+}
+
+.gpm-card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gpm-title-icon-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #fdf2f2;
+  color: #8b1e1e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.gpm-card-title {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.gpm-card-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.88rem;
+  color: #6c757d;
+}
+
+/* Leaflet Map Wrapper */
+.gpm-map-container {
+  height: 420px;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #dee2e6;
+  position: relative;
+}
+
+.gpm-map-tip {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 4. DAFTAR PILIHAN ACARA */
+.gpm-event-selector-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.gpm-event-select-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #fcfcfc;
+  border: 2px solid #edf0f2;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gpm-event-select-item:hover {
+  background: #fffafa;
+  border-color: #f5c6cb;
+}
+
+.gpm-event-select-item.is-selected {
+  background: #fff5f5;
+  border-color: #8b1e1e;
+  box-shadow: 0 4px 12px rgba(139, 30, 30, 0.12);
+}
+
+.event-item-left {
+  flex: 1;
+}
+
+.event-name-tag {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #212529;
+  margin-bottom: 4px;
+}
+
+.event-loc-sub {
+  font-size: 0.86rem;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.event-time-row {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  color: #8b1e1e;
+  font-weight: 600;
+}
+
+.event-quota-badge {
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* 5. PANEL DETAIL ACARA & FORM AMBIL ANTREAN */
+.gpm-action-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.gpm-detail-box {
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  padding: 24px;
+  border: 1px solid #e9ecef;
+}
+
+.gpm-highlight-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #8b1e1e;
+  margin-bottom: 12px;
+}
+
+.gpm-info-rows-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.gpm-info-row {
+  display: flex;
+  gap: 10px;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.gpm-info-row strong {
+  min-width: 120px;
+  color: #495057;
+}
+
+.gpm-commodities-pill-box {
+  background: #fff9e6;
+  border-left: 4px solid #f39c12;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #795548;
+  margin-top: 14px;
+  line-height: 1.5;
+}
+
+/* 6. FORMULIR PENDAFTARAN ANTREAN */
+.gpm-form-wrapper {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 2px dashed #dee2e6;
+}
+
+.gpm-form-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gpm-form-hint {
+  font-size: 0.88rem;
+  color: #6c757d;
+  margin-bottom: 16px;
+}
+
+.gpm-input-field {
+  margin-bottom: 14px;
+}
+
+.gpm-input-field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #495057;
+  margin-bottom: 6px;
+}
+
+.gpm-input-box {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid #ced4da;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.gpm-input-box:focus {
+  outline: none;
+  border-color: #8b1e1e;
+  box-shadow: 0 0 0 3px rgba(139, 30, 30, 0.15);
+}
+
+.btn-gpm-submit-queue {
+  width: 100%;
+  background: linear-gradient(135deg, #8b1e1e, #6e1515);
+  color: #ffffff;
+  border: none;
+  padding: 14px 20px;
+  border-radius: 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 4px 12px rgba(139, 30, 30, 0.3);
+  transition: all 0.2s ease;
+  margin-top: 10px;
+}
+
+.btn-gpm-submit-queue:hover {
+  background: linear-gradient(135deg, #a02222, #7a1818);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(139, 30, 30, 0.4);
+}
+
+.btn-gpm-submit-queue:disabled {
+  background: #adb5bd;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* 7. TIKET ANTREAN DIGITAL GPM */
+.gpm-ticket-container {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(139, 30, 30, 0.15);
+  overflow: hidden;
+  border: 2px solid #8b1e1e;
+  animation: fadeInTicket 0.4s ease;
+}
+
+@keyframes fadeInTicket {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.ticket-header-band {
+  background: linear-gradient(135deg, #8b1e1e, #5a1010);
+  color: #ffffff;
+  padding: 18px 20px;
+  text-align: center;
+}
+
+.ticket-header-brand-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.ticket-header-brand-sub {
+  margin: 4px 0 0 0;
+  font-size: 0.85rem;
+  opacity: 0.88;
+}
+
+.ticket-body-content {
+  padding: 24px;
+  text-align: center;
+}
+
+.ticket-queue-number-card {
+  background: #fdf2f2;
+  border: 2px dashed #8b1e1e;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.ticket-queue-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #8b1e1e;
+  letter-spacing: 1px;
+}
+
+.ticket-queue-big-number {
+  font-size: 3.5rem;
+  font-weight: 900;
+  color: #8b1e1e;
+  line-height: 1;
+  margin: 6px 0;
+}
+
+.ticket-queue-status-tag {
+  display: inline-block;
+  background: #fff3cd;
+  color: #856404;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 14px;
+}
+
+.ticket-barcode-wrapper {
+  margin: 20px 0;
+  padding: 14px;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ticket-barcode-code-text {
+  font-family: monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #333;
+  margin-top: 6px;
+  letter-spacing: 1.5px;
+}
+
+.ticket-details-summary {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 14px;
+  text-align: left;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.ticket-details-summary p {
+  margin: 5px 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.ticket-details-summary span.lbl {
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.ticket-details-summary span.val {
+  font-weight: 700;
+  color: #212529;
+}
+
+.ticket-scan-instruction {
+  font-size: 0.84rem;
+  color: #555;
+  background: #e8f4fd;
+  border-left: 3px solid #2196f3;
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.ticket-actions-row {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-ticket-print {
+  flex: 1;
+  background: #2a5298;
+  color: #ffffff;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.btn-ticket-new {
+  flex: 1;
+  background: #e9ecef;
+  color: #495057;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+/* Print Friendly Styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .gpm-ticket-container, .gpm-ticket-container * {
+    visibility: visible;
+  }
+  .gpm-ticket-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none;
+    box-shadow: none;
+  }
+  .ticket-actions-row {
+    display: none;
+  }
+}
