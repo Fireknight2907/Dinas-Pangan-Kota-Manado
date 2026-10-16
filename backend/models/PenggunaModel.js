@@ -31,31 +31,28 @@ class PenggunaModel {
             }
         }
 
-        // Akun Staf / Petugas Bawaan (Sesuai Desain Roni Tilaar - Staf Bidang Distribusi)
+        // Akun Staf / Admin / Kepala Bagian Resmi
         const akunBawaan = [
-            { id: 'usr-1', nama: 'Roni Tilaar', email: 'roni@manado.go.id', username: 'roni', peran: 'Petugas', bidang: 'Bidang Distribusi & Cadangan' },
-            { id: 'usr-2', nama: 'Roni Tilaar', email: 'petugas@manado.go.id', username: 'petugas', peran: 'Petugas', bidang: 'Bidang Distribusi & Cadangan' },
-            { id: 'usr-3', nama: 'Administrator', email: 'admin@manado.go.id', username: 'admin', peran: 'Admin', bidang: 'Semua Bidang' }
+            { id: 'usr-effrend', nama: 'Effrend', email: 'effrend@manado.go.id', username: 'effrend', kata_sandi: '12345678', peran: 'Staf', bidang: 'Bidang Cadangan dan Distribusi Pangan', foto_profil: '' },
+            { id: 'usr-regina', nama: 'Regina', email: 'regina@manado.go.id', username: 'regina', kata_sandi: '12345678', peran: 'Admin', bidang: 'Administrator Sistem (Superadmin)', foto_profil: '' },
+            { id: 'usr-mareta', nama: 'Mareta', email: 'mareta@manado.go.id', username: 'mareta', kata_sandi: '12345678', peran: 'Kepala Bagian', bidang: 'Kepala Bagian Cadangan & Distribusi', foto_profil: '' },
+            { id: 'usr-edrick', nama: 'Edrick', email: 'edrick@manado.go.id', username: 'edrick', kata_sandi: '12345678', peran: 'Admin', bidang: 'Administrator Sistem (Superadmin)', foto_profil: '' }
         ];
 
         const normalisasi = (email || '').toLowerCase().trim();
         const userCocok = akunBawaan.find(u => u.email === normalisasi || u.username === normalisasi);
 
         if (userCocok) {
+            if (kata_sandi && kata_sandi !== userCocok.kata_sandi) {
+                throw new Error('Kata sandi yang Anda masukkan salah!');
+            }
+            const dataPengguna = { ...userCocok };
+            delete dataPengguna.kata_sandi;
             const token = jwt.sign({ id: userCocok.id, peran: userCocok.peran, email: userCocok.email, nama: userCocok.nama }, this.rahasia, { expiresIn: '1d' });
-            return { pengguna: userCocok, token };
+            return { pengguna: dataPengguna, token };
         }
 
-        // Jika memasukkan username/email apa saja dalam tahap pengembangan, izinkan login sebagai Roni Tilaar
-        const fallbackUser = {
-            id: 'usr-1',
-            nama: 'Roni Tilaar',
-            email: normalisasi || 'roni@manado.go.id',
-            peran: 'Petugas',
-            bidang: 'Bidang Distribusi & Cadangan'
-        };
-        const token = jwt.sign(fallbackUser, this.rahasia, { expiresIn: '1d' });
-        return { pengguna: fallbackUser, token };
+        throw new Error('Username atau email tidak terdaftar di sistem!');
     }
 
     async gantiKataSandi(idPengguna, kataSandiLama, kataSandiBaru) {

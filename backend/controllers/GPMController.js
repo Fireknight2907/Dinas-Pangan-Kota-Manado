@@ -164,6 +164,25 @@ class GPMController {
                 });
             }
 
+            // Validasi Keamanan Input Nama: hanya huruf dan spasi, dilarang simbol & angka
+            const regexNama = /^[a-zA-Z\s'.]+$/;
+            if (!regexNama.test(nama_lengkap.trim()) || nama_lengkap.trim().length < 3) {
+                return res.status(400).json({
+                    sukses: false,
+                    pesan: 'Nama lengkap hanya boleh berisi huruf dan spasi (tidak boleh mengandung angka atau simbol)!'
+                });
+            }
+
+            // Validasi Keamanan Input Nomor Telepon: hanya angka, minimal > 10 digit
+            const telpBersih = String(nomor_telepon).trim();
+            const regexTelp = /^[0-9]+$/;
+            if (!regexTelp.test(telpBersih) || telpBersih.length <= 10) {
+                return res.status(400).json({
+                    sukses: false,
+                    pesan: 'Nomor telepon harus berupa angka dan lebih dari 10 digit (contoh: 081234567890)!'
+                });
+            }
+
             // Validasi keberadaan acara dan sisa kuota
             const acara = await ModelAcaraGPM.ambilBerdasarkanId(acara_id);
             const statsAcara = await ModelPendaftarGPM.ambilStatistikAntrian(acara_id);

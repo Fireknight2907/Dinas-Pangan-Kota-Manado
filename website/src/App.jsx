@@ -8,7 +8,7 @@ import HargaPanganWeb from './components/HargaPanganWeb'
 import LoginPortal from './components/LoginPortal'
 import PetugasDashboard from './components/PetugasDashboard'
 import { hargaPanganService } from './services/HargaPanganService'
-import Barcode from 'react-barcode'
+import QRCodeComponent from './components/QRCodeComponent'
 import './index.css'
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -250,9 +250,9 @@ function App() {
                 <p style={{margin: '10px 0'}}>Atas Nama: <strong>{tiketGPM.nama}</strong></p>
                 <h1 style={{fontSize: '3rem', margin: '10px 0', color: '#e74c3c'}}>Antrean: {tiketGPM.antrean}</h1>
                 <div style={{display: 'flex', justifyContent: 'center', marginTop: '20px'}}>
-                  <Barcode value={tiketGPM.kode} width={2} height={80} />
+                  <QRCodeComponent value={tiketGPM.kode} size={160} />
                 </div>
-                <p style={{marginTop: '10px', fontSize: '0.9rem', color: '#666'}}>Simpan (Screenshot) barcode ini untuk ditunjukkan ke petugas di lokasi GPM.</p>
+                <p style={{marginTop: '10px', fontSize: '0.9rem', color: '#666'}}>Simpan (Screenshot) QR code ini untuk ditunjukkan ke petugas di lokasi GPM.</p>
               </div>
             )}
           </div>

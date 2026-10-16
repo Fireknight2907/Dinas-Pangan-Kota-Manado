@@ -9,7 +9,7 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import Barcode from 'react-barcode';
+import QRCodeComponent from './QRCodeComponent';
 import { gpmService } from '../services/GPMService';
 import './GPMWeb.css';
 
@@ -81,6 +81,33 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
     }
     if (!namaLengkap.trim() || !nomorTelepon.trim()) {
       setPesanError('Nama Lengkap dan Nomor Telepon wajib diisi!');
+      return;
+    }
+
+    // Validasi Keamanan Input Nama: Hanya huruf dan spasi, dilarang simbol & angka
+    const regexNama = /^[a-zA-Z\s'.]+$/;
+    if (!regexNama.test(namaLengkap.trim())) {
+      setPesanError('Nama lengkap hanya boleh berisi huruf dan spasi (tidak boleh ada angka atau simbol)!');
+      return;
+    }
+    if (namaLengkap.trim().length < 3) {
+      setPesanError('Nama lengkap minimal 3 karakter!');
+      return;
+    }
+
+    // Validasi Keamanan Input Nomor Telepon: Hanya angka, minimal > 10 digit (11-15 digit)
+    const telpBersih = nomorTelepon.trim();
+    const regexTelp = /^[0-9]+$/;
+    if (!regexTelp.test(telpBersih)) {
+      setPesanError('Nomor telepon hanya boleh berisi angka (tidak boleh ada huruf atau simbol)!');
+      return;
+    }
+    if (telpBersih.length <= 10) {
+      setPesanError('Nomor telepon harus di atas 10 digit (minimal 11 digit, contoh: 081234567890)!');
+      return;
+    }
+    if (telpBersih.length > 15) {
+      setPesanError('Nomor telepon maksimal 15 digit!');
       return;
     }
 
@@ -259,18 +286,10 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                     <span className="ticket-queue-status-tag">Status: Menunggu Verifikasi</span>
                   </div>
 
-                  {/* BARCODE GENERATOR */}
-                  <div className="ticket-barcode-wrapper">
-                    <Barcode
-                      value={tiketHasil.tiket.kode_barcode}
-                      width={1.9}
-                      height={75}
-                      fontSize={14}
-                      margin={5}
-                      background="#ffffff"
-                      lineColor="#111111"
-                    />
-                    <div className="ticket-barcode-code-text">
+                  {/* QR CODE GENERATOR RESMI */}
+                  <div className="ticket-barcode-wrapper" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '15px 0' }}>
+                    <QRCodeComponent value={tiketHasil.tiket.kode_barcode} size={170} />
+                    <div className="ticket-barcode-code-text" style={{ marginTop: '10px', fontWeight: 'bold', letterSpacing: '1px' }}>
                       {tiketHasil.tiket.kode_barcode}
                     </div>
                   </div>
@@ -300,7 +319,7 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                   </div>
 
                   <div className="ticket-scan-instruction">
-                    📱 <strong>Petunjuk:</strong> Tunjukkan barcode ini langsung di layar HP Anda kepada petugas di lokasi GPM saat giliran Anda tiba. Petugas akan memindai (scan) untuk verifikasi antrean Anda.
+                    📱 <strong>Petunjuk:</strong> Tunjukkan QR Code ini langsung di layar HP Anda kepada petugas di lokasi GPM saat giliran Anda tiba. Petugas akan memindai (scan QR) untuk verifikasi antrean Anda.
                   </div>
 
                   <div className="ticket-actions-row">
@@ -351,7 +370,7 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                     {/* FORM AMBIL ANTREAN (PUBLIK TANPA LOGIN) */}
                     <div className="gpm-form-wrapper">
                       <h4 className="gpm-form-title">
-                        <span>🎟️</span> Ambil Nomor Antrean & Barcode
+                        <span>🎟️</span> Ambil Nomor Antrean & QR Code
                       </h4>
                       <p className="gpm-form-hint">
                         Masyarakat tidak perlu login. Cukup lengkapi data diri di bawah ini untuk mendapatkan tiket antrean digital resmi.
@@ -369,10 +388,13 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                           <input
                             type="text"
                             required
-                            placeholder="Contoh: Meity Rondonuwu"
+                            placeholder="Budi Santoso"
                             className="gpm-input-box"
                             value={namaLengkap}
-                            onChange={(e) => setNamaLengkap(e.target.value)}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/[^a-zA-Z\s'.]/g, '');
+                              setNamaLengkap(val);
+                            }}
                           />
                         </div>
 
@@ -381,10 +403,13 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                           <input
                             type="tel"
                             required
-                            placeholder="Contoh: 081234567890"
+                            placeholder="081234567890"
                             className="gpm-input-box"
                             value={nomorTelepon}
-                            onChange={(e) => setNomorTelepon(e.target.value)}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/[^0-9]/g, '');
+                              setNomorTelepon(val);
+                            }}
                           />
                         </div>
 
@@ -393,7 +418,7 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                           className="btn-gpm-submit-queue"
                           disabled={sedangDaftar}
                         >
-                          <span>{sedangDaftar ? '⏳ Memproses Nomor Antrean...' : '🎟️ Ambil Nomor Antrean & Barcode'}</span>
+                          <span>{sedangDaftar ? '⏳ Memproses Nomor Antrean...' : '🎟️ Ambil Nomor Antrean & QR Code'}</span>
                         </button>
                       </form>
                     </div>

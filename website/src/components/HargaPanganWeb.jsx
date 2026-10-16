@@ -210,15 +210,8 @@ export default function HargaPanganWeb({ onBukaLogin }) {
           </button>
         </nav>
 
-        {/* Tombol Aksi Kanan (Login Petugas & Tempat Isi Data Staf) */}
+        {/* Tombol Aksi Kanan (Login Petugas) */}
         <div className="navbar-right">
-          <button 
-            className="btn-kelola-data"
-            onClick={bukaModalTambah}
-            title="Tempat Isi Data untuk Staf Bidang Cadangan dan Distribusi Pangan"
-          >
-            <span>➕</span> Isi Data Staf
-          </button>
           <button 
             className="btn-login-petugas"
             onClick={onBukaLogin}
@@ -386,24 +379,6 @@ export default function HargaPanganWeb({ onBukaLogin }) {
                   <span className="date-set-text">
                     Ditetapkan {item.tanggal_penetapan || '8 Oktober 2026'}
                   </span>
-                  
-                  {/* Tombol Aksi Staf Cepat (Edit/Hapus) */}
-                  <div className="card-staff-quick-actions">
-                    <button 
-                      className="btn-quick-edit" 
-                      onClick={() => bukaModalEdit(item)}
-                      title="Edit Data Ini"
-                    >
-                      ✏️
-                    </button>
-                    <button 
-                      className="btn-quick-delete" 
-                      onClick={() => handleHapusKomoditas(item.id, item.nama_komoditas)}
-                      title="Hapus Data Ini"
-                    >
-                      🗑️
-                    </button>
-                  </div>
                 </div>
               </div>
             ))}

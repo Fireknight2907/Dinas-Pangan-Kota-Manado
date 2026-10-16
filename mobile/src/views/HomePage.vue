@@ -281,12 +281,12 @@
           </div>
         </div>
 
-        <!-- SUB-VIEW C: PENGELOLAAN GPM & SCAN BARCODE OLEH PETUGAS -->
+        <!-- SUB-VIEW C: PENGELOLAAN GPM & SCAN QR CODE OLEH PETUGAS -->
         <div v-if="menuPetugas === 'gpm'" class="staff-view-container">
           <div class="staff-heading-area">
-            <h1 class="staff-view-title">Pengelolaan GPM & Scan Barcode</h1>
+            <h1 class="staff-view-title">Pengelolaan GPM & Scan QR Code</h1>
             <p class="staff-view-desc">
-              Pindai barcode antrean masyarakat, pantau pendaftar, dan jadwal lokasi GPM
+              Pindai QR Code antrean masyarakat, pantau pendaftar, dan jadwal lokasi GPM
             </p>
           </div>
 
@@ -296,7 +296,7 @@
               :class="['m-gpm-nav-btn', subMenuPetugasGPM === 'scan' ? 'active' : '']"
               @click="subMenuPetugasGPM = 'scan'"
             >
-              📷 Scan Barcode
+              📷 Scan QR Code
             </button>
             <button 
               :class="['m-gpm-nav-btn', subMenuPetugasGPM === 'antrean' ? 'active' : '']"
@@ -312,14 +312,14 @@
             </button>
           </div>
 
-          <!-- TAB 1: SCAN BARCODE MOBILE -->
+          <!-- TAB 1: SCAN QR CODE MOBILE -->
           <div v-if="subMenuPetugasGPM === 'scan'" class="staff-form-panel">
             <div class="panel-title-row">
               <span class="plus-icon-red">📷</span>
-              <h3>Scan Barcode Antrean Tiket</h3>
+              <h3>Scan QR Code Antrean Tiket</h3>
             </div>
             <p style="font-size: 0.82rem; color: #64748b; margin: 4px 0 12px 0;">
-              Masukkan kode barcode tiket masyarakat untuk memverifikasi kehadiran:
+              Masukkan kode QR tiket masyarakat untuk memverifikasi kehadiran:
             </p>
 
             <form @submit.prevent="pindaiBarcodeMobile()" class="m-scan-input-wrap">
@@ -630,7 +630,7 @@
             </div>
             <h2 class="hero-title-text">Gerakan Pangan Murah</h2>
             <p class="hero-desc-text">
-              Daftarkan diri Anda untuk mendapatkan nomor antrean dan barcode resmi kegiatan Gerakan Pangan Murah di Kota Manado. <strong>Tanpa login.</strong>
+              Daftarkan diri Anda untuk mendapatkan nomor antrean dan QR Code resmi kegiatan Gerakan Pangan Murah di Kota Manado. <strong>Tanpa login.</strong>
             </p>
             <div class="hero-update-date">
               <span>📍 {{ daftarAcaraGPM.length }} Lokasi Pelaksanaan Tersedia</span>
@@ -664,7 +664,7 @@
               </div>
 
               <div class="m-ticket-instruction">
-                📱 <strong>Petunjuk:</strong> Tunjukkan barcode ini ke petugas Dinas Pangan di lokasi GPM saat giliran Anda dipanggil untuk dipindai (scan).
+                📱 <strong>Petunjuk:</strong> Tunjukkan QR Code ini ke petugas Dinas Pangan di lokasi GPM saat giliran Anda dipanggil untuk dipindai (scan).
               </div>
 
               <button class="btn-m-take-new" @click="tiketGPMHasil = null">
@@ -727,8 +727,9 @@
                     type="text" 
                     required 
                     v-model="formAntreanGPM.nama_lengkap" 
-                    placeholder="Masukkan nama lengkap Anda"
+                    placeholder="Budi Santoso"
                     class="m-input-text"
+                    @input="formAntreanGPM.nama_lengkap = formAntreanGPM.nama_lengkap.replace(/[^a-zA-Z\s'.]/g, '')"
                   />
                 </div>
 
@@ -738,13 +739,14 @@
                     type="tel" 
                     required 
                     v-model="formAntreanGPM.nomor_telepon" 
-                    placeholder="Contoh: 081234567890"
+                    placeholder="081234567890"
                     class="m-input-text"
+                    @input="formAntreanGPM.nomor_telepon = formAntreanGPM.nomor_telepon.replace(/[^0-9]/g, '')"
                   />
                 </div>
 
                 <button type="submit" class="btn-m-get-queue" :disabled="sedangDaftarGPM">
-                  {{ sedangDaftarGPM ? 'Memproses...' : '🎟️ Dapatkan Nomor Antrean & Barcode' }}
+                  {{ sedangDaftarGPM ? 'Memproses...' : '🎟️ Dapatkan Nomor Antrean & QR Code' }}
                 </button>
               </form>
             </div>
@@ -903,6 +905,26 @@ const ambilNomorAntreanMobile = async () => {
     pesanErrorGPM.value = 'Nama lengkap dan nomor telepon wajib diisi!';
     return;
   }
+
+  // Validasi Nama: Hanya huruf dan spasi, dilarang simbol/angka
+  const regexNama = /^[a-zA-Z\s'.]+$/;
+  if (!regexNama.test(formAntreanGPM.value.nama_lengkap.trim())) {
+    pesanErrorGPM.value = 'Nama lengkap hanya boleh berisi huruf dan spasi (tanpa angka atau simbol)!';
+    return;
+  }
+
+  // Validasi Nomor Telepon: Hanya angka, minimal > 10 digit (11-15 digit)
+  const telp = formAntreanGPM.value.nomor_telepon.trim();
+  const regexTelp = /^[0-9]+$/;
+  if (!regexTelp.test(telp)) {
+    pesanErrorGPM.value = 'Nomor telepon hanya boleh berisi angka!';
+    return;
+  }
+  if (telp.length <= 10) {
+    pesanErrorGPM.value = 'Nomor telepon harus lebih dari 10 digit (minimal 11 digit, contoh: 081234567890)!';
+    return;
+  }
+
   sedangDaftarGPM.value = true;
   pesanErrorGPM.value = '';
   try {

@@ -8,8 +8,8 @@ import { hargaPanganService } from '../services/HargaPanganService';
 import './LoginPortal.css';
 
 export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
-  const [emailUsername, setEmailUsername] = useState('roni@manado.go.id');
-  const [password, setPassword] = useState('password123');
+  const [emailUsername, setEmailUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [ingatSaya, setIngatSaya] = useState(true);
   const [lihatPassword, setLihatPassword] = useState(false);
   const [sedangMemuat, setSedangMemuat] = useState(false);
@@ -88,7 +88,7 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
                 type="text"
                 required
                 className="login-input-field"
-                placeholder="Masukkan email atau username"
+                placeholder="Contoh: effrend / regina / mareta / edrick"
                 value={emailUsername}
                 onChange={(e) => setEmailUsername(e.target.value)}
               />
@@ -109,7 +109,7 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
                 type={lihatPassword ? "text" : "password"}
                 required
                 className="login-input-field"
-                placeholder="Masukkan password"
+                placeholder="Masukkan kata sandi (minimal 8 karakter)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
