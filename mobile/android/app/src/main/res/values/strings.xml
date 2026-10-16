@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Dinas Pangan Kota Manado</string>
+    <string name="title_activity_main">Dinas Pangan Kota Manado</string>
+    <string name="package_name">id.go.manado.dinaspangan</string>
+    <string name="custom_url_scheme">id.go.manado.dinaspangan</string>
+</resources>
