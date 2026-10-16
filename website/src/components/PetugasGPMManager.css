@@ -1,23 +1,122 @@
 /* ===================================================================================
-   STYLING MODUL PENGELOLAAN GPM OLEH PETUGAS (DESKTOP & RESPONSIVE)
-   Tema: SIPATOKAAN Maroon Tua (#3c0b0b / #8b1e1e) & Clean White
+   STYLING MODUL PENGELOLAAN GPM OLEH PETUGAS (PREMIUM AESTHETICS)
+   Tema: SIPATOKAAN Manado Maroon (#380a0a / #8b1e1e), Clean Cards & Micro-interactions
    =================================================================================== */
 
 .petugas-gpm-wrap {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  width: 100%;
 }
 
-/* 1. Header & Tab Navigasi Petugas GPM */
+/* ─────────────────────────────────────────────
+   1. KARTU STATISTIK 4 KOLOM
+   ───────────────────────────────────────────── */
+.gpm-stats-grid-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .gpm-stats-grid-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .gpm-stats-grid-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gpm-mini-stat-card {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.gpm-mini-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+}
+
+.stat-card-icon-box {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  flex-shrink: 0;
+}
+
+.stat-card-icon-box.icon-red {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.stat-card-icon-box.icon-blue {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.stat-card-icon-box.icon-green {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.stat-card-icon-box.icon-amber {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.stat-card-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-card-val {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+}
+
+.stat-card-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #334155;
+  margin-top: 4px;
+}
+
+.stat-card-sub {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+/* ─────────────────────────────────────────────
+   2. TAB NAVIGASI PETUGAS GPM (PILL TABS)
+   ───────────────────────────────────────────── */
 .gpm-officer-subnav {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   background: #ffffff;
-  padding: 8px;
+  padding: 6px;
   border-radius: 12px;
-  border: 1px solid #e9ecef;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .subnav-btn {
@@ -26,13 +125,13 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 12px 18px;
   border: none;
   background: transparent;
-  color: #495057;
+  color: #475569;
   font-weight: 700;
-  font-size: 0.95rem;
-  border-radius: 8px;
+  font-size: 0.92rem;
+  border-radius: 9px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -45,108 +144,79 @@
 .subnav-btn.active {
   background: #8b1e1e;
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(139, 30, 30, 0.25);
+  box-shadow: 0 4px 14px rgba(139, 30, 30, 0.28);
 }
 
-/* 2. Kartu Statistik Antrean */
-.gpm-stats-grid-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-@media (max-width: 900px) {
-  .gpm-stats-grid-row {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.gpm-mini-stat-card {
-  background: #ffffff;
-  padding: 20px;
-  border-radius: 12px;
-  border: 1px solid #e9ecef;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.stat-card-val {
-  font-size: 2rem;
-  font-weight: 800;
-  color: #8b1e1e;
-  line-height: 1;
-}
-
-.stat-card-label {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #212529;
-  margin-top: 4px;
-}
-
-.stat-card-sub {
-  font-size: 0.8rem;
-  color: #6c757d;
-}
-
-/* 3. Panel Scan Barcode */
+/* ─────────────────────────────────────────────
+   3. PANEL SCAN QR CODE
+   ───────────────────────────────────────────── */
 .scan-panel-card {
   background: #ffffff;
-  padding: 30px;
-  border-radius: 14px;
-  border: 1px solid #e9ecef;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+  padding: 32px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
 }
 
 .scan-box-header {
   text-align: center;
-  max-width: 600px;
-  margin: 0 auto 24px auto;
+  max-width: 620px;
+  margin: 0 auto 28px auto;
 }
 
 .scan-box-icon {
-  font-size: 2.5rem;
+  font-size: 2.8rem;
   margin-bottom: 8px;
+  display: inline-block;
 }
 
 .scan-box-title {
-  font-size: 1.4rem;
+  font-size: 1.45rem;
   font-weight: 800;
-  color: #1a1a1a;
-  margin: 0 0 6px 0;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.3px;
 }
 
 .scan-box-desc {
   font-size: 0.92rem;
-  color: #6c757d;
+  color: #64748b;
+  line-height: 1.5;
   margin: 0;
 }
 
 .scan-input-row {
   display: flex;
   gap: 12px;
-  max-width: 600px;
+  max-width: 620px;
   margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+  .scan-input-row {
+    flex-direction: column;
+  }
 }
 
 .scan-input-text {
   flex: 1;
   padding: 14px 18px;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-family: monospace;
   font-weight: 700;
   letter-spacing: 1px;
-  border: 2px solid #ced4da;
+  border: 2px solid #cbd5e1;
   border-radius: 10px;
   box-sizing: border-box;
+  background: #f8fafc;
+  transition: all 0.2s ease;
 }
 
 .scan-input-text:focus {
   outline: none;
+  background: #ffffff;
   border-color: #8b1e1e;
-  box-shadow: 0 0 0 3px rgba(139, 30, 30, 0.15);
+  box-shadow: 0 0 0 4px rgba(139, 30, 30, 0.12);
 }
 
 .btn-exec-scan {
@@ -154,26 +224,36 @@
   color: #ffffff;
   border: none;
   padding: 0 24px;
+  height: 52px;
   border-radius: 10px;
-  font-weight: 700;
-  font-size: 1rem;
+  font-weight: 800;
+  font-size: 0.98rem;
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-.btn-exec-scan:hover {
-  background: #a02222;
+.btn-exec-scan:hover:not(:disabled) {
+  background: #731717;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 30, 30, 0.25);
+}
+
+.btn-exec-scan:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 /* Quick test badges */
 .scan-quick-samples {
-  max-width: 600px;
-  margin: 16px auto 0 auto;
-  font-size: 0.84rem;
-  color: #666;
+  max-width: 620px;
+  margin: 18px auto 0 auto;
+  font-size: 0.85rem;
+  color: #64748b;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -181,42 +261,47 @@
 }
 
 .sample-barcode-chip {
-  background: #f1f3f5;
-  padding: 4px 10px;
-  border-radius: 6px;
+  background: #f1f5f9;
+  padding: 5px 12px;
+  border-radius: 8px;
   font-family: monospace;
   cursor: pointer;
-  border: 1px solid #dee2e6;
+  border: 1px solid #cbd5e1;
   font-weight: 600;
+  font-size: 0.82rem;
+  color: #334155;
+  transition: all 0.15s ease;
 }
 
 .sample-barcode-chip:hover {
-  background: #fdf2f2;
+  background: #fef2f2;
   border-color: #8b1e1e;
   color: #8b1e1e;
 }
 
-/* Hasil Scan Profil Masyarakat */
+/* ─────────────────────────────────────────────
+   4. HASIL SCAN QR PROFIL MASYARAKAT
+   ───────────────────────────────────────────── */
 .scan-result-profile-card {
-  max-width: 650px;
-  margin: 30px auto 0 auto;
+  max-width: 680px;
+  margin: 32px auto 0 auto;
   background: #ffffff;
-  border-radius: 14px;
-  border: 2px solid #27ae60;
-  box-shadow: 0 8px 24px rgba(39, 174, 96, 0.15);
+  border-radius: 16px;
+  border: 2px solid #22c55e;
+  box-shadow: 0 10px 25px rgba(34, 197, 94, 0.12);
   overflow: hidden;
-  animation: slideUpResult 0.3s ease;
+  animation: slideUpResult 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes slideUpResult {
-  from { opacity: 0; transform: translateY(15px); }
+  from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .result-card-banner {
-  background: #27ae60;
+  background: linear-gradient(135deg, #16a34a, #15803d);
   color: #ffffff;
-  padding: 12px 20px;
+  padding: 14px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -230,49 +315,89 @@
   gap: 8px;
 }
 
+.result-barcode-tag {
+  font-family: monospace;
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 10px;
+  border-radius: 6px;
+  letter-spacing: 1px;
+}
+
 .result-card-body {
   padding: 24px;
+}
+
+.result-card-inner-flex {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 600px) {
+  .result-card-inner-flex {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+.result-qr-box {
+  background: #f8fafc;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .result-data-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  margin-bottom: 20px;
+  flex: 1;
+}
+
+@media (max-width: 600px) {
+  .result-data-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .data-item-col {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .data-item-lbl {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  color: #6c757d;
+  color: #64748b;
+  letter-spacing: 0.5px;
 }
 
 .data-item-val {
   font-size: 1.05rem;
   font-weight: 800;
-  color: #212529;
+  color: #0f172a;
 }
 
 .data-item-val.big-queue {
-  font-size: 2.2rem;
+  font-size: 2.4rem;
   color: #8b1e1e;
+  line-height: 1;
 }
 
 .btn-verify-success {
   width: 100%;
-  background: #27ae60;
+  background: linear-gradient(135deg, #16a34a, #15803d);
   color: #ffffff;
   border: none;
-  padding: 14px;
-  border-radius: 8px;
-  font-size: 1rem;
+  padding: 16px;
+  border-radius: 10px;
+  font-size: 1.05rem;
   font-weight: 800;
   cursor: pointer;
   display: flex;
@@ -280,30 +405,35 @@
   justify-content: center;
   gap: 8px;
   transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.25);
 }
 
 .btn-verify-success:hover {
-  background: #219653;
+  background: linear-gradient(135deg, #15803d, #166534);
   transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(22, 163, 74, 0.35);
 }
 
 .badge-verified-done {
-  background: #d4edda;
-  color: #155724;
-  padding: 10px 16px;
-  border-radius: 8px;
+  background: #dcfce7;
+  color: #15803d;
+  padding: 14px 20px;
+  border-radius: 10px;
   font-weight: 700;
   text-align: center;
   display: block;
+  border: 1px solid #bbf7d0;
 }
 
-/* 4. Tabel Data Pendaftar */
+/* ─────────────────────────────────────────────
+   5. TABEL DATA PENDAFTAR
+   ───────────────────────────────────────────── */
 .gpm-table-panel {
   background: #ffffff;
-  padding: 24px;
-  border-radius: 14px;
-  border: 1px solid #e9ecef;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+  padding: 28px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
 }
 
 .table-filter-bar {
@@ -311,25 +441,33 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 18px;
+  margin-bottom: 22px;
   flex-wrap: wrap;
 }
 
 .filter-select-event {
-  padding: 10px 14px;
-  border-radius: 8px;
-  border: 1.5px solid #ced4da;
+  padding: 11px 16px;
+  border-radius: 9px;
+  border: 1.5px solid #cbd5e1;
   font-size: 0.92rem;
   font-weight: 600;
   background: #ffffff;
+  color: #0f172a;
 }
 
 .filter-search-box {
-  padding: 10px 14px;
-  border-radius: 8px;
-  border: 1.5px solid #ced4da;
+  padding: 11px 16px;
+  border-radius: 9px;
+  border: 1.5px solid #cbd5e1;
   font-size: 0.92rem;
-  min-width: 250px;
+  min-width: 280px;
+  background: #f8fafc;
+}
+
+.filter-search-box:focus {
+  outline: none;
+  border-color: #8b1e1e;
+  background: #ffffff;
 }
 
 .pendaftar-data-table {
@@ -339,54 +477,82 @@
 }
 
 .pendaftar-data-table th {
-  background: #f8f9fa;
-  padding: 12px 14px;
+  background: #f8fafc;
+  padding: 14px 16px;
   font-weight: 700;
-  color: #495057;
-  border-bottom: 2px solid #dee2e6;
+  color: #475569;
+  border-bottom: 2px solid #e2e8f0;
   text-align: left;
 }
 
 .pendaftar-data-table td {
-  padding: 12px 14px;
-  border-bottom: 1px solid #f1f3f5;
-  color: #212529;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #0f172a;
+}
+
+.pendaftar-data-table tr:hover td {
+  background: #f8fafc;
 }
 
 .badge-status-attend {
   display: inline-block;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 20px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
 }
 
 .badge-status-attend.hadir {
-  background: #d4edda;
-  color: #155724;
+  background: #dcfce7;
+  color: #15803d;
 }
 
 .badge-status-attend.menunggu {
-  background: #fff3cd;
-  color: #856404;
+  background: #fef3c7;
+  color: #b45309;
 }
 
-.btn-toggle-verify {
-  background: #2a5298;
+.btn-mark-attend {
+  background: #8b1e1e;
   color: #ffffff;
   border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.8rem;
+  padding: 7px 14px;
+  border-radius: 7px;
+  font-size: 0.82rem;
   font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-mark-attend:hover {
+  background: #731717;
+}
+
+.btn-cancel-attend {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  padding: 7px 14px;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 600;
   cursor: pointer;
 }
 
-/* 5. Form Tambah Acara Baru */
+.btn-cancel-attend:hover {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+/* ─────────────────────────────────────────────
+   6. FORM TAMBAH ACARA GPM & TITIK PETA
+   ───────────────────────────────────────────── */
 .gpm-add-event-form {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 18px;
 }
 
 @media (max-width: 768px) {
@@ -401,32 +567,42 @@
 
 .event-input-box {
   width: 100%;
-  padding: 10px 14px;
-  border-radius: 8px;
-  border: 1.5px solid #ced4da;
+  padding: 11px 16px;
+  border-radius: 9px;
+  border: 1.5px solid #cbd5e1;
   font-size: 0.92rem;
   box-sizing: border-box;
+  background: #ffffff;
+  transition: all 0.2s ease;
+}
+
+.event-input-box:focus {
+  outline: none;
+  border-color: #8b1e1e;
+  box-shadow: 0 0 0 3px rgba(139, 30, 30, 0.1);
 }
 
 .preset-loc-buttons {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .btn-preset-chip {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 0.8rem;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
   cursor: pointer;
-  color: #495057;
+  color: #334155;
+  font-weight: 600;
+  transition: all 0.15s ease;
 }
 
 .btn-preset-chip:hover {
-  background: #fdf2f2;
+  background: #fef2f2;
   border-color: #8b1e1e;
   color: #8b1e1e;
 }

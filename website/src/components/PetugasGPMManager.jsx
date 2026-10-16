@@ -282,74 +282,72 @@ export default function PetugasGPMManager({ token, pengguna }) {
   });
 
   return (
-    <div className="petugas-gpm-wrapper">
+    <div className="petugas-gpm-wrap">
       {/* ─────────────────────────────────────────────
-          1. STATISTIK GLOBAL GPM
+          1. STATISTIK GLOBAL GPM (4 KARTU MODERN)
           ───────────────────────────────────────────── */}
-      <div className="gpm-summary-cards-row">
-        <div className="summary-card-item">
-          <div className="summary-card-icon">📍</div>
-          <div>
-            <div className="summary-card-num">{statistikGlobal.total_gpm}</div>
-            <div className="summary-card-lbl">Total Acara GPM</div>
+      <div className="gpm-stats-grid-row">
+        <div className="gpm-mini-stat-card">
+          <div className="stat-card-icon-box icon-red">📍</div>
+          <div className="stat-card-info">
+            <div className="stat-card-val">{statistikGlobal.total_gpm}</div>
+            <div className="stat-card-label">Total Acara GPM</div>
+            <div className="stat-card-sub">titik pelaksanaan</div>
           </div>
         </div>
 
-        <div className="summary-card-item">
-          <div className="summary-card-icon" style={{ background: '#e0f2fe', color: '#0369a1' }}>
-            🎟️
-          </div>
-          <div>
-            <div className="summary-card-num">{statistikGlobal.total_antrean}</div>
-            <div className="summary-card-lbl">Total Antrean Terdaftar</div>
-          </div>
-        </div>
-
-        <div className="summary-card-item">
-          <div className="summary-card-icon" style={{ background: '#dcfce7', color: '#15803d' }}>
-            ✅
-          </div>
-          <div>
-            <div className="summary-card-num">{statistikGlobal.total_hadir}</div>
-            <div className="summary-card-lbl">Hadir / Terlayani</div>
+        <div className="gpm-mini-stat-card">
+          <div className="stat-card-icon-box icon-blue">🎟️</div>
+          <div className="stat-card-info">
+            <div className="stat-card-val">{statistikGlobal.total_antrean}</div>
+            <div className="stat-card-label">Total Antrean</div>
+            <div className="stat-card-sub">warga terdaftar</div>
           </div>
         </div>
 
-        <div className="summary-card-item">
-          <div className="summary-card-icon" style={{ background: '#fef3c7', color: '#b45309' }}>
-            ⏳
+        <div className="gpm-mini-stat-card">
+          <div className="stat-card-icon-box icon-green">✅</div>
+          <div className="stat-card-info">
+            <div className="stat-card-val">{statistikGlobal.total_hadir}</div>
+            <div className="stat-card-label">Hadir / Terlayani</div>
+            <div className="stat-card-sub">terverifikasi QR</div>
           </div>
-          <div>
-            <div className="summary-card-num">{statistikGlobal.total_menunggu}</div>
-            <div className="summary-card-lbl">Antrean Menunggu</div>
+        </div>
+
+        <div className="gpm-mini-stat-card">
+          <div className="stat-card-icon-box icon-amber">⏳</div>
+          <div className="stat-card-info">
+            <div className="stat-card-val">{statistikGlobal.total_menunggu}</div>
+            <div className="stat-card-label">Antrean Menunggu</div>
+            <div className="stat-card-sub">belum scan di lokasi</div>
           </div>
         </div>
       </div>
 
       {notifSukses && (
-        <div style={{ background: '#dcfce7', color: '#166534', padding: '12px 18px', borderRadius: '8px', marginBottom: '18px', fontWeight: 600 }}>
+        <div style={{ background: '#dcfce7', color: '#166534', padding: '14px 18px', borderRadius: '10px', border: '1px solid #bbf7d0', fontWeight: 600 }}>
           {notifSukses}
         </div>
       )}
 
       {/* ─────────────────────────────────────────────
-          2. NAVIGASI SUBTAB
+          2. NAVIGASI SUBTAB (MODERN PILL TABS)
           ───────────────────────────────────────────── */}
-      <div className="gpm-subtabs-nav">
+      <div className="gpm-officer-subnav">
         <button
-          className={`gpm-subtab-btn ${subTab === 'scan' ? 'active' : ''}`}
+          className={`subnav-btn ${subTab === 'scan' ? 'active' : ''}`}
           onClick={() => setSubTab('scan')}
         >
           📷 Scan QR Code Tiket
         </button>
         <button
-          className={`gpm-subtab-btn ${subTab === 'antrean' ? 'active' : ''}`}
+          className={`subnav-btn ${subTab === 'antrean' ? 'active' : ''}`}
           onClick={() => setSubTab('antrean')}
         >
           👥 Rekap Antrean & Pendaftar ({daftarPendaftar.length})
         </button>
         <button
-          className={`gpm-subtab-btn ${subTab === 'buat-gpm' ? 'active' : ''}`}
+          className={`subnav-btn ${subTab === 'buat-gpm' ? 'active' : ''}`}
           onClick={() => setSubTab('buat-gpm')}
         >
           ➕ Jadwalkan Acara & Titik Peta
@@ -361,39 +359,40 @@ export default function PetugasGPMManager({ token, pengguna }) {
           ───────────────────────────────────────────── */}
       {subTab === 'scan' && (
         <div className="scan-panel-card">
-          <div className="scan-panel-header">
-            <h2 className="scan-panel-title">Verifikasi QR Code Tiket Antrean Warga</h2>
-            <p className="scan-panel-desc">
+          <div className="scan-box-header">
+            <div className="scan-box-icon">📷</div>
+            <h2 className="scan-box-title">Verifikasi QR Code Tiket Antrean Warga</h2>
+            <p className="scan-box-desc">
               Pindai QR code tiket yang ditunjukkan oleh masyarakat atau masukkan kode secara manual untuk memverifikasi kehadiran di lokasi GPM.
             </p>
           </div>
 
-          <form onSubmit={handleEksekusiScan} className="scan-input-group">
+          <form onSubmit={handleEksekusiScan} className="scan-input-row">
             <input
               type="text"
-              className="scan-code-input"
-              placeholder="Masukkan kode QR tiket (Contoh: GPM-MND-001-A9F2)"
+              className="scan-input-text"
+              placeholder="Masukkan kode QR tiket (Contoh: GPM-TIKA-001-A9F2)"
               value={inputQRCode}
               onChange={(e) => setInputQRCode(e.target.value)}
             />
             <button type="submit" className="btn-exec-scan" disabled={sedangScan}>
-              {sedangScan ? 'Memindai...' : '🔍 Pindai & Verifikasi'}
+              <span>{sedangScan ? 'Memindai...' : '🔍 Pindai & Verifikasi'}</span>
             </button>
           </form>
 
           {/* Tombol Demo Cepat untuk Petugas */}
-          <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.8rem', color: '#666' }}>Uji coba QR Code pendaftar:</span>
+          <div className="scan-quick-samples">
+            <span>Uji coba QR Code pendaftar:</span>
             <button
               type="button"
-              className="btn-preset-chip"
+              className="sample-barcode-chip"
               onClick={() => { setInputQRCode('GPM-TIKA-001-A9F2'); handleEksekusiScan(null, 'GPM-TIKA-001-A9F2'); }}
             >
               Meity Rondonuwu (#001)
             </button>
             <button
               type="button"
-              className="btn-preset-chip"
+              className="sample-barcode-chip"
               onClick={() => { setInputQRCode('GPM-TIKA-002-C4B8'); handleEksekusiScan(null, 'GPM-TIKA-002-C4B8'); }}
             >
               Frangky Wenas (#002)
@@ -401,31 +400,33 @@ export default function PetugasGPMManager({ token, pengguna }) {
           </div>
 
           {pesanScanError && (
-            <div style={{ background: '#fdecea', color: '#c62828', padding: '12px', borderRadius: '8px', marginTop: '16px' }}>
+            <div style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', padding: '14px 18px', borderRadius: '10px', marginTop: '18px', maxWidth: '620px', margin: '18px auto 0 auto' }}>
               ⚠️ {pesanScanError}
             </div>
           )}
 
           {/* KARTU HASIL SCAN */}
           {hasilScanPendaftar && (
-            <div className="scan-result-card">
-              <div className="result-card-header">
-                <span className="result-card-title">✅ DATA PENDAFTAR DITEMUKAN</span>
+            <div className="scan-result-profile-card">
+              <div className="result-card-banner">
+                <span className="result-banner-title">
+                  <span>✓</span> DATA PENDAFTAR RESMI DITEMUKAN
+                </span>
                 <span className="result-barcode-tag">
-                  KODE QR: {hasilScanPendaftar.kode_barcode}
+                  {hasilScanPendaftar.kode_barcode}
                 </span>
               </div>
 
               <div className="result-card-body">
-                <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
-                  <div style={{ background: '#f8f9fa', padding: '12px', borderRadius: '10px', border: '1px solid #e9ecef', textAlign: 'center' }}>
-                    <QRCodeComponent value={hasilScanPendaftar.kode_barcode} size={110} />
-                    <div style={{ fontSize: '0.75rem', fontWeight: 'bold', marginTop: '4px', color: '#555' }}>
-                      QR Resmi
+                <div className="result-card-inner-flex">
+                  <div className="result-qr-box">
+                    <QRCodeComponent value={hasilScanPendaftar.kode_barcode} size={115} />
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, marginTop: '6px', color: '#64748b' }}>
+                      QR RESMI GPM
                     </div>
                   </div>
 
-                  <div className="result-data-grid" style={{ flex: 1, minWidth: '240px' }}>
+                  <div className="result-data-grid">
                     <div className="data-item-col">
                       <span className="data-item-lbl">Nomor Antrean</span>
                       <span className="data-item-val big-queue">
@@ -463,11 +464,11 @@ export default function PetugasGPMManager({ token, pengguna }) {
 
                 {hasilScanPendaftar.status_kehadiran === 'Hadir' ? (
                   <div className="badge-verified-done">
-                    ✅ Pendaftar ini telah diverifikasi hadir dan dapat langsung mengambil komoditas pangan murah.
+                    ✅ Warga ini telah diverifikasi hadir dan berhak menerima paket pangan murah.
                   </div>
                 ) : (
                   <button className="btn-verify-success" onClick={handleKonfirmasiKehadiran}>
-                    <span>✅</span> Konfirmasi Kehadiran & Layani Antrean #{hasilScanPendaftar.nomor_antrean}
+                    <span>✓</span> Konfirmasi Kehadiran & Layani Antrean #{hasilScanPendaftar.nomor_antrean}
                   </button>
                 )}
               </div>
