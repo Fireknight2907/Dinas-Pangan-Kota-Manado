@@ -1,13 +1,15 @@
 -- Skema Database PostgreSQL untuk Supabase - Dinas Pangan Kota Manado
 
--- 1. Tabel Pengguna (Admin, Petugas Bidang, Kepala Dinas)
-CREATE TABLE pengguna (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+-- 1. Tabel Pengguna (Admin, Kabid, Staf, Kadis)
+CREATE TABLE IF NOT EXISTS pengguna (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nama VARCHAR(100) NOT NULL,
+    username VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
-    kata_sandi VARCHAR(255) NOT NULL, -- Di-hash jika tidak menggunakan Auth bawaan Supabase
-    peran VARCHAR(50) NOT NULL CHECK (peran IN ('Admin', 'Petugas', 'Kepala_Dinas')),
-    bidang VARCHAR(100), -- Contoh: 'Ketersediaan', 'Kerawanan', dll. (Null untuk Admin/Kepala Dinas)
+    kata_sandi VARCHAR(255) NOT NULL,
+    peran VARCHAR(50) NOT NULL CHECK (peran IN ('Admin', 'Kabid', 'Staf', 'Kadis', 'Petugas', 'Kepala_Dinas')),
+    bidang VARCHAR(100),
+    foto_profil TEXT,
     dibuat_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

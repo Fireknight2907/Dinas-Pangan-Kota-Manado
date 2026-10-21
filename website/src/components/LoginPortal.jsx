@@ -1,10 +1,10 @@
 // ===================================================================================
-// KOMPONEN LOGIN PETUGAS: PORTAL UTAMA SI PATOKAAN (DESKTOP & RESPONSIVE)
-// Sesuai Gambar 4: Background Ilustrasi Pangan + Card Glassy Maroon
+// MODUL ANTARMUKA AUTENTIKASI: PORTAL LOGIN PETUGAS SI PATOKAAN
+// Dinas Pangan Kota Manado — Mendukung multi-role (Admin, Kabid, Staf, Kadis)
 // ===================================================================================
 
 import React, { useState } from 'react';
-import { hargaPanganService } from '../services/HargaPanganService';
+import { penggunaService } from '../services/PenggunaService';
 import './LoginPortal.css';
 
 export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
@@ -22,7 +22,7 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
     setPesanError('');
 
     try {
-      const hasil = await hargaPanganService.login(emailUsername, password);
+      const hasil = await penggunaService.login(emailUsername, password);
       if (onLoginSukses) {
         onLoginSukses(hasil.pengguna);
       }
@@ -76,7 +76,7 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
         <form onSubmit={handleLogin} className="login-form-body">
           {/* Input Email / Username */}
           <div className="login-input-group">
-            <label className="login-input-label">EMAIL / USERNAME</label>
+            <label className="login-input-label">USERNAME / EMAIL</label>
             <div className="input-with-icon">
               <span className="input-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -88,7 +88,7 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
                 type="text"
                 required
                 className="login-input-field"
-                placeholder="Contoh: effrend / regina / mareta / edrick"
+                placeholder="Username / Email"
                 value={emailUsername}
                 onChange={(e) => setEmailUsername(e.target.value)}
               />

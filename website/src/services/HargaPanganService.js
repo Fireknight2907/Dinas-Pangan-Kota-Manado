@@ -41,8 +41,8 @@ class HargaPanganApiService {
                     username: 'mareta',
                     email: 'mareta@manado.go.id',
                     kata_sandi: '12345678',
-                    peran: 'Kepala Bagian',
-                    bidang: 'Kepala Bagian Cadangan & Distribusi',
+                    peran: 'Kabid',
+                    bidang: 'Kepala Bidang Cadangan & Distribusi Pangan',
                     foto_profil: ''
                 },
                 {
@@ -53,6 +53,16 @@ class HargaPanganApiService {
                     kata_sandi: '12345678',
                     peran: 'Admin',
                     bidang: 'Administrator Sistem (Superadmin)',
+                    foto_profil: ''
+                },
+                {
+                    id: 'usr-kadis',
+                    nama: 'Kepala Dinas Pangan',
+                    username: 'kadis',
+                    email: 'kadis@manado.go.id',
+                    kata_sandi: '12345678',
+                    peran: 'Kadis',
+                    bidang: 'Pimpinan Dinas Pangan Kota Manado',
                     foto_profil: ''
                 }
             ];
