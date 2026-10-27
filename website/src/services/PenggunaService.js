@@ -173,7 +173,7 @@ class PenggunaService {
         );
 
         if (!userCocok) {
-            throw new Error('Akun dengan username atau email tersebut tidak ditemukan!');
+            throw new Error('Akun dengan nama pengguna atau email tersebut tidak ditemukan!');
         }
 
         if (userCocok.kata_sandi !== kataSandi) {

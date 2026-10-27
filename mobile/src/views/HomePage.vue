@@ -41,27 +41,27 @@
         <!-- Form Login Mobile -->
         <form @submit.prevent="eksekusiLogin" class="mobile-login-form">
           <div class="m-input-group">
-            <label>EMAIL / USERNAME</label>
+            <label>NAMA PENGGUNA / EMAIL</label>
             <div class="m-input-icon-box">
               <span class="m-icon">👤</span>
               <input 
                 type="text" 
                 v-model="loginInput.email" 
                 required 
-                placeholder="Masukkan email atau username"
+                placeholder="Masukkan nama pengguna atau email"
               />
             </div>
           </div>
 
           <div class="m-input-group">
-            <label>PASSWORD</label>
+            <label>KATA SANDI</label>
             <div class="m-input-icon-box">
               <span class="m-icon">🔒</span>
               <input 
                 :type="lihatPassword ? 'text' : 'password'" 
                 v-model="loginInput.password" 
                 required 
-                placeholder="Masukkan password"
+                placeholder="Masukkan kata sandi"
               />
               <button type="button" class="btn-eye" @click="lihatPassword = !lihatPassword">
                 {{ lihatPassword ? '👁️' : '👁️‍🗨️' }}
@@ -74,7 +74,7 @@
               <input type="checkbox" v-model="loginInput.ingatSaya" />
               <span>Ingat saya</span>
             </label>
-            <a href="#" class="m-forgot" @click.prevent="alertLupaPassword">Lupa password?</a>
+            <a href="#" class="m-forgot" @click.prevent="alertLupaPassword">Lupa kata sandi?</a>
           </div>
 
           <button type="submit" class="btn-m-submit" :disabled="sedangLogin">
@@ -1074,7 +1074,7 @@ const eksekusiLogin = async () => {
     await muatData();
     await muatStatsDashboard();
   } catch (err: any) {
-    alert('Login gagal: ' + err.message);
+    alert('Gagal masuk: ' + err.message);
   } finally {
     sedangLogin.value = false;
   }
@@ -1150,8 +1150,9 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
    ======================================================= */
 .mobile-login-screen {
   min-height: 100vh;
-  background: url('/login-bg.png') no-repeat center center;
-  background-size: cover;
+  background: 
+    linear-gradient(135deg, rgba(15, 23, 42, 0.45) 0%, rgba(30, 10, 10, 0.55) 100%),
+    url('/login-bg.jpg') center/cover no-repeat;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1163,14 +1164,14 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   position: absolute;
   top: 18px;
   left: 16px;
-  background: rgba(255, 255, 255, 0.9);
+  background: #ffffff;
   color: #8b1e1e;
-  border: none;
+  border: 1px solid #fee2e2;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
   padding: 8px 14px;
   border-radius: 6px;
   font-weight: 700;
   font-size: 0.8rem;
-  backdrop-filter: blur(4px);
 }
 
 .mobile-login-card {

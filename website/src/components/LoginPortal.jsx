@@ -27,7 +27,7 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
         onLoginSukses(hasil.pengguna);
       }
     } catch (err) {
-      setPesanError(err.message || 'Login gagal. Periksa kembali akun Anda.');
+      setPesanError(err.message || 'Gagal masuk. Periksa kembali nama pengguna dan kata sandi Anda.');
     } finally {
       setSedangMemuat(false);
     }
@@ -44,7 +44,7 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
         ← Kembali ke Beranda
       </button>
 
-      {/* Kartu Login di Tengah (Sesuai Gambar 4) */}
+      {/* Kartu Login di Tengah */}
       <div className="login-portal-card">
         {/* Logo Bibit & Judul SI PATOKAAN */}
         <div className="login-header-section">
@@ -74,9 +74,9 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
 
         {/* Form Login */}
         <form onSubmit={handleLogin} className="login-form-body">
-          {/* Input Email / Username */}
+          {/* Input Nama Pengguna / Email */}
           <div className="login-input-group">
-            <label className="login-input-label">USERNAME / EMAIL</label>
+            <label className="login-input-label">NAMA PENGGUNA / EMAIL</label>
             <div className="input-with-icon">
               <span className="input-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -88,16 +88,16 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
                 type="text"
                 required
                 className="login-input-field"
-                placeholder="Username / Email"
+                placeholder="Nama pengguna atau email"
                 value={emailUsername}
                 onChange={(e) => setEmailUsername(e.target.value)}
               />
             </div>
           </div>
 
-          {/* Input Password */}
+          {/* Input Kata Sandi */}
           <div className="login-input-group">
-            <label className="login-input-label">PASSWORD</label>
+            <label className="login-input-label">KATA SANDI</label>
             <div className="input-with-icon">
               <span className="input-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -117,13 +117,14 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
                 type="button" 
                 className="btn-toggle-eye"
                 onClick={() => setLihatPassword(!lihatPassword)}
+                title={lihatPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
               >
                 {lihatPassword ? '👁️' : '👁️‍🗨️'}
               </button>
             </div>
           </div>
 
-          {/* Opsi Ingat Saya & Lupa Password */}
+          {/* Opsi Ingat Saya & Lupa Kata Sandi */}
           <div className="login-options-row">
             <label className="checkbox-remember-me">
               <input
@@ -133,8 +134,8 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
               />
               <span>Ingat saya</span>
             </label>
-            <a href="#lupa" className="forgot-password-link" onClick={(e) => { e.preventDefault(); alert('Silakan hubungi administrator Dinas Pangan untuk reset kata sandi.'); }}>
-              Lupa password?
+            <a href="#lupa" className="forgot-password-link" onClick={(e) => { e.preventDefault(); alert('Silakan hubungi administrator Dinas Pangan untuk mengatur ulang kata sandi.'); }}>
+              Lupa kata sandi?
             </a>
           </div>
 

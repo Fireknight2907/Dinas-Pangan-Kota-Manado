@@ -46,7 +46,7 @@ function FormLoginAdmin({ onLogin }) {
 
   return (
     <div style={{maxWidth: '400px', margin: '0 auto'}}>
-      <h2>🔐 Login Panel Admin / Petugas</h2>
+      <h2>🔐 Masuk Panel Admin / Petugas</h2>
       <form onSubmit={handleLogin}>
         {errorPesan && (
           <div style={{background: '#fdecea', color: '#c62828', padding: '10px', borderRadius: '6px', marginBottom: '10px'}}>
