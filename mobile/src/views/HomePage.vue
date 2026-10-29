@@ -22,9 +22,7 @@
         <!-- Logo & Brand Header -->
         <div class="mobile-login-brand">
           <div class="mobile-login-logo">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-            </svg>
+            <img src="/logo.png" alt="Logo SIPATOKAAN" class="mobile-logo-img" />
           </div>
           <div>
             <h2 class="mobile-login-title">SI PATOKAAN</h2>
@@ -94,9 +92,7 @@
         <div class="staff-header-top">
           <div class="staff-header-brand">
             <div class="staff-logo-box">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b1e1e" stroke-width="2.5">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-              </svg>
+              <img src="/logo.png" alt="Logo SIPATOKAAN" class="staff-logo-img" />
             </div>
             <div>
               <h2 class="staff-header-name">Bidang Distribusi & Cadangan</h2>
@@ -136,7 +132,7 @@
             :class="['staff-segment-btn', menuPetugas === 'dashboard' ? 'active' : '']"
             @click="menuPetugas = 'dashboard'"
           >
-            Dasbor
+            Beranda
           </button>
         </div>
       </ion-header>
@@ -253,7 +249,7 @@
         <!-- SUB-VIEW B: DASHBOARD STATS PETUGAS -->
         <div v-if="menuPetugas === 'dashboard'" class="staff-view-container">
           <div class="staff-heading-area">
-            <h1 class="staff-view-title">Dasbor Petugas</h1>
+            <h1 class="staff-view-title">Beranda Petugas</h1>
             <p class="staff-view-desc">Ringkasan status komoditas & Gerakan Pangan Murah</p>
           </div>
 
@@ -482,9 +478,7 @@
         <div class="mobile-top-bar">
           <div class="brand-left">
             <div class="logo-box-maroon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-              </svg>
+              <img src="/logo.png" alt="Logo SIPATOKAAN" class="public-logo-img" />
             </div>
             <div class="brand-title-wrap">
               <h1 class="brand-name">SIPATOKAAN</h1>
@@ -1192,13 +1186,22 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
 }
 
 .mobile-login-logo {
-  width: 38px;
-  height: 38px;
-  background: rgba(255, 255, 255, 0.2);
+  width: 40px;
+  height: 40px;
+  background: #ffffff;
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.mobile-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .mobile-login-title {
@@ -1338,6 +1341,14 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.staff-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .staff-header-name {
@@ -1690,13 +1701,19 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
 }
 
 .logo-box-maroon {
-  width: 36px;
-  height: 36px;
-  background-color: #8b1e1e;
-  border-radius: 8px;
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+}
+
+.public-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.12));
 }
 
 .brand-title-wrap {

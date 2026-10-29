@@ -85,7 +85,7 @@ export class HargaPanganMobileService {
   async ambilStatistikDashboard(): Promise<StatistikDashboardMobile> {
     try {
       const respon = await fetch(`${this.baseUrl}/dashboard-stats`);
-      if (!respon.ok) throw new Error('Gagal memuat statistik dasbor');
+      if (!respon.ok) throw new Error('Gagal memuat statistik beranda');
       const hasil = await respon.json();
       return hasil.data;
     } catch (error) {

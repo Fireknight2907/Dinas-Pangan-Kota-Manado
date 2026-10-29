@@ -303,7 +303,7 @@ function App() {
                 {/* Sidebar Admin */}
                 <div style={{ width: '250px', borderRight: '2px solid #eee', paddingRight: '20px', marginRight: '20px' }}>
                   <h3 style={{color: '#2a5298', marginBottom: '20px'}}>Menu Pengurus</h3>
-                  <button onClick={() => setAdminMenu('dashboard')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'dashboard' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'dashboard' ? 'white' : 'black'}}>🏠 Dasbor</button>
+                  <button onClick={() => setAdminMenu('dashboard')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'dashboard' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'dashboard' ? 'white' : 'black'}}>🏠 Beranda</button>
                   <button onClick={() => setAdminMenu('informasi')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'informasi' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'informasi' ? 'white' : 'black'}}>📰 Informasi Pangan</button>
                   <button onClick={() => setAdminMenu('ketersediaan')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'ketersediaan' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'ketersediaan' ? 'white' : 'black'}}>📦 Ketersediaan Pangan</button>
                   <button onClick={() => setAdminMenu('kerawanan')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'kerawanan' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'kerawanan' ? 'white' : 'black'}}>🗺️ Kerawanan Pangan</button>

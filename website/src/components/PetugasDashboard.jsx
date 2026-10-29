@@ -424,9 +424,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       <aside className={`petugas-sidebar ${sidebarTerbuka ? 'sidebar-open' : ''}`}>
         <div className="sidebar-brand-box">
           <div className="sidebar-logo-circle">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b1e1e" strokeWidth="2.5">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-            </svg>
+            <img src="/logo.png" alt="Logo SIPATOKAAN" className="sidebar-logo-img" />
           </div>
           <div className="sidebar-brand-text">
             <h2 className="sidebar-app-name">SI PATOKAAN</h2>
@@ -575,7 +573,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           <div className="dashboard-page-container">
             <div className="dashboard-hero-title-box">
               <h1 className="dashboard-main-heading">
-                Dasbor {namaLengkapPeran(peran)} — Bidang Cadangan & Distribusi Pangan
+                Beranda {namaLengkapPeran(peran)} — Bidang Cadangan & Distribusi Pangan
               </h1>
               <p className="dashboard-main-subheading">
                 Sistem Informasi Terpadu Dinas Pangan Kota Manado — Pemantauan stabilitas pasokan komoditas dan Gerakan Pangan Murah

@@ -172,7 +172,7 @@ class HargaPanganApiService {
     async ambilStatistikDashboard() {
         try {
             const respon = await fetch(`${this.baseUrl}/dashboard-stats`);
-            if (!respon.ok) throw new Error('Gagal mengambil statistik dasbor');
+            if (!respon.ok) throw new Error('Gagal mengambil statistik beranda');
             const hasil = await respon.json();
             return hasil.data;
         } catch (error) {
