@@ -22,7 +22,7 @@
         <!-- Logo & Brand Header -->
         <div class="mobile-login-brand">
           <div class="mobile-login-logo">
-            <img src="/logo.png" alt="Logo SIPATOKAAN" class="mobile-logo-img" />
+            <img src="/logodinaspangan.png" alt="Logo SIPATOKAAN" class="mobile-logo-img" />
           </div>
           <div>
             <h2 class="mobile-login-title">SI PATOKAAN</h2>
@@ -92,7 +92,7 @@
         <div class="staff-header-top">
           <div class="staff-header-brand">
             <div class="staff-logo-box">
-              <img src="/logo.png" alt="Logo SIPATOKAAN" class="staff-logo-img" />
+              <img src="/logodinaspangan.png" alt="Logo SIPATOKAAN" class="staff-logo-img" />
             </div>
             <div>
               <h2 class="staff-header-name">Bidang Distribusi & Cadangan</h2>
@@ -478,7 +478,7 @@
         <div class="mobile-top-bar">
           <div class="brand-left">
             <div class="logo-box-maroon">
-              <img src="/logo.png" alt="Logo SIPATOKAAN" class="public-logo-img" />
+              <img src="/logodinaspangan.png" alt="Logo SIPATOKAAN" class="public-logo-img" />
             </div>
             <div class="brand-title-wrap">
               <h1 class="brand-name">SIPATOKAAN</h1>

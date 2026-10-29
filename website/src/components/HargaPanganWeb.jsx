@@ -184,7 +184,7 @@ export default function HargaPanganWeb({ onBukaLogin }) {
         <div className="navbar-left">
           {/* Logo SIPATOKAAN */}
           <div className="brand-logo-badge">
-            <img src="/logo.png" alt="Logo SIPATOKAAN" className="brand-logo-img" />
+            <img src="/logodinaspangan.png" alt="Logo SIPATOKAAN" className="brand-logo-img" />
           </div>
           <div className="brand-text">
             <h1 className="brand-title">SIPATOKAAN</h1>

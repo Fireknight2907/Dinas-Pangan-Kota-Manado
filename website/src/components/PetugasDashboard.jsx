@@ -424,7 +424,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       <aside className={`petugas-sidebar ${sidebarTerbuka ? 'sidebar-open' : ''}`}>
         <div className="sidebar-brand-box">
           <div className="sidebar-logo-circle">
-            <img src="/logo.png" alt="Logo SIPATOKAAN" className="sidebar-logo-img" />
+            <img src="/logodinaspangan.png" alt="Logo SIPATOKAAN" className="sidebar-logo-img" />
           </div>
           <div className="sidebar-brand-text">
             <h2 className="sidebar-app-name">SI PATOKAAN</h2>

@@ -49,7 +49,7 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
         {/* Logo Bibit & Judul SI PATOKAAN */}
         <div className="login-header-section">
           <div className="login-logo-box">
-            <img src="/logo.png" alt="Logo SIPATOKAAN" className="login-logo-img" />
+            <img src="/logodinaspangan.png" alt="Logo SIPATOKAAN" className="login-logo-img" />
           </div>
           <div className="login-title-group">
             <h2 className="portal-brand-title">SI PATOKAAN</h2>
