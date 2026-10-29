@@ -22,6 +22,13 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   const peran = penggunaService.normalisasiPeran(pengguna?.peran);
   const daftarMenuResmi = penggunaService.ambilDaftarMenu(peran);
 
+  // Format nama peran lengkap untuk tampilan antarmuka
+  const namaLengkapPeran = (r) => {
+    if (r === 'Kabid') return 'Kepala Bidang';
+    if (r === 'Kadis') return 'Kepala Dinas';
+    return r || 'Petugas';
+  };
+
   // Menu aktif awal diarahkan ke menu pertama yang diizinkan (default: 'dashboard')
   const [menuAktif, setMenuAktif] = useState(daftarMenuResmi[0]?.id || 'dashboard');
   const [sidebarTerbuka, setSidebarTerbuka] = useState(false);
@@ -210,7 +217,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       await hargaPanganService.perbarui(item.id, { status: statusBaru });
       tampilkanPesan(statusBaru === 'Terbit' 
         ? `✅ Komoditas "${item.nama_komoditas}" telah diverifikasi dan resmi terbit ke publik!`
-        : `ℹ️ Status komoditas "${item.nama_komoditas}" dikembalikan ke Draft.`);
+        : `ℹ️ Status komoditas "${item.nama_komoditas}" dikembalikan ke Draf.`);
       await muatDataDashboard();
     } catch (error) {
       alert('Gagal memperbarui status: ' + error.message);
@@ -428,7 +435,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         </div>
 
         <div className="sidebar-section-title">
-          MENU {peran.toUpperCase()}
+          MENU {namaLengkapPeran(peran).toUpperCase()}
         </div>
 
         <nav className="sidebar-nav-list">
@@ -476,7 +483,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
             <div>
               <h3 className="dept-header-title">Bidang Cadangan dan Distribusi Pangan</h3>
               <p className="breadcrumb-subtitle">
-                Masuk Sebagai: <strong>{userState.nama || 'Petugas'}</strong> (Role: <span style={{ color: '#8b1e1e', fontWeight: 700 }}>{peran}</span>)
+                Masuk Sebagai: <strong>{userState.nama || 'Petugas'}</strong> (Peran: <span style={{ color: '#8b1e1e', fontWeight: 700 }}>{namaLengkapPeran(peran)}</span>)
               </p>
             </div>
           </div>
@@ -542,7 +549,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
             >
               <div className="staff-meta">
                 <span className="staff-name-text">{userState.nama || 'Petugas'}</span>
-                <span className="staff-role-text">{peran}</span>
+                <span className="staff-role-text">{namaLengkapPeran(peran)}</span>
               </div>
               <div className="staff-avatar-circle" style={{ overflow: 'hidden' }}>
                 {userState.foto_profil ? (
@@ -568,7 +575,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           <div className="dashboard-page-container">
             <div className="dashboard-hero-title-box">
               <h1 className="dashboard-main-heading">
-                Dasbor {peran} — Bidang Cadangan & Distribusi Pangan
+                Dasbor {namaLengkapPeran(peran)} — Bidang Cadangan & Distribusi Pangan
               </h1>
               <p className="dashboard-main-subheading">
                 Sistem Informasi Terpadu Dinas Pangan Kota Manado — Pemantauan stabilitas pasokan komoditas dan Gerakan Pangan Murah
@@ -608,7 +615,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
             {/* Quick Access Card Dinamis Berdasarkan Role */}
             <div style={{ marginTop: '24px' }}>
               <h3 style={{ fontSize: '1rem', color: '#1e293b', marginBottom: '14px' }}>
-                Pintasan Menu Utama {peran}:
+                Pintasan Menu Utama {namaLengkapPeran(peran)}:
               </h3>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
@@ -830,7 +837,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
               {daftarDraftVerifikasi.length === 0 ? (
                 <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '8px' }}>
-                  Semua usulan harga telah diverifikasi. Tidak ada data pending.
+                  Semua usulan harga telah diverifikasi. Tidak ada usulan tertunda.
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1234,9 +1241,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                       onChange={(e) => setFormUserBaru({ ...formUserBaru, peran: e.target.value })}
                     >
                       <option value="Staf">Staf (Masukan Data Pangan & Kelola GPM)</option>
-                      <option value="Kabid">Kabid (Laporan Bidang & Verifikasi Harga)</option>
+                      <option value="Kabid">Kepala Bidang (Laporan Bidang & Verifikasi Harga)</option>
                       <option value="Admin">Admin (Kelola Pengguna, Master Wilayah, Cek GPM)</option>
-                      <option value="Kadis">Kadis (Grafik Pangan & Laporan GPM)</option>
+                      <option value="Kadis">Kepala Dinas (Grafik Pangan & Laporan GPM)</option>
                     </select>
                   </div>
 
@@ -1292,7 +1299,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                           background: u.peran === 'Admin' ? '#fdf2f8' : u.peran === 'Kabid' ? '#fef3c7' : u.peran === 'Kadis' ? '#f0fdf4' : '#eff6ff',
                           color: u.peran === 'Admin' ? '#9d174d' : u.peran === 'Kabid' ? '#92400e' : u.peran === 'Kadis' ? '#166534' : '#1e40af'
                         }}>
-                          {u.peran}
+                          {namaLengkapPeran(u.peran)}
                         </span>
                       </div>
 
@@ -1304,9 +1311,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                           style={{ fontSize: '0.78rem', padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff' }}
                         >
                           <option value="Staf">Peran Staf</option>
-                          <option value="Kabid">Peran Kabid</option>
+                          <option value="Kabid">Peran Kepala Bidang</option>
                           <option value="Admin">Peran Admin</option>
-                          <option value="Kadis">Peran Kadis</option>
+                          <option value="Kadis">Peran Kepala Dinas</option>
                         </select>
 
                         {/* Tombol Ubah Nama Pengguna */}
