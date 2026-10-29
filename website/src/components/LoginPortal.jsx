@@ -109,7 +109,7 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
                 type={lihatPassword ? "text" : "password"}
                 required
                 className="login-input-field"
-                placeholder="Masukkan kata sandi (minimal 8 karakter)"
+                placeholder="Masukan kata sandi (minimal 8 karakter)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />

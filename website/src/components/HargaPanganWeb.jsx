@@ -210,7 +210,7 @@ export default function HargaPanganWeb({ onBukaLogin }) {
           </button>
         </nav>
 
-        {/* Tombol Aksi Kanan (Login Petugas) */}
+        {/* Tombol Aksi Kanan (Masuk Petugas) */}
         <div className="navbar-right">
           <button 
             className="btn-login-petugas"
@@ -220,7 +220,7 @@ export default function HargaPanganWeb({ onBukaLogin }) {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/>
             </svg>
-            <span>Login Petugas</span>
+            <span>Masuk Petugas</span>
           </button>
         </div>
       </header>
@@ -347,7 +347,7 @@ export default function HargaPanganWeb({ onBukaLogin }) {
           <div className="empty-state-box">
             <p>Tidak ada komoditas pangan yang sesuai dengan pencarian atau filter.</p>
             <button className="btn-reset-filter" onClick={() => { setKategoriAktif('Semua'); setPasarDipilih('Semua'); setPencarian(''); }}>
-              Reset Filter
+              Atur Ulang Filter
             </button>
           </div>
         ) : (
@@ -399,7 +399,7 @@ export default function HargaPanganWeb({ onBukaLogin }) {
                 <span className="modal-badge-icon">🏛️</span>
                 <div>
                   <h3 className="modal-heading">
-                    {modeEdit ? 'Edit Data Harga Komoditas' : 'Input Data Harga Komoditas Baru'}
+                    {modeEdit ? 'Ubah Data Harga Komoditas' : 'Masukan Data Harga Komoditas Baru'}
                   </h3>
                   <p className="modal-subheading">
                     Bidang Cadangan dan Distribusi Pangan • Terkoneksi ke Supabase

@@ -66,7 +66,7 @@ function FormInformasi({ itemEdit, token, onSelesai }) {
 
     return (
         <form className="form-admin" onSubmit={handleSubmit}>
-            <h3>{itemEdit ? '✏️ Edit Informasi' : '➕ Tambah Informasi Baru'}</h3>
+            <h3>{itemEdit ? '✏️ Ubah Informasi' : '➕ Tambah Informasi Baru'}</h3>
 
             {pesan && (
                 <div className={`pesan-form ${pesan.tipe}`}>
@@ -80,7 +80,7 @@ function FormInformasi({ itemEdit, token, onSelesai }) {
                     type="text"
                     value={form.judul}
                     onChange={e => setForm({ ...form, judul: e.target.value })}
-                    placeholder="Masukkan judul informasi"
+                    placeholder="Masukan judul informasi"
                     required
                 />
             </div>
@@ -99,7 +99,7 @@ function FormInformasi({ itemEdit, token, onSelesai }) {
             </div>
 
             <div className="form-grup">
-                <label>URL Gambar (opsional)</label>
+                <label>Tautan Gambar (opsional)</label>
                 <input
                     type="text"
                     value={form.gambar_url}

@@ -35,7 +35,7 @@ function FormLoginAdmin({ onLogin }) {
       if (json.sukses) {
         onLogin(json.data.token);
       } else {
-        setErrorPesan(json.pesan || 'Login gagal. Periksa email dan kata sandi.');
+        setErrorPesan(json.pesan || 'Gagal masuk. Periksa surel dan kata sandi.');
       }
     } catch (err) {
       setErrorPesan('Gagal menghubungi server. Pastikan backend berjalan.');
@@ -55,7 +55,7 @@ function FormLoginAdmin({ onLogin }) {
         )}
         <input
           type="email"
-          placeholder="Email"
+          placeholder="Surel / Email"
           value={email}
           onChange={e => setEmail(e.target.value)}
           style={{padding: '10px', width: '100%', marginTop: '10px', display: 'block', boxSizing: 'border-box'}}
@@ -209,7 +209,7 @@ function App() {
               </div>
               <div className="card feature admin-panel">
                 <h3>⚙️ Panel Admin & Petugas</h3>
-                <p>Login khusus pengurus untuk mengelola data dan mendaftarkan pengguna baru.</p>
+                <p>Masuk khusus pengurus untuk mengelola data dan mendaftarkan pengguna baru.</p>
                 <button className="btn btn-admin" onClick={() => setActiveView('admin')}>Masuk ke Panel</button>
               </div>
             </div>
@@ -252,7 +252,7 @@ function App() {
                 <div style={{display: 'flex', justifyContent: 'center', marginTop: '20px'}}>
                   <QRCodeComponent value={tiketGPM.kode} size={160} />
                 </div>
-                <p style={{marginTop: '10px', fontSize: '0.9rem', color: '#666'}}>Simpan (Screenshot) QR code ini untuk ditunjukkan ke petugas di lokasi GPM.</p>
+                <p style={{marginTop: '10px', fontSize: '0.9rem', color: '#666'}}>Simpan (Tangkapan Layar) kode QR ini untuk ditunjukkan ke petugas di lokasi GPM.</p>
               </div>
             )}
           </div>
@@ -303,14 +303,14 @@ function App() {
                 {/* Sidebar Admin */}
                 <div style={{ width: '250px', borderRight: '2px solid #eee', paddingRight: '20px', marginRight: '20px' }}>
                   <h3 style={{color: '#2a5298', marginBottom: '20px'}}>Menu Pengurus</h3>
-                  <button onClick={() => setAdminMenu('dashboard')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'dashboard' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'dashboard' ? 'white' : 'black'}}>🏠 Dashboard</button>
+                  <button onClick={() => setAdminMenu('dashboard')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'dashboard' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'dashboard' ? 'white' : 'black'}}>🏠 Dasbor</button>
                   <button onClick={() => setAdminMenu('informasi')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'informasi' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'informasi' ? 'white' : 'black'}}>📰 Informasi Pangan</button>
                   <button onClick={() => setAdminMenu('ketersediaan')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'ketersediaan' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'ketersediaan' ? 'white' : 'black'}}>📦 Ketersediaan Pangan</button>
                   <button onClick={() => setAdminMenu('kerawanan')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'kerawanan' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'kerawanan' ? 'white' : 'black'}}>🗺️ Kerawanan Pangan</button>
                   <button onClick={() => setAdminMenu('gpm')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'gpm' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'gpm' ? 'white' : 'black'}}>🎟️ Kelola Acara GPM</button>
                   <button onClick={() => setAdminMenu('pengguna')} style={{...adminBtnStyle, backgroundColor: adminMenu === 'pengguna' ? '#2a5298' : '#f4f4f4', color: adminMenu === 'pengguna' ? 'white' : 'black'}}>👥 Kelola Pengguna</button>
                   
-                  <button onClick={() => { setIsLoggedIn(false); setTokenAdmin(null); }} style={{...adminBtnStyle, backgroundColor: '#e74c3c', color: 'white', marginTop: '50px'}}>🚪 Keluar (Logout)</button>
+                  <button onClick={() => { setIsLoggedIn(false); setTokenAdmin(null); }} style={{...adminBtnStyle, backgroundColor: '#e74c3c', color: 'white', marginTop: '50px'}}>🚪 Keluar</button>
                 </div>
 
                 {/* Konten Admin */}

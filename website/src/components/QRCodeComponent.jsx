@@ -33,7 +33,7 @@ export default function QRCodeComponent({ value, size = 180, className = '' }) {
           fontSize: '0.85rem'
         }}
       >
-        Memuat QR...
+        Memuat Kode QR...
       </div>
     );
   }
@@ -42,7 +42,7 @@ export default function QRCodeComponent({ value, size = 180, className = '' }) {
     <div className={`qr-code-container ${className}`} style={{ display: 'inline-block', textAlign: 'center' }}>
       <img
         src={dataUrl}
-        alt={`QR Code ${value}`}
+        alt={`Kode QR ${value}`}
         style={{
           width: `${size}px`,
           height: `${size}px`,

@@ -85,7 +85,7 @@ export class HargaPanganMobileService {
   async ambilStatistikDashboard(): Promise<StatistikDashboardMobile> {
     try {
       const respon = await fetch(`${this.baseUrl}/dashboard-stats`);
-      if (!respon.ok) throw new Error('Gagal memuat statistik dashboard');
+      if (!respon.ok) throw new Error('Gagal memuat statistik dasbor');
       const hasil = await respon.json();
       return hasil.data;
     } catch (error) {
@@ -167,7 +167,7 @@ export class HargaPanganMobileService {
         body: JSON.stringify({ email, kata_sandi })
       });
       const hasil = await respon.json();
-      if (!respon.ok || !hasil.sukses) throw new Error(hasil.pesan || 'Login gagal');
+      if (!respon.ok || !hasil.sukses) throw new Error(hasil.pesan || 'Gagal masuk');
       this.simpanSesi(hasil.data.token, hasil.data.pengguna);
       return hasil.data;
     } catch (e) {

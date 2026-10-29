@@ -151,7 +151,7 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
           </div>
 
           <h1 className="gpm-hero-title">
-            Antrean Online Gerakan Pangan Murah
+            Antrean Daring Gerakan Pangan Murah
           </h1>
 
           <p className="gpm-hero-desc">
@@ -165,11 +165,11 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
             </div>
             <div className="gpm-meta-item">
               <span>🛡️</span>
-              <span>Masyarakat <strong>Bebas Login</strong> (Cukup Masukkan Nama & No. HP)</span>
+              <span>Masyarakat <strong>Bebas Masuk Akun</strong> (Cukup Masukan Nama & No. HP)</span>
             </div>
             <div className="gpm-meta-item">
               <span>⚡</span>
-              <span>Nomor Antrean & Barcode Instan</span>
+              <span>Nomor Antrean & Kode QR Instan</span>
             </div>
           </div>
         </div>
@@ -319,7 +319,7 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                   </div>
 
                   <div className="ticket-scan-instruction">
-                    📱 <strong>Petunjuk:</strong> Tunjukkan QR Code ini langsung di layar HP Anda kepada petugas di lokasi GPM saat giliran Anda tiba. Petugas akan memindai (scan QR) untuk verifikasi antrean Anda.
+                    📱 <strong>Petunjuk:</strong> Tunjukkan Kode QR ini langsung di layar ponsel Anda kepada petugas di lokasi GPM saat giliran Anda tiba. Petugas akan memindai (pindai QR) untuk verifikasi antrean Anda.
                   </div>
 
                   <div className="ticket-actions-row">
@@ -370,10 +370,10 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                     {/* FORM AMBIL ANTREAN (PUBLIK TANPA LOGIN) */}
                     <div className="gpm-form-wrapper">
                       <h4 className="gpm-form-title">
-                        <span>🎟️</span> Ambil Nomor Antrean & QR Code
+                        <span>🎟️</span> Ambil Nomor Antrean & Kode QR
                       </h4>
                       <p className="gpm-form-hint">
-                        Masyarakat tidak perlu login. Cukup lengkapi data diri di bawah ini untuk mendapatkan tiket antrean digital resmi.
+                        Masyarakat tidak perlu masuk akun. Cukup lengkapi data diri di bawah ini untuk mendapatkan tiket antrean digital resmi.
                       </p>
 
                       {pesanError && (
@@ -418,7 +418,7 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                           className="btn-gpm-submit-queue"
                           disabled={sedangDaftar}
                         >
-                          <span>{sedangDaftar ? '⏳ Memproses Nomor Antrean...' : '🎟️ Ambil Nomor Antrean & QR Code'}</span>
+                          <span>{sedangDaftar ? '⏳ Memproses Nomor Antrean...' : '🎟️ Ambil Nomor Antrean & Kode QR'}</span>
                         </button>
                       </form>
                     </div>

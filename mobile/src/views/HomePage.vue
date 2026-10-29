@@ -48,7 +48,7 @@
                 type="text" 
                 v-model="loginInput.email" 
                 required 
-                placeholder="Masukkan nama pengguna atau email"
+                placeholder="Masukan nama pengguna atau email"
               />
             </div>
           </div>
@@ -61,7 +61,7 @@
                 :type="lihatPassword ? 'text' : 'password'" 
                 v-model="loginInput.password" 
                 required 
-                placeholder="Masukkan kata sandi"
+                placeholder="Masukan kata sandi"
               />
               <button type="button" class="btn-eye" @click="lihatPassword = !lihatPassword">
                 {{ lihatPassword ? '👁️' : '👁️‍🗨️' }}
@@ -130,13 +130,13 @@
             :class="['staff-segment-btn', menuPetugas === 'gpm' ? 'active' : '']"
             @click="menuPetugas = 'gpm'"
           >
-            Kelola GPM & Scan
+            Kelola GPM & Pindai
           </button>
           <button 
             :class="['staff-segment-btn', menuPetugas === 'dashboard' ? 'active' : '']"
             @click="menuPetugas = 'dashboard'"
           >
-            Dashboard
+            Dasbor
           </button>
         </div>
       </ion-header>
@@ -212,7 +212,7 @@
                   <span>✈️</span> Terbitkan ke Halaman Masyarakat
                 </button>
                 <button type="button" class="btn-draft-action" @click="simpanHargaPetugas('Draft')">
-                  Simpan sebagai Draft
+                  Simpan sebagai Draf
                 </button>
               </div>
             </form>
@@ -241,7 +241,7 @@
                     @click="ubahStatusItem(item)"
                     title="Klik untuk ubah status"
                   >
-                    {{ item.status || 'Terbit' }}
+                    {{ item.status === 'Draft' ? 'Draf' : (item.status || 'Terbit') }}
                   </span>
                 </div>
               </div>
@@ -253,7 +253,7 @@
         <!-- SUB-VIEW B: DASHBOARD STATS PETUGAS -->
         <div v-if="menuPetugas === 'dashboard'" class="staff-view-container">
           <div class="staff-heading-area">
-            <h1 class="staff-view-title">Dashboard Petugas</h1>
+            <h1 class="staff-view-title">Dasbor Petugas</h1>
             <p class="staff-view-desc">Ringkasan status komoditas & Gerakan Pangan Murah</p>
           </div>
 
@@ -265,7 +265,7 @@
             </div>
             <div class="stat-box-card">
               <div class="stat-val">{{ statsDashboard.draft_harga }}</div>
-              <div class="stat-lbl">Draft Harga</div>
+              <div class="stat-lbl">Draf Harga</div>
               <div class="stat-sub">belum terbit</div>
             </div>
             <div class="stat-box-card">
@@ -284,9 +284,9 @@
         <!-- SUB-VIEW C: PENGELOLAAN GPM & SCAN QR CODE OLEH PETUGAS -->
         <div v-if="menuPetugas === 'gpm'" class="staff-view-container">
           <div class="staff-heading-area">
-            <h1 class="staff-view-title">Pengelolaan GPM & Scan QR Code</h1>
+            <h1 class="staff-view-title">Pengelolaan GPM & Pindai Kode QR</h1>
             <p class="staff-view-desc">
-              Pindai QR Code antrean masyarakat, pantau pendaftar, dan jadwal lokasi GPM
+              Pindai Kode QR antrean masyarakat, pantau pendaftar, dan jadwal lokasi GPM
             </p>
           </div>
 
@@ -296,7 +296,7 @@
               :class="['m-gpm-nav-btn', subMenuPetugasGPM === 'scan' ? 'active' : '']"
               @click="subMenuPetugasGPM = 'scan'"
             >
-              📷 Scan QR Code
+              📷 Pindai Kode QR
             </button>
             <button 
               :class="['m-gpm-nav-btn', subMenuPetugasGPM === 'antrean' ? 'active' : '']"
@@ -316,10 +316,10 @@
           <div v-if="subMenuPetugasGPM === 'scan'" class="staff-form-panel">
             <div class="panel-title-row">
               <span class="plus-icon-red">📷</span>
-              <h3>Scan QR Code Antrean Tiket</h3>
+              <h3>Pindai Kode QR Antrean Tiket</h3>
             </div>
             <p style="font-size: 0.82rem; color: #64748b; margin: 4px 0 12px 0;">
-              Masukkan kode QR tiket masyarakat untuk memverifikasi kehadiran:
+              Masukan kode QR tiket masyarakat untuk memverifikasi kehadiran:
             </p>
 
             <form @submit.prevent="pindaiBarcodeMobile()" class="m-scan-input-wrap">
@@ -330,13 +330,13 @@
                 class="m-scan-input"
               />
               <button type="submit" class="btn-m-scan-action" :disabled="sedangScanBarcode">
-                {{ sedangScanBarcode ? '...' : 'Scan' }}
+                {{ sedangScanBarcode ? '...' : 'Pindai' }}
               </button>
             </form>
 
             <!-- Quick sample chips -->
             <div class="m-quick-chips">
-              <span style="font-size: 0.72rem; color: #888;">Uji coba barcode:</span>
+              <span style="font-size: 0.72rem; color: #888;">Uji coba kode tiket:</span>
               <button type="button" class="m-chip-pill" @click="pindaiBarcodeMobile('GPM-TIKA-001-A9F2')">Meity (#001)</button>
               <button type="button" class="m-chip-pill" @click="pindaiBarcodeMobile('GPM-TIKA-002-C4B8')">Frangky (#002)</button>
               <button type="button" class="m-chip-pill" @click="pindaiBarcodeMobile('GPM-TIKA-003-X8Q1')">Grace (#003)</button>
@@ -367,7 +367,7 @@
                   <strong class="m-info-val">{{ hasilScanPetugas.nomor_telepon }}</strong>
                 </div>
                 <div style="grid-column: 1 / -1;">
-                  <span class="m-info-lbl">Kode Barcode</span>
+                  <span class="m-info-lbl">Kode QR / Barcode</span>
                   <code class="m-info-barcode">{{ hasilScanPetugas.kode_barcode }}</code>
                 </div>
                 <div style="grid-column: 1 / -1;">
@@ -498,7 +498,7 @@
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2">
                 <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/>
               </svg>
-              <span>Login</span>
+              <span>Masuk</span>
             </button>
           </div>
         </div>
@@ -579,7 +579,7 @@
 
             <div class="mobile-select-box">
               <select v-model="pasarAktif" @change="muatData" class="mobile-native-select">
-                <option value="Semua">Semua Kategori</option>
+                <option value="Semua">Semua Pasar</option>
                 <option v-for="(p, i) in daftarPasar" :key="i" :value="p">{{ p }}</option>
               </select>
             </div>
@@ -626,11 +626,11 @@
           <div class="mobile-hero-card gpm-hero-theme">
             <div class="hero-badge-tag">
               <span>🎟️</span>
-              <span>Antrean Online GPM Manado</span>
+              <span>Antrean Daring GPM Manado</span>
             </div>
             <h2 class="hero-title-text">Gerakan Pangan Murah</h2>
             <p class="hero-desc-text">
-              Daftarkan diri Anda untuk mendapatkan nomor antrean dan QR Code resmi kegiatan Gerakan Pangan Murah di Kota Manado. <strong>Tanpa login.</strong>
+              Daftarkan diri Anda untuk mendapatkan nomor antrean dan kode QR resmi kegiatan Gerakan Pangan Murah di Kota Manado. <strong>Tanpa masuk akun.</strong>
             </p>
             <div class="hero-update-date">
               <span>📍 {{ daftarAcaraGPM.length }} Lokasi Pelaksanaan Tersedia</span>
@@ -664,7 +664,7 @@
               </div>
 
               <div class="m-ticket-instruction">
-                📱 <strong>Petunjuk:</strong> Tunjukkan QR Code ini ke petugas Dinas Pangan di lokasi GPM saat giliran Anda dipanggil untuk dipindai (scan).
+                📱 <strong>Petunjuk:</strong> Tunjukkan Kode QR ini ke petugas Dinas Pangan di lokasi GPM saat giliran Anda dipanggil untuk dipindai.
               </div>
 
               <button class="btn-m-take-new" @click="tiketGPMHasil = null">
@@ -715,7 +715,7 @@
               <!-- Form Ambil Antrean (Tanpa Login) -->
               <form @submit.prevent="ambilNomorAntreanMobile" class="m-queue-form">
                 <h4 class="m-form-heading">🎟️ Formulir Ambil Nomor Antrean</h4>
-                <p class="m-form-subheading">Masyarakat tidak perlu login, cukup isi nama dan no. HP:</p>
+                <p class="m-form-subheading">Masyarakat tidak perlu masuk akun, cukup isi nama dan no. HP:</p>
 
                 <div v-if="pesanErrorGPM" class="m-error-alert">
                   ⚠️ {{ pesanErrorGPM }}
@@ -746,7 +746,7 @@
                 </div>
 
                 <button type="submit" class="btn-m-get-queue" :disabled="sedangDaftarGPM">
-                  {{ sedangDaftarGPM ? 'Memproses...' : '🎟️ Dapatkan Nomor Antrean & QR Code' }}
+                  {{ sedangDaftarGPM ? 'Memproses...' : '🎟️ Dapatkan Nomor Antrean & Kode QR' }}
                 </button>
               </form>
             </div>
@@ -947,7 +947,7 @@ const ambilNomorAntreanMobile = async () => {
 const pindaiBarcodeMobile = async (barcodeOverride?: string) => {
   const code = barcodeOverride || inputBarcodePetugas.value;
   if (!code.trim()) {
-    pesanScanErrorPetugas.value = 'Silakan masukkan barcode!';
+    pesanScanErrorPetugas.value = 'Silakan masukan kode tiket!';
     return;
   }
   sedangScanBarcode.value = true;
@@ -957,7 +957,7 @@ const pindaiBarcodeMobile = async (barcodeOverride?: string) => {
     const data = await gpmMobileService.scanBarcode(code);
     hasilScanPetugas.value = data;
   } catch (err: any) {
-    pesanScanErrorPetugas.value = err.message || 'Barcode tidak ditemukan';
+    pesanScanErrorPetugas.value = err.message || 'Kode tiket tidak ditemukan';
   } finally {
     sedangScanBarcode.value = false;
   }
@@ -1112,7 +1112,7 @@ const simpanHargaPetugas = async (status: 'Terbit' | 'Draft') => {
 
     pesanSuksesMobile.value = status === 'Terbit' 
       ? '✅ Harga berhasil diterbitkan ke masyarakat!' 
-      : '📝 Harga disimpan sebagai draft!';
+      : '📝 Harga disimpan sebagai draf!';
     setTimeout(() => pesanSuksesMobile.value = '', 3500);
 
     formPenetapan.value.nama_komoditas = '';

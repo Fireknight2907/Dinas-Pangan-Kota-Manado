@@ -319,7 +319,7 @@ export default function PetugasGPMManager({ token, pengguna }) {
           <div className="stat-card-info">
             <div className="stat-card-val">{statistikGlobal.total_menunggu}</div>
             <div className="stat-card-label">Antrean Menunggu</div>
-            <div className="stat-card-sub">belum scan di lokasi</div>
+            <div className="stat-card-sub">belum dipindai di lokasi</div>
           </div>
         </div>
       </div>
@@ -338,7 +338,7 @@ export default function PetugasGPMManager({ token, pengguna }) {
           className={`subnav-btn ${subTab === 'scan' ? 'active' : ''}`}
           onClick={() => setSubTab('scan')}
         >
-          📷 Scan QR Code Tiket
+          📷 Pindai Kode QR Tiket
         </button>
         <button
           className={`subnav-btn ${subTab === 'antrean' ? 'active' : ''}`}
@@ -361,9 +361,9 @@ export default function PetugasGPMManager({ token, pengguna }) {
         <div className="scan-panel-card">
           <div className="scan-box-header">
             <div className="scan-box-icon">📷</div>
-            <h2 className="scan-box-title">Verifikasi QR Code Tiket Antrean Warga</h2>
+            <h2 className="scan-box-title">Verifikasi Kode QR Tiket Antrean Warga</h2>
             <p className="scan-box-desc">
-              Pindai QR code tiket yang ditunjukkan oleh masyarakat atau masukkan kode secara manual untuk memverifikasi kehadiran di lokasi GPM.
+              Pindai kode QR tiket yang ditunjukkan oleh masyarakat atau masukan kode secara manual untuk memverifikasi kehadiran di lokasi GPM.
             </p>
           </div>
 
@@ -371,7 +371,7 @@ export default function PetugasGPMManager({ token, pengguna }) {
             <input
               type="text"
               className="scan-input-text"
-              placeholder="Masukkan kode QR tiket (Contoh: GPM-TIKA-001-A9F2)"
+              placeholder="Masukan kode QR tiket (Contoh: GPM-TIKA-001-A9F2)"
               value={inputQRCode}
               onChange={(e) => setInputQRCode(e.target.value)}
             />
@@ -382,7 +382,7 @@ export default function PetugasGPMManager({ token, pengguna }) {
 
           {/* Tombol Demo Cepat untuk Petugas */}
           <div className="scan-quick-samples">
-            <span>Uji coba QR Code pendaftar:</span>
+            <span>Uji coba Kode QR pendaftar:</span>
             <button
               type="button"
               className="sample-barcode-chip"
@@ -505,7 +505,7 @@ export default function PetugasGPMManager({ token, pengguna }) {
 
             <div>
               <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#555', display: 'block', marginBottom: '4px' }}>
-                CARI PENDAFTAR / QR CODE:
+                CARI PENDAFTAR / KODE QR:
               </label>
               <input
                 type="text"
@@ -630,7 +630,7 @@ export default function PetugasGPMManager({ token, pengguna }) {
                     onClick={() => setTampilkanFormKecamatan(!tampilkanFormKecamatan)}
                     style={{ background: 'none', border: 'none', color: '#8b1e1e', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
                   >
-                    {tampilkanFormKecamatan ? 'Tutup Form' : '➕ Tambah Kecamatan Baru (Ketua)'}
+                    {tampilkanFormKecamatan ? 'Tutup Formulir' : '➕ Tambah Kecamatan Baru (Ketua)'}
                   </button>
                 )}
               </div>

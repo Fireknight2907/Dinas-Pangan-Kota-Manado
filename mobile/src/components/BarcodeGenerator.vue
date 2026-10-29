@@ -8,7 +8,7 @@
       <img :src="qrUrl" :alt="value" class="qrcode-image" />
     </div>
     <div v-else class="qrcode-loading">
-      Memuat QR Code...
+      Memuat Kode QR...
     </div>
     <div class="qrcode-string-label">{{ value }}</div>
   </div>

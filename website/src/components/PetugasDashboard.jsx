@@ -184,7 +184,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
       tampilkanPesan(statusBaru === 'Terbit'
         ? '✅ Harga komoditas berhasil diterbitkan ke halaman publik!'
-        : '📝 Data harga disimpan sebagai draft dan siap diajukan ke Kepala Bidang untuk diverifikasi!');
+        : '📝 Data harga disimpan sebagai draf dan siap diajukan ke Kepala Bidang untuk diverifikasi!');
 
       // Reset form
       setFormHarga({
@@ -568,7 +568,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           <div className="dashboard-page-container">
             <div className="dashboard-hero-title-box">
               <h1 className="dashboard-main-heading">
-                Dashboard {peran} — Bidang Cadangan & Distribusi Pangan
+                Dasbor {peran} — Bidang Cadangan & Distribusi Pangan
               </h1>
               <p className="dashboard-main-subheading">
                 Sistem Informasi Terpadu Dinas Pangan Kota Manado — Pemantauan stabilitas pasokan komoditas dan Gerakan Pangan Murah
@@ -586,7 +586,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               <div className="stat-card-white">
                 <div className="stat-icon-square icon-amber">📝</div>
                 <div className="stat-number-big">{daftarDraftVerifikasi.length}</div>
-                <div className="stat-title-label">Draft Menunggu Verif</div>
+                <div className="stat-title-label">Draf Menunggu Verifikasi</div>
                 <div className="stat-caption-sub">verifikasi Kepala Bidang</div>
               </div>
 
@@ -616,8 +616,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 {peran === 'Admin' && (
                   <>
                     <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('kelola-user')}>
-                      <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>👥 Menu Edit User</h4>
-                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Kelola username, hard reset password pengguna lain, dan atur peran sistem.</p>
+                      <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>👥 Menu Kelola Pengguna</h4>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Kelola nama pengguna, atur ulang kata sandi pengguna lain, dan atur peran sistem.</p>
                     </div>
                     <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('master-data')}>
                       <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>🏛️ Master Pasar & Wilayah</h4>
@@ -634,7 +634,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 {peran === 'Kabid' && (
                   <>
                     <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('verif-harga')}>
-                      <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>✅ Menu Verif Harga Pangan</h4>
+                      <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>✅ Menu Verifikasi Harga Pangan</h4>
                       <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Tinjau dan setujui usulan harga pasar yang dimasukkan oleh staf lapangan.</p>
                     </div>
                     <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('kelola-gpm')}>
@@ -652,11 +652,11 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 {peran === 'Staf' && (
                   <>
                     <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('input-harga')}>
-                      <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>📝 Menu Input Data Pangan</h4>
-                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Input harga komoditas terkini dari pasar tradisional untuk diajukan verifikasi.</p>
+                      <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>📝 Menu Masukan Data Pangan</h4>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Masukan harga komoditas terkini dari pasar tradisional untuk diajukan verifikasi.</p>
                     </div>
                     <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('kelola-gpm')}>
-                      <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>🎟️ Menu Kelola GPM & Scan QR</h4>
+                      <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>🎟️ Menu Kelola GPM & Pindai QR</h4>
                       <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Operasional lapangan, verifikasi tiket QR warga penerima manfaat kupon pangan.</p>
                     </div>
                   </>
@@ -686,15 +686,15 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         {menuAktif === 'input-harga' && peran === 'Staf' && (
           <div className="tetapkan-harga-page-container">
             <div className="dashboard-hero-title-box">
-              <h1 className="dashboard-main-heading">Menu Input Data Pangan</h1>
+              <h1 className="dashboard-main-heading">Menu Masukan Data Pangan</h1>
               <p className="dashboard-main-subheading">
-                Petugas staf memasukkan pencatatan harga pangan acuan pasar terkini untuk diajukan ke Kepala Bidang.
+                Petugas staf memasukan pencatatan harga pangan acuan pasar terkini untuk diajukan ke Kepala Bidang.
               </p>
             </div>
 
             <div className="tetapkan-content-columns">
               <div className="tetapkan-form-card">
-                <h3 className="form-card-heading">Formulir Input Data Komoditas</h3>
+                <h3 className="form-card-heading">Formulir Masukan Data Komoditas</h3>
                 <form onSubmit={(e) => handleSimpanHarga(e, 'Draft')} className="price-entry-form">
                   <div className="form-field-group">
                     <label className="field-label-text">Nama Komoditas / Jenis Pangan</label>
@@ -768,7 +768,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
                   <div className="form-actions-stack">
                     <button type="submit" className="btn-simpan-draft" disabled={sedangMenyimpan}>
-                      <span>{sedangMenyimpan ? 'Menyimpan...' : 'Ajukan Verifikasi (Simpan Draft)'}</span>
+                      <span>{sedangMenyimpan ? 'Menyimpan...' : 'Ajukan Verifikasi (Simpan Draf)'}</span>
                     </button>
                     <button type="button" className="btn-terbitkan-masyarakat" onClick={(e) => handleSimpanHarga(e, 'Terbit')} disabled={sedangMenyimpan}>
                       Terbitkan Langsung ke Publik
@@ -777,9 +777,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 </form>
               </div>
 
-              {/* Riwayat Data Input Staf */}
+              {/* Riwayat Data Masukan Staf */}
               <div className="tetapkan-list-card">
-                <h3 className="list-card-heading">Daftar Data Komoditas Terinput</h3>
+                <h3 className="list-card-heading">Daftar Data Komoditas Dimasukkan</h3>
                 <div className="current-prices-stack">
                   {daftarHarga.map((item) => (
                     <div key={item.id} className="price-item-row-card">
@@ -797,7 +797,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                         <div className="item-price-nominal">{formatRupiah(item.harga)}</div>
                         <div className="item-status-wrapper">
                           <span className={`badge-status-pill ${item.status === 'Draft' ? 'status-draft' : 'status-terbit'}`}>
-                            {item.status || 'Terbit'}
+                            {item.status === 'Draft' ? 'Draf' : (item.status || 'Terbit')}
                           </span>
                         </div>
                       </div>
@@ -1098,7 +1098,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                           background: h.status === 'Draft' ? '#fef3c7' : '#dcfce7', 
                           color: h.status === 'Draft' ? '#92400e' : '#166534' 
                         }}>
-                          {h.status || 'Terbit'}
+                          {h.status === 'Draft' ? 'Draf' : (h.status || 'Terbit')}
                         </span>
                       </td>
                     </tr>
@@ -1192,9 +1192,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
             ───────────────────────────────────────────── */}
         {menuAktif === 'kelola-user' && peran === 'Admin' && (
           <div className="dashboard-page-container">
-            <h1 className="dashboard-main-heading">👥 Menu Edit User & Manajemen Akses (Admin)</h1>
+            <h1 className="dashboard-main-heading">👥 Menu Kelola Pengguna & Manajemen Akses (Admin)</h1>
             <p className="dashboard-main-subheading">
-              Khusus Administrator: Anda dapat mengganti username, mengubah peran pengguna, dan melakukan hard reset kata sandi tanpa melihat kata sandi lama pengguna.
+              Khusus Administrator: Anda dapat mengganti nama pengguna, mengubah peran pengguna, dan melakukan atur ulang kata sandi tanpa melihat kata sandi lama pengguna.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginTop: '20px' }}>
@@ -1215,11 +1215,11 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   </div>
 
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '4px' }}>Username Login</label>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '4px' }}>Nama Pengguna (Username)</label>
                     <input
                       type="text"
                       required
-                      placeholder="username (tanpa spasi)"
+                      placeholder="nama pengguna (tanpa spasi)"
                       className="field-input-box"
                       value={formUserBaru.username}
                       onChange={(e) => setFormUserBaru({ ...formUserBaru, username: e.target.value })}
@@ -1227,15 +1227,15 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   </div>
 
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '4px' }}>Peran Kedinasan (Role)</label>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '4px' }}>Peran Kedinasan (Hak Akses)</label>
                     <select
                       className="field-select-box"
                       value={formUserBaru.peran}
                       onChange={(e) => setFormUserBaru({ ...formUserBaru, peran: e.target.value })}
                     >
-                      <option value="Staf">Staf (Input Data Pangan & Kelola GPM)</option>
-                      <option value="Kabid">Kabid (Laporan Bidang & Verif Harga)</option>
-                      <option value="Admin">Admin (Edit User, Master Wilayah, Cek GPM)</option>
+                      <option value="Staf">Staf (Masukan Data Pangan & Kelola GPM)</option>
+                      <option value="Kabid">Kabid (Laporan Bidang & Verifikasi Harga)</option>
+                      <option value="Admin">Admin (Kelola Pengguna, Master Wilayah, Cek GPM)</option>
                       <option value="Kadis">Kadis (Grafik Pangan & Laporan GPM)</option>
                     </select>
                   </div>
@@ -1303,13 +1303,13 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                           onChange={(e) => handleUbahPeranUser(u.id, e.target.value)}
                           style={{ fontSize: '0.78rem', padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff' }}
                         >
-                          <option value="Staf">Role Staf</option>
-                          <option value="Kabid">Role Kabid</option>
-                          <option value="Admin">Role Admin</option>
-                          <option value="Kadis">Role Kadis</option>
+                          <option value="Staf">Peran Staf</option>
+                          <option value="Kabid">Peran Kabid</option>
+                          <option value="Admin">Peran Admin</option>
+                          <option value="Kadis">Peran Kadis</option>
                         </select>
 
-                        {/* Tombol Ubah Username */}
+                        {/* Tombol Ubah Nama Pengguna */}
                         <button
                           onClick={() => setModalEditUsername({ buka: true, userTarget: u, usernameBaru: u.username, pesan: '' })}
                           style={{
@@ -1322,12 +1322,12 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                             fontWeight: 700,
                             cursor: 'pointer'
                           }}
-                          title="Ganti username akun ini"
+                          title="Ganti nama pengguna akun ini"
                         >
-                          ✏️ Ganti Username
+                          ✏️ Ganti Nama Pengguna
                         </button>
 
-                        {/* Tombol Hard Reset Password */}
+                        {/* Tombol Atur Ulang Kata Sandi */}
                         <button
                           onClick={() => setModalResetAdmin({ buka: true, userTarget: u, sandiBaru: '', konfirmasiSandi: '', pesan: '' })}
                           style={{
@@ -1340,9 +1340,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                             fontWeight: 700,
                             cursor: 'pointer'
                           }}
-                          title="Admin me-reset password tanpa bisa melihat password lama"
+                          title="Admin mengatur ulang kata sandi tanpa bisa melihat kata sandi lama"
                         >
-                          🔒 Reset Sandi
+                          🔒 Atur Ulang Sandi
                         </button>
 
                         {/* Tombol Hapus (Kecuali diri sendiri) */}
@@ -1813,7 +1813,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 <div style={{ flex: 1 }}>
                   <input
                     type="url"
-                    placeholder="URL gambar foto profil..."
+                    placeholder="Tautan gambar / foto profil baru..."
                     className="field-input-box"
                     value={inputFotoUrl}
                     onChange={(e) => setInputFotoUrl(e.target.value)}
@@ -1830,16 +1830,16 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               </div>
             </div>
 
-            {/* Bagian Ganti Password Mandiri */}
+            {/* Bagian Ganti Kata Sandi Mandiri */}
             <div>
-              <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem' }}>🔒 Ganti Kata Sandi Pribadi</h4>
+              <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem' }}>🔒 Ganti Kata Sandi Pribadi (Keamanan: Min. 8 Karakter)</h4>
               <form onSubmit={handleSimpanPasswordPribadi} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '2px' }}>Kata Sandi Saat Ini</label>
                   <input
                     type="password"
                     required
-                    placeholder="Masukkan kata sandi lama"
+                    placeholder="Masukan kata sandi lama"
                     className="field-input-box"
                     value={passwordLama}
                     onChange={(e) => setPasswordLama(e.target.value)}

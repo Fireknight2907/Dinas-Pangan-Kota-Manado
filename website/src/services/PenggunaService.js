@@ -118,8 +118,8 @@ class PenggunaService {
             case 'Admin':
                 // Admin: Menu edit user, master pasar dan wilayah, dashboard, menu cek gpm
                 return [
-                    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-                    { id: 'kelola-user', label: 'Menu Edit User', icon: '👥' },
+                    { id: 'dashboard', label: 'Dasbor', icon: '📊' },
+                    { id: 'kelola-user', label: 'Menu Kelola Pengguna', icon: '👥' },
                     { id: 'master-data', label: 'Master Pasar & Wilayah', icon: '🏛️' },
                     { id: 'cek-gpm', label: 'Menu Cek GPM', icon: '🔍' }
                 ];
@@ -127,8 +127,8 @@ class PenggunaService {
             case 'Kabid':
                 // Kabid: Laporan (khusus bidang ini), menu verif harga pangan, dashboard, menu kelola gpm
                 return [
-                    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-                    { id: 'verif-harga', label: 'Menu Verif Harga Pangan', icon: '✅' },
+                    { id: 'dashboard', label: 'Dasbor', icon: '📊' },
+                    { id: 'verif-harga', label: 'Menu Verifikasi Harga Pangan', icon: '✅' },
                     { id: 'kelola-gpm', label: 'Menu Kelola GPM', icon: '🎟️' },
                     { id: 'laporan', label: 'Laporan Bidang Pangan', icon: '📑' }
                 ];
@@ -136,22 +136,22 @@ class PenggunaService {
             case 'Staf':
                 // Staf: Menu kelola GPM, dashboard, menu input data pangan
                 return [
-                    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-                    { id: 'input-harga', label: 'Menu Input Data Pangan', icon: '📝' },
+                    { id: 'dashboard', label: 'Dasbor', icon: '📊' },
+                    { id: 'input-harga', label: 'Menu Masukan Data Pangan', icon: '📝' },
                     { id: 'kelola-gpm', label: 'Menu Kelola GPM', icon: '🎟️' }
                 ];
 
             case 'Kadis':
                 // Kadis: Dashboard dan laporan gpm dan grafik pangan
                 return [
-                    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+                    { id: 'dashboard', label: 'Dasbor', icon: '📊' },
                     { id: 'grafik-pangan', label: 'Grafik Pangan', icon: '📈' },
                     { id: 'laporan-gpm', label: 'Laporan GPM', icon: '📋' }
                 ];
 
             default:
                 return [
-                    { id: 'dashboard', label: 'Dashboard', icon: '📊' }
+                    { id: 'dashboard', label: 'Dasbor', icon: '📊' }
                 ];
         }
     }
