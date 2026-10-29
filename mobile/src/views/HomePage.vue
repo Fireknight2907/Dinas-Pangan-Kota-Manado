@@ -34,6 +34,9 @@
         <div class="mobile-welcome-text">
           <h3>Selamat Datang</h3>
           <p>Masuk ke akun Anda untuk melanjutkan</p>
+          <div class="m-login-hint-badge">
+            💡 Contoh akun: <strong>effrend</strong> / Sandi: <strong>12345678</strong>
+          </div>
         </div>
 
         <!-- Form Login Mobile -->
@@ -153,10 +156,13 @@
           </div>
 
           <!-- FORMULIR PENETAPAN HARGA -->
-          <div class="staff-form-panel">
+          <div class="staff-form-panel" id="formPenetapanPanel">
             <div class="panel-title-row">
-              <span class="plus-icon-red">+</span>
-              <h3>Formulir Penetapan Harga</h3>
+              <span class="plus-icon-red">{{ idDiedit ? '✏️' : '+' }}</span>
+              <h3>{{ idDiedit ? 'Ubah Penetapan Harga' : 'Formulir Penetapan Harga' }}</h3>
+              <button v-if="idDiedit" type="button" class="btn-cancel-edit-pill" @click="batalEditItem">
+                ✕ Batal
+              </button>
             </div>
 
             <form @submit.prevent="simpanHargaPetugas('Terbit')" class="staff-entry-form">
@@ -205,10 +211,10 @@
 
               <div class="s-button-stack">
                 <button type="submit" class="btn-publish-action">
-                  <span>✈️</span> Terbitkan ke Halaman Masyarakat
+                  <span>✈️</span> {{ idDiedit ? 'Simpan & Terbitkan ke Masyarakat' : 'Terbitkan ke Halaman Masyarakat' }}
                 </button>
                 <button type="button" class="btn-draft-action" @click="simpanHargaPetugas('Draft')">
-                  Simpan sebagai Draf
+                  {{ idDiedit ? 'Simpan Perubahan Draf' : 'Simpan sebagai Draf' }}
                 </button>
               </div>
             </form>
@@ -232,13 +238,21 @@
 
                 <div class="price-info-right">
                   <div class="price-nominal-red">{{ formatRupiah(item.harga) }}</div>
-                  <span 
-                    :class="['status-badge-tag', item.status === 'Draft' ? 'is-draft' : 'is-terbit']"
-                    @click="ubahStatusItem(item)"
-                    title="Klik untuk ubah status"
-                  >
-                    {{ item.status === 'Draft' ? 'Draf' : (item.status || 'Terbit') }}
-                  </span>
+                  <div class="item-actions-row">
+                    <span 
+                      :class="['status-badge-tag', item.status === 'Draft' ? 'is-draft' : 'is-terbit']"
+                      @click="ubahStatusItem(item)"
+                      title="Klik untuk ubah status (Terbit / Draf)"
+                    >
+                      {{ item.status === 'Draft' ? 'Draf' : (item.status || 'Terbit') }}
+                    </span>
+                    <button type="button" class="btn-mini-action edit" @click.stop="mulaiEditItem(item)" title="Edit harga">
+                      ✏️ Edit
+                    </button>
+                    <button type="button" class="btn-mini-action delete" @click.stop="hapusItem(item)" title="Hapus komoditas">
+                      🗑️
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -843,6 +857,9 @@ const statsDashboard = ref<StatistikDashboardMobile>({
 });
 const pesanSuksesMobile = ref('');
 
+// ID Komoditas sedang diedit
+const idDiedit = ref<string | null>(null);
+
 // Form Penetapan Harga Petugas Mobile (Gambar 3)
 const formPenetapan = ref({
   nama_komoditas: '',
@@ -854,8 +871,8 @@ const formPenetapan = ref({
 
 // State Login Mobile (Gambar 4)
 const loginInput = ref({
-  email: 'roni@manado.go.id',
-  password: 'password123',
+  email: 'effrend',
+  password: '',
   ingatSaya: true
 });
 const lihatPassword = ref(false);
@@ -1087,6 +1104,49 @@ const alertLupaPassword = () => {
 // ─────────────────────────────────────────────
 // OPERASI PETUGAS MOBILE (TETAPKAN HARGA)
 // ─────────────────────────────────────────────
+const mulaiEditItem = (item: ItemHargaPangan) => {
+  idDiedit.value = item.id || null;
+  formPenetapan.value = {
+    nama_komoditas: item.nama_komoditas,
+    satuan: item.satuan || 'kg',
+    harga: String(item.harga),
+    nama_pasar: item.nama_pasar,
+    status: item.status || 'Terbit'
+  };
+  const el = document.getElementById('formPenetapanPanel');
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+};
+
+const batalEditItem = () => {
+  idDiedit.value = null;
+  formPenetapan.value = {
+    nama_komoditas: '',
+    satuan: 'kg',
+    harga: '',
+    nama_pasar: daftarPasar.value[0] || 'Pasar Tradisional Bahu',
+    status: 'Terbit'
+  };
+};
+
+const hapusItem = async (item: ItemHargaPangan) => {
+  if (!item.id) return;
+  if (!confirm(`Hapus data harga untuk "${item.nama_komoditas}"?`)) return;
+  try {
+    await hargaPanganMobileService.hapus(item.id);
+    pesanSuksesMobile.value = `🗑️ Data ${item.nama_komoditas} berhasil dihapus!`;
+    setTimeout(() => pesanSuksesMobile.value = '', 3500);
+    if (idDiedit.value === item.id) {
+      batalEditItem();
+    }
+    await muatData();
+    await muatStatsDashboard();
+  } catch (e: any) {
+    alert('Gagal menghapus: ' + e.message);
+  }
+};
+
 const simpanHargaPetugas = async (status: 'Terbit' | 'Draft') => {
   if (!formPenetapan.value.nama_komoditas || !formPenetapan.value.harga) {
     alert('Nama komoditas dan harga wajib diisi!');
@@ -1094,23 +1154,37 @@ const simpanHargaPetugas = async (status: 'Terbit' | 'Draft') => {
   }
 
   try {
-    await hargaPanganMobileService.tambah({
-      nama_komoditas: formPenetapan.value.nama_komoditas,
-      kategori: 'Bahan Pokok',
-      satuan: formPenetapan.value.satuan,
-      harga: parseFloat(formPenetapan.value.harga),
-      nama_pasar: formPenetapan.value.nama_pasar,
-      tanggal_penetapan: '14 Oktober 2026',
-      status: status
-    });
+    if (idDiedit.value) {
+      await hargaPanganMobileService.perbarui(idDiedit.value, {
+        nama_komoditas: formPenetapan.value.nama_komoditas,
+        satuan: formPenetapan.value.satuan,
+        harga: parseFloat(formPenetapan.value.harga),
+        nama_pasar: formPenetapan.value.nama_pasar,
+        status: status,
+        tanggal_penetapan: '14 Oktober 2026'
+      });
+      pesanSuksesMobile.value = status === 'Terbit' 
+        ? `✅ Perubahan "${formPenetapan.value.nama_komoditas}" berhasil diterbitkan ke masyarakat!` 
+        : `📝 Perubahan "${formPenetapan.value.nama_komoditas}" disimpan sebagai draf!`;
+      batalEditItem();
+    } else {
+      await hargaPanganMobileService.tambah({
+        nama_komoditas: formPenetapan.value.nama_komoditas,
+        kategori: 'Bahan Pokok',
+        satuan: formPenetapan.value.satuan,
+        harga: parseFloat(formPenetapan.value.harga),
+        nama_pasar: formPenetapan.value.nama_pasar,
+        tanggal_penetapan: '14 Oktober 2026',
+        status: status
+      });
+      pesanSuksesMobile.value = status === 'Terbit' 
+        ? '✅ Harga berhasil diterbitkan ke masyarakat!' 
+        : '📝 Harga disimpan sebagai draf!';
+      formPenetapan.value.nama_komoditas = '';
+      formPenetapan.value.harga = '';
+    }
 
-    pesanSuksesMobile.value = status === 'Terbit' 
-      ? '✅ Harga berhasil diterbitkan ke masyarakat!' 
-      : '📝 Harga disimpan sebagai draf!';
     setTimeout(() => pesanSuksesMobile.value = '', 3500);
-
-    formPenetapan.value.nama_komoditas = '';
-    formPenetapan.value.harga = '';
 
     await muatData();
     await muatStatsDashboard();
@@ -1120,9 +1194,13 @@ const simpanHargaPetugas = async (status: 'Terbit' | 'Draft') => {
 };
 
 const ubahStatusItem = async (item: ItemHargaPangan) => {
-  const statusBaru = item.status === 'Terbit' ? 'Draft' : 'Terbit';
+  const statusBaru = item.status === 'Draft' ? 'Terbit' : 'Draft';
   if (item.id) {
     await hargaPanganMobileService.perbarui(item.id, { status: statusBaru });
+    pesanSuksesMobile.value = statusBaru === 'Terbit'
+      ? `✅ "${item.nama_komoditas}" diterbitkan ke halaman masyarakat!`
+      : `📝 "${item.nama_komoditas}" diubah menjadi draf.`;
+    setTimeout(() => pesanSuksesMobile.value = '', 3000);
     await muatData();
     await muatStatsDashboard();
   }
@@ -1150,13 +1228,13 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 20px 16px;
+  padding: max(24px, env(safe-area-inset-top, 32px) + 24px) 16px max(24px, env(safe-area-inset-bottom, 20px)) 16px;
   position: relative;
 }
 
 .btn-back-to-public {
   position: absolute;
-  top: 18px;
+  top: max(16px, env(safe-area-inset-top, 28px) + 12px);
   left: 16px;
   background: #ffffff;
   color: #8b1e1e;
@@ -1166,6 +1244,18 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   border-radius: 6px;
   font-weight: 700;
   font-size: 0.8rem;
+  z-index: 10;
+}
+
+.m-login-hint-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.76rem;
+  margin-top: 8px;
+  color: #fff;
 }
 
 .mobile-login-card {
@@ -1317,6 +1407,49 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
 .mobile-staff-header {
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
+  padding-top: max(8px, env(safe-area-inset-top, 28px));
+}
+
+.btn-cancel-edit-pill {
+  margin-left: auto;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.item-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.btn-mini-action {
+  border: none;
+  background: #f1f5f9;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
+.btn-mini-action.edit {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.btn-mini-action.delete {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
 }
 
 .staff-header-top {
@@ -1685,6 +1818,7 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
 .mobile-main-header {
   background: #ffffff;
   border-bottom: 1px solid #f1f5f9;
+  padding-top: max(8px, env(safe-area-inset-top, 28px));
 }
 
 .mobile-top-bar {

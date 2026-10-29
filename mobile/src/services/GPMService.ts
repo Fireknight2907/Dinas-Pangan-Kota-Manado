@@ -63,15 +63,17 @@ export interface StatistikGPM {
 class GPMMobileApiService {
     private apiRoot: string;
     private baseUrl: string;
-    private fallbackAcara: ItemAcaraGPM[];
-    private fallbackPendaftar: ItemPendaftarGPM[];
+    private fallbackAcara: ItemAcaraGPM[] = [];
+    private fallbackPendaftar: ItemPendaftarGPM[] = [];
 
     constructor() {
         this.apiRoot = (import.meta as any).env?.VITE_API_ROOT || 'http://localhost:3000/api';
         this.baseUrl = `${this.apiRoot}/gpm`;
+        this.inisialisasiDataLokal();
+    }
 
-        // Data cadangan lokal untuk mobile preview dan offline mode
-        this.fallbackAcara = [
+    private inisialisasiDataLokal() {
+        const defaultAcara: ItemAcaraGPM[] = [
             {
                 id: 'gpm-001-sparta-tikala',
                 nama_acara: 'GPM Lapangan Sparta Tikala',
@@ -125,7 +127,7 @@ class GPMMobileApiService {
             }
         ];
 
-        this.fallbackPendaftar = [
+        const defaultPendaftar: ItemPendaftarGPM[] = [
             {
                 id: 'antrean-001',
                 acara_id: 'gpm-001-sparta-tikala',
@@ -160,6 +162,30 @@ class GPMMobileApiService {
                 waktu_mendaftar: '2026-10-15T09:30:00Z'
             }
         ];
+
+        const savedAcara = localStorage.getItem('sipatokean_mobile_gpm_acara');
+        if (savedAcara) {
+            try { this.fallbackAcara = JSON.parse(savedAcara); } catch (e) { this.fallbackAcara = defaultAcara; }
+        } else {
+            this.fallbackAcara = defaultAcara;
+            localStorage.setItem('sipatokean_mobile_gpm_acara', JSON.stringify(defaultAcara));
+        }
+
+        const savedPendaftar = localStorage.getItem('sipatokean_mobile_gpm_pendaftar');
+        if (savedPendaftar) {
+            try { this.fallbackPendaftar = JSON.parse(savedPendaftar); } catch (e) { this.fallbackPendaftar = defaultPendaftar; }
+        } else {
+            this.fallbackPendaftar = defaultPendaftar;
+            localStorage.setItem('sipatokean_mobile_gpm_pendaftar', JSON.stringify(defaultPendaftar));
+        }
+    }
+
+    private simpanAcaraKeStorage() {
+        localStorage.setItem('sipatokean_mobile_gpm_acara', JSON.stringify(this.fallbackAcara));
+    }
+
+    private simpanPendaftarKeStorage() {
+        localStorage.setItem('sipatokean_mobile_gpm_pendaftar', JSON.stringify(this.fallbackPendaftar));
     }
 
     // Helper token
@@ -183,7 +209,6 @@ class GPMMobileApiService {
             const json = await respon.json();
             return json.data || [];
         } catch (error) {
-            console.warn('[GPMMobileService] Backend offline, menggunakan data lokal acara:', error);
             return this.fallbackAcara.filter(item => {
                 const cocokStatus = !status || status === 'Semua' || item.status === status;
                 const cocokKecamatan = !kecamatan || kecamatan === 'Semua' || item.kecamatan.toLowerCase() === kecamatan.toLowerCase();
@@ -204,7 +229,6 @@ class GPMMobileApiService {
             if (!respon.ok) throw new Error(json.pesan || 'Gagal mengambil nomor antrean');
             return json.data;
         } catch (error) {
-            console.warn('[GPMMobileService] Backend offline, memproses antrean fallback lokal:', error);
             const acara = this.fallbackAcara.find(a => a.id === acara_id) || this.fallbackAcara[0];
             const pendaftarAcara = this.fallbackPendaftar.filter(p => p.acara_id === acara_id);
             const nomorBaru = pendaftarAcara.length + 1;
@@ -212,7 +236,7 @@ class GPMMobileApiService {
 
             const tiketBaru: ItemPendaftarGPM = {
                 id: 'antrean-' + Date.now(),
-                acara_id,
+                acara_id: acara.id,
                 nama_pendaftar: nama_lengkap,
                 nomor_telepon,
                 nomor_antrean: nomorBaru,
@@ -223,8 +247,11 @@ class GPMMobileApiService {
             };
 
             this.fallbackPendaftar.push(tiketBaru);
+            this.simpanPendaftarKeStorage();
+
             acara.antrean_terisi = (acara.antrean_terisi || 0) + 1;
             acara.sisa_kuota = Math.max(0, (acara.kuota_maksimal || 200) - acara.antrean_terisi);
+            this.simpanAcaraKeStorage();
 
             return {
                 tiket: tiketBaru,
@@ -280,6 +307,7 @@ class GPMMobileApiService {
             if (idx === -1) throw new Error(`Barcode "${kodeBarcode}" tidak ditemukan.`);
             this.fallbackPendaftar[idx].status_kehadiran = 'Hadir';
             this.fallbackPendaftar[idx].waktu_kehadiran = new Date().toISOString();
+            this.simpanPendaftarKeStorage();
             return this.fallbackPendaftar[idx];
         }
     }
@@ -336,6 +364,7 @@ class GPMMobileApiService {
                 status: 'Aktif'
             };
             this.fallbackAcara.unshift(itemBaru);
+            this.simpanAcaraKeStorage();
             return itemBaru;
         }
     }
