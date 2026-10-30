@@ -172,6 +172,32 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   // 3. LOGIKA HARGA PANGAN & VERIFIKASI (KABID & STAF)
   // ─────────────────────────────────────────────
   // Staf: Menyimpan harga komoditas (bisa Draft untuk diajukan ke Kabid atau Terbit)
+  const handleMulaiEditStaf = (item) => {
+    setIdEditHarga(item.id);
+    setFormHarga({
+      nama_komoditas: item.nama_komoditas,
+      kategori: item.kategori || 'Bahan Pokok',
+      satuan: item.satuan || 'kg',
+      harga: item.harga ? String(item.harga) : '',
+      nama_pasar: item.nama_pasar || (daftarPasar[0] || 'Pasar Bersehati Karombasan'),
+      status: item.status || 'Draft'
+    });
+    window.scrollTo({ top: 100, behavior: 'smooth' });
+  };
+
+  const handleBatalEditStaf = () => {
+    setIdEditHarga(null);
+    setFormHarga({
+      nama_komoditas: '',
+      kategori: 'Bahan Pokok',
+      satuan: 'kg',
+      harga: '',
+      nama_pasar: daftarPasar[0] || 'Pasar Bersehati Karombasan',
+      status: 'Draft'
+    });
+  };
+
+  // Simpan harga komoditas (Staf wajib lewat verifikasi Kabid sebagai Draft)
   const handleSimpanHarga = async (e, statusBaru = 'Draft') => {
     if (e) e.preventDefault();
 
@@ -180,20 +206,30 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       return;
     }
 
+    // Staf tidak boleh menerbitkan langsung ke publik; semua harus Draft untuk verifikasi Kabid
+    const statusFinal = (peran === 'Staf') ? 'Draft' : statusBaru;
+
     setSedangMenyimpan(true);
     try {
       const payload = {
         ...formHarga,
         harga: parseFloat(formHarga.harga),
-        status: statusBaru,
+        status: statusFinal,
         tanggal_penetapan: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
       };
 
-      await hargaPanganService.tambah(payload);
-
-      tampilkanPesan(statusBaru === 'Terbit'
-        ? '✅ Harga komoditas berhasil diterbitkan ke halaman publik!'
-        : '📝 Data harga disimpan sebagai draf dan siap diajukan ke Kepala Bidang untuk diverifikasi!');
+      if (idEditHarga) {
+        await hargaPanganService.perbarui(idEditHarga, payload);
+        tampilkanPesan(statusFinal === 'Terbit'
+          ? `✅ Perubahan "${formHarga.nama_komoditas}" berhasil diperbarui dan terbit!`
+          : `📝 Perubahan "${formHarga.nama_komoditas}" disimpan dan diajukan ke Kepala Bidang untuk verifikasi.`);
+        setIdEditHarga(null);
+      } else {
+        await hargaPanganService.tambah(payload);
+        tampilkanPesan(statusFinal === 'Terbit'
+          ? '✅ Harga komoditas berhasil diterbitkan ke halaman publik!'
+          : '📝 Usulan harga komoditas disimpan sebagai draf dan diajukan ke Kepala Bidang untuk verifikasi!');
+      }
 
       // Reset form
       setFormHarga({
@@ -213,20 +249,60 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     }
   };
 
+  // Kabid: Ubah data yang dibuat staf (Modal Edit Kabid)
+  const handleBukaEditKabid = (item) => {
+    setModalEditKabid({
+      buka: true,
+      item,
+      form: {
+        nama_komoditas: item.nama_komoditas,
+        kategori: item.kategori || 'Bahan Pokok',
+        satuan: item.satuan || 'kg',
+        harga: String(item.harga || ''),
+        nama_pasar: item.nama_pasar || (daftarPasar[0] || 'Pasar Bersehati Karombasan')
+      }
+    });
+  };
+
+  const handleSimpanEditKabid = async (e) => {
+    if (e) e.preventDefault();
+    if (!modalEditKabid.item) return;
+
+    try {
+      await hargaPanganService.perbarui(modalEditKabid.item.id, {
+        nama_komoditas: modalEditKabid.form.nama_komoditas,
+        kategori: modalEditKabid.form.kategori,
+        satuan: modalEditKabid.form.satuan,
+        harga: parseFloat(modalEditKabid.form.harga),
+        nama_pasar: modalEditKabid.form.nama_pasar
+      });
+      tampilkanPesan(`✅ Data "${modalEditKabid.form.nama_komoditas}" berhasil diperbarui oleh Kepala Bidang.`);
+      setModalEditKabid({ buka: false, item: null, form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuan: 'kg', harga: '', nama_pasar: '' } });
+      await muatDataDashboard();
+    } catch (error) {
+      alert('Gagal memperbarui data: ' + error.message);
+    }
+  };
+
   // Kabid: Verifikasi harga (Draft -> Terbit atau sebaliknya)
   const handleVerifikasiHarga = async (item, statusBaru) => {
     try {
       await hargaPanganService.perbarui(item.id, { status: statusBaru });
       tampilkanPesan(statusBaru === 'Terbit' 
         ? `✅ Komoditas "${item.nama_komoditas}" telah diverifikasi dan resmi terbit ke publik!`
-        : `ℹ️ Status komoditas "${item.nama_komoditas}" dikembalikan ke Draf.`);
+        : `ℹ️ Status komoditas "${item.nama_komoditas}" ditarik kembali ke Draf.`);
       await muatDataDashboard();
     } catch (error) {
       alert('Gagal memperbarui status: ' + error.message);
     }
   };
 
+  // Hapus data harga (Hanya boleh oleh Kabid atau Admin)
   const handleHapusHarga = async (id, nama) => {
+    if (peran === 'Staf') {
+      alert('Akses Ditolak: Staf tidak memiliki hak menghapus data harga. Penghapusan harus melalui Kepala Bidang.');
+      return;
+    }
     if (window.confirm(`Hapus pencatatan harga komoditas "${nama}"?`)) {
       try {
         await hargaPanganService.hapus(id);
@@ -238,9 +314,6 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     }
   };
 
-  // ─────────────────────────────────────────────
-  // 4. LOGIKA MASTER PASAR & WILAYAH (KHUSUS ADMIN)
-  // ─────────────────────────────────────────────
   const handleTambahPasar = (e) => {
     e.preventDefault();
     if (!inputPasarBaru.trim()) return;
@@ -701,7 +774,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
             <div className="tetapkan-content-columns">
               <div className="tetapkan-form-card">
-                <h3 className="form-card-heading">Formulir Masukan Data Komoditas</h3>
+                <h3 className="form-card-heading">{idEditHarga ? "✏️ Ubah Data Komoditas" : "Formulir Masukan Data Komoditas"}</h3>
                 <form onSubmit={(e) => handleSimpanHarga(e, 'Draft')} className="price-entry-form">
                   <div className="form-field-group">
                     <label className="field-label-text">Nama Komoditas / Jenis Pangan</label>

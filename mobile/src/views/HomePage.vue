@@ -19,10 +19,10 @@
       </button>
 
       <div class="mobile-login-card">
-        <!-- Logo & Brand Header -->
+        <!-- Log❌& Brand Header -->
         <div class="mobile-login-brand">
           <div class="mobile-login-logo">
-            <img src="/logodinaspangan.png" alt="Logo SIPATOKAAN" class="mobile-logo-img" />
+            <img src="/logodinaspangan.png" alt="Log❌SIPATOKAAN" class="mobile-logo-img" />
           </div>
           <div>
             <h2 class="mobile-login-title">SI PATOKAAN</h2>
@@ -95,7 +95,7 @@
         <div class="staff-header-top">
           <div class="staff-header-brand">
             <div class="staff-logo-box">
-              <img src="/logodinaspangan.png" alt="Logo SIPATOKAAN" class="staff-logo-img" />
+              <img src="/logodinaspangan.png" alt="Log❌SIPATOKAAN" class="staff-logo-img" />
             </div>
             <div>
               <h2 class="staff-header-name">Bidang Distribusi & Cadangan</h2>
@@ -225,12 +225,43 @@
               </div>
 
               <div class="s-button-stack">
-                <button type="submit" class="btn-publish-action">
-                  <span>âœˆï¸</span> {{ idDiedit ? 'Simpan & Terbitkan ke Masyarakat' : 'Terbitkan ke Halaman Masyarakat' }}
+                <!-- Staf: HANYA BISA mengajukan draf verifikasi ke Kepala Bidang -->
+                <button 
+                  v-if="!isKabid" 
+                  type="submit" 
+                  class="btn-draft-action" 
+                  style="background: #8b1e1e; color: #ffffff; width: 100%; justify-content: center; font-weight: 700; padding: 14px; border-radius: 8px; border: none; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;"
+                >
+                  <span>📝</span> {{ idDiedit ? 'Simpan Perubahan & Ajukan Verifikasi' : 'Ajukan Verifikasi ke Kepala Bidang (Draf)' }}
                 </button>
-                <button type="button" class="btn-draft-action" @click="simpanHargaPetugas('Draft')">
-                  {{ idDiedit ? 'Simpan Perubahan Draf' : 'Simpan sebagai Draf' }}
+                <button 
+                  v-if="!isKabid && idDiedit" 
+                  type="button" 
+                  class="btn-draft-action" 
+                  @click="batalEditItem" 
+                  style="background: #f1f5f9; color: #475569; width: 100%; justify-content: center; font-weight: 600; padding: 10px; margin-top: 6px; border-radius: 8px; border: 1px solid #cbd5e1;"
+                >
+                  Batal Ubah
                 </button>
+
+                <!-- Kabid / Admin: Memiliki tombol Terbitkan langsung dan Simpan Draf -->
+                <template v-if="isKabid">
+                  <button type="submit" class="btn-publish-action">
+                    <span>🚀</span> {{ idDiedit ? 'Simpan & Terbitkan ke Masyarakat' : 'Terbitkan ke Halaman Masyarakat' }}
+                  </button>
+                  <button type="button" class="btn-draft-action" @click="simpanHargaPetugas('Draft')">
+                    {{ idDiedit ? 'Simpan Perubahan Draf' : 'Simpan sebagai Draf' }}
+                  </button>
+                  <button 
+                    v-if="idDiedit" 
+                    type="button" 
+                    class="btn-draft-action" 
+                    @click="batalEditItem" 
+                    style="background: #f1f5f9; color: #475569; width: 100%; justify-content: center; font-weight: 600; padding: 10px; margin-top: 6px; border-radius: 8px; border: 1px solid #cbd5e1;"
+                  >
+                    Batal Ubah
+                  </button>
+                </template>
               </div>
             </form>
           </div>
@@ -247,25 +278,45 @@
                     <span class="unit-text"> / {{ item.satuan || 'kg' }}</span>
                   </div>
                   <div class="item-sub-meta">
-                    {{ item.nama_pasar }} Â· {{ item.tanggal_penetapan || '14 Oktober 2026' }}
+                    {{ item.nama_pasar }} · {{ item.tanggal_penetapan || '14 Oktober 2026' }}
                   </div>
                 </div>
 
                 <div class="price-info-right">
                   <div class="price-nominal-red">{{ formatRupiah(item.harga) }}</div>
                   <div class="item-actions-row">
+                    <!-- Status Badge: Kabid bisa toggle status (Setujui/Tarik), Staf hanya melihat status -->
                     <span 
+                      v-if="isKabid"
                       :class="['status-badge-tag', item.status === 'Draft' ? 'is-draft' : 'is-terbit']"
                       @click="ubahStatusItem(item)"
-                      title="Klik untuk ubah status (Terbit / Draf)"
+                      :title="item.status === 'Draft' ? 'Klik untuk Setujui & Terbitkan' : 'Klik untuk Tarik ke Draf'"
+                      style="cursor: pointer;"
+                    >
+                      {{ item.status === 'Draft' ? '⏳ Setujui' : '↩️ Tarik' }}
+                    </span>
+                    <span 
+                      v-else
+                      :class="['status-badge-tag', item.status === 'Draft' ? 'is-draft' : 'is-terbit']"
+                      style="cursor: default;"
                     >
                       {{ item.status === 'Draft' ? 'Draf' : (item.status || 'Terbit') }}
                     </span>
-                    <button type="button" class="btn-mini-action edit" @click.stop="mulaiEditItem(item)" title="Edit harga">
-                      âœï¸ Edit
+
+                    <!-- Tombol Edit: BISA diklik oleh Staf maupun Kabid untuk semua data (baik Draft maupun Terbit) -->
+                    <button type="button" class="btn-mini-action edit" @click.stop="mulaiEditItem(item)" title="Edit harga dan keterangan">
+                      ✏️ Edit
                     </button>
-                    <button type="button" class="btn-mini-action delete" @click.stop="hapusItem(item)" title="Hapus komoditas">
-                      ðŸ—‘ï¸
+
+                    <!-- Tombol Hapus: HANYA untuk Kabid / Admin -->
+                    <button 
+                      v-if="isKabid" 
+                      type="button" 
+                      class="btn-mini-action delete" 
+                      @click.stop="hapusItem(item)" 
+                      title="Hapus komoditas"
+                    >
+                      🗑️
                     </button>
                   </div>
                 </div>
@@ -368,7 +419,7 @@
             </div>
 
             <div v-if="pesanScanErrorPetugas" class="m-error-alert">
-              âš ï¸ {{ pesanScanErrorPetugas }}
+              ⚠️ï¸ {{ pesanScanErrorPetugas }}
             </div>
 
             <!-- HASIL SCAN PROFIL PENDAFTAR -->
@@ -388,7 +439,7 @@
                   <strong class="m-info-val">{{ hasilScanPetugas.nama_pendaftar }}</strong>
                 </div>
                 <div>
-                  <span class="m-info-lbl">No. HP / WA</span>
+                  <span class="m-info-lbl">N✅ HP / WA</span>
                   <strong class="m-info-val">{{ hasilScanPetugas.nomor_telepon }}</strong>
                 </div>
                 <div style="grid-column: 1 / -1;">
@@ -404,14 +455,14 @@
               </div>
 
               <div v-if="hasilScanPetugas.status_kehadiran === 'Hadir'" class="m-verified-box">
-                âœ… Pendaftar telah diverifikasi hadir di lokasi GPM.
+                ✅ Pendaftar telah diverifikasi hadir di lokasi GPM.
               </div>
               <button 
                 v-else 
                 class="btn-m-verify-confirm" 
                 @click="verifikasiKehadiranMobile"
               >
-                âœ… Konfirmasi Kehadiran & Layani Antrean
+                ✅ Konfirmasi Kehadiran & Layani Antrean
               </button>
             </div>
           </div>
@@ -431,7 +482,7 @@
                 <div class="m-queue-meta">
                   <strong>{{ item.nama_pendaftar }}</strong>
                   <div style="font-size: 0.76rem; color: #64748b;">
-                    ðŸ“± {{ item.nomor_telepon }} Â· <code>{{ item.kode_barcode }}</code>
+                    📱 {{ item.nomor_telepon }} · <code>{{ item.kode_barcode }}</code>
                   </div>
                 </div>
                 <div>
@@ -507,7 +558,7 @@
         <div class="mobile-top-bar">
           <div class="brand-left">
             <div class="logo-box-maroon">
-              <img src="/logodinaspangan.png" alt="Logo SIPATOKAAN" class="public-logo-img" />
+              <img src="/logodinaspangan.png" alt="Log❌SIPATOKAAN" class="public-logo-img" />
             </div>
             <div class="brand-title-wrap">
               <h1 class="brand-name">SIPATOKAAN</h1>
@@ -562,7 +613,7 @@
         </ion-refresher>
         <!-- KONTEN A: HARGA PANGAN -->
         <div v-if="tabAktif === 'harga'">
-          <!-- Hero Banner Maroon -->
+          <!-- Her❌Banner Maroon -->
           <div class="mobile-hero-card">
             <div class="hero-badge-tag">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -574,7 +625,7 @@
             <h2 class="hero-title-text">Harga Pangan Kota Manado</h2>
 
             <p class="hero-desc-text">
-              Informasi terkini harga produsen dan konsumen komoditas pangan di pasar Kota Manado. Data diperbarui rutin oleh Dinas Pangan untuk transparansi dan stabilisasi harga.
+              Informasi terkini harga produsen dan konsumen komoditas pangan di pasar Kota Manad✅ Data diperbarui rutin oleh Dinas Pangan untuk transparansi dan stabilisasi harga.
             </p>
 
             <div class="hero-update-date">
@@ -623,7 +674,7 @@
             </div>
           </div>
 
-          <!-- 6. Subheader Info Row -->
+          <!-- 6. Subheader Inf❌Row -->
           <div class="mobile-info-summary-row">
             <span class="info-found-text">{{ komoditasTerfilter.length }} komoditas ditemukan</span>
             <span class="info-unit-text">Harga per kg</span>
@@ -660,15 +711,15 @@
 
         <!-- KONTEN B: GERAKAN PANGAN MURAH (GPM) PUBLIK (TANPA LOGIN) -->
         <div v-else-if="tabAktif === 'gpm'" class="mobile-gpm-public-section">
-          <!-- Hero Banner GPM Mobile -->
+          <!-- Her❌Banner GPM Mobile -->
           <div class="mobile-hero-card gpm-hero-theme">
             <div class="hero-badge-tag">
-              <span>ðŸŽŸï¸</span>
+              <span>🎟️ï¸</span>
               <span>Antrean Daring GPM Manado</span>
             </div>
             <h2 class="hero-title-text">Gerakan Pangan Murah</h2>
             <p class="hero-desc-text">
-              Daftarkan diri Anda untuk mendapatkan nomor antrean dan kode QR resmi kegiatan Gerakan Pangan Murah di Kota Manado. <strong>Tanpa masuk akun.</strong>
+              Daftarkan diri Anda untuk mendapatkan nomor antrean dan kode QR resmi kegiatan Gerakan Pangan Murah di Kota Manad✅ <strong>Tanpa masuk akun.</strong>
             </p>
             <div class="hero-update-date">
               <span>ðŸ“ {{ daftarAcaraGPM.length }} Lokasi Pelaksanaan Tersedia</span>
@@ -695,14 +746,14 @@
 
               <div class="m-ticket-meta-box">
                 <p><span>Nama Pendaftar:</span> <strong>{{ tiketGPMHasil.tiket.nama_pendaftar }}</strong></p>
-                <p><span>No. HP/WA:</span> <strong>{{ tiketGPMHasil.tiket.nomor_telepon }}</strong></p>
+                <p><span>N✅ HP/WA:</span> <strong>{{ tiketGPMHasil.tiket.nomor_telepon }}</strong></p>
                 <p><span>Acara:</span> <strong>{{ tiketGPMHasil.acara.nama_acara }}</strong></p>
                 <p><span>Tempat:</span> <strong>{{ tiketGPMHasil.acara.lokasi }}</strong></p>
                 <p><span>Waktu:</span> <strong>{{ tiketGPMHasil.acara.tanggal }} ({{ tiketGPMHasil.acara.jam }})</strong></p>
               </div>
 
               <div class="m-ticket-instruction">
-                ðŸ“± <strong>Petunjuk:</strong> Tunjukkan Kode QR ini ke petugas Dinas Pangan di lokasi GPM saat giliran Anda dipanggil untuk dipindai.
+                📱 <strong>Petunjuk:</strong> Tunjukkan Kode QR ini ke petugas Dinas Pangan di lokasi GPM saat giliran Anda dipanggil untuk dipindai.
               </div>
 
               <button class="btn-m-take-new" @click="tiketGPMHasil = null">
@@ -716,21 +767,26 @@
             <!-- Peta Sebaran Lokasi GPM Visual Card -->
             <div class="m-map-visual-card">
               <div class="m-map-header">
-                <span>ðŸ—ºï¸ Titik Lokasi GPM di Kota Manado</span>
-                <span style="font-size: 0.75rem; color: #8b1e1e; font-weight: bold;">(Ketuk titik)</span>
+                <span>🗺️ Titik Lokasi Peta GPM di Kota Manado</span>
+                <span style="font-size: 0.75rem; color: #8b1e1e; font-weight: bold;">(Interaktif)</span>
               </div>
+              
+              <!-- Peta Leaflet Interaktif -->
+              <div id="petaGpmMobile" class="m-leaflet-map-box"></div>
+
               <div class="m-map-body-graphic">
                 <div 
                   v-for="acara in daftarAcaraGPM" 
                   :key="acara.id" 
                   :class="['m-map-grid-pin', acaraGPMDipilih?.id === acara.id ? 'active' : '']"
-                  @click="acaraGPMDipilih = acara"
+                  @click="pilihAcaraGpm(acara)"
                 >
-                  <span class="pin-icon">ðŸ“</span>
+                  <span class="pin-icon">📍</span>
                   <div class="pin-info-wrap">
                     <strong class="pin-name">{{ acara.nama_acara }}</strong>
                     <span class="pin-sub">{{ acara.lokasi }} ({{ acara.kecamatan }})</span>
                   </div>
+                  <span v-if="acaraGPMDipilih?.id === acara.id" class="pin-badge-selected">Dipilih ✓</span>
                 </div>
               </div>
             </div>
@@ -743,20 +799,20 @@
               </div>
               <div class="m-event-info">
                 <p>ðŸ“ {{ acaraGPMDipilih.lokasi }} (Kec. {{ acaraGPMDipilih.kecamatan }})</p>
-                <p>ðŸ“… {{ acaraGPMDipilih.tanggal }} Â· â° {{ acaraGPMDipilih.jam_mulai }} - {{ acaraGPMDipilih.jam_selesai }} WITA</p>
+                <p>📅 {{ acaraGPMDipilih.tanggal }} · ⏰ {{ acaraGPMDipilih.jam_mulai }} - {{ acaraGPMDipilih.jam_selesai }} WITA</p>
               </div>
               <div class="m-event-commodities">
-                <strong>ðŸŒ¾ Komoditas Pangan Murah:</strong>
+                <strong>🌾 Komoditas Pangan Murah:</strong>
                 <p>{{ acaraGPMDipilih.komoditas_tersedia }}</p>
               </div>
 
               <!-- Form Ambil Antrean (Tanpa Login) -->
               <form @submit.prevent="ambilNomorAntreanMobile" class="m-queue-form">
-                <h4 class="m-form-heading">ðŸŽŸï¸ Formulir Ambil Nomor Antrean</h4>
-                <p class="m-form-subheading">Masyarakat tidak perlu masuk akun, cukup isi nama dan no. HP:</p>
+                <h4 class="m-form-heading">🎟️ï¸ Formulir Ambil Nomor Antrean</h4>
+                <p class="m-form-subheading">Masyarakat tidak perlu masuk akun, cukup isi nama dan n✅ HP:</p>
 
                 <div v-if="pesanErrorGPM" class="m-error-alert">
-                  âš ï¸ {{ pesanErrorGPM }}
+                  ⚠️ï¸ {{ pesanErrorGPM }}
                 </div>
 
                 <div class="m-input-group-mobile">
@@ -784,7 +840,7 @@
                 </div>
 
                 <button type="submit" class="btn-m-get-queue" :disabled="sedangDaftarGPM">
-                  {{ sedangDaftarGPM ? 'Memproses...' : 'ðŸŽŸï¸ Dapatkan Nomor Antrean & Kode QR' }}
+                  {{ sedangDaftarGPM ? 'Memproses...' : '🎟️ï¸ Dapatkan Nomor Antrean & Kode QR' }}
                 </button>
               </form>
             </div>
@@ -824,7 +880,7 @@
               <strong>{{ statusKoneksi.online ? 'Terhubung ke Website & Backend' : 'Server Belum Terhubung' }}</strong>
               <p>{{ statusKoneksi.pesan }}</p>
               <div v-if="statusKoneksi.online" class="server-latency-text">
-                Respon Server: {{ statusKoneksi.latency }}ms Â· Status: OK 200
+                Respon Server: {{ statusKoneksi.latency }}ms · Status: OK 200
               </div>
             </div>
           </div>
@@ -871,14 +927,14 @@
                 class="btn-preset-chip" 
                 @click="pilihPreset(`http://${DEFAULT_HOST_LAN}:${DEFAULT_PORT}`)"
               >
-                ðŸ’» IP Laptop Ini ({{ DEFAULT_HOST_LAN }})
+                💻 IP Laptop Ini ({{ DEFAULT_HOST_LAN }})
               </button>
               <button 
                 type="button" 
                 class="btn-preset-chip" 
                 @click="pilihPreset('http://10.0.2.2:3000')"
               >
-                ðŸ“± Emulator Android (10.0.2.2)
+                📱 Emulator Android (10.0.2.2)
               </button>
               <button 
                 type="button" 
@@ -896,7 +952,7 @@
             Batal
           </button>
           <button type="button" class="btn-save-server" @click="simpanKonfigurasiServer" :disabled="sedangUjiKoneksi">
-            ðŸ’¾ Simpan & Hubungkan
+            💾 Simpan & Hubungkan
           </button>
         </div>
       </div>
@@ -910,7 +966,8 @@
 // LOGIKA SCRIPT (VUE 3 COMPOSITION API & OOP SERVICE MOBILE)
 // ===================================================================================
 
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick, watch } from 'vue';
+import L from 'leaflet';
 import { IonPage, IonHeader, IonContent, IonRefresher, IonRefresherContent } from '@ionic/vue';
 import { 
   getServerBaseUrl, 
@@ -934,6 +991,67 @@ import {
   HasilTiketGPM,
   StatistikGPM
 } from '../services/GPMService';
+
+
+// ─── LEAFLET MAP MOBILE GPM ───────────────────────────────
+let mapInstance: L.Map | null = null;
+let markers: L.Marker[] = [];
+
+const inisialisasiPetaGpm = () => {
+  nextTick(() => {
+    const el = document.getElementById('petaGpmMobile');
+    if (!el) return;
+
+    if (mapInstance) {
+      mapInstance.remove();
+      mapInstance = null;
+    }
+
+    // Buat Peta Leaflet Berpusat di Kota Manado
+    mapInstance = L.map('petaGpmMobile', {
+      zoomControl: true,
+      scrollWheelZoom: false,
+      attributionControl: false
+    }).setView([1.482, 124.842], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(mapInstance);
+
+    markers = [];
+    daftarAcaraGPM.value.forEach(acara => {
+      const lat = acara.latitude || (acara.nama_acara.includes('Tikala') ? 1.4878 : 1.4647);
+      const lng = acara.longitude || (acara.nama_acara.includes('Tikala') ? 124.8427 : 124.8415);
+
+      const customPin = L.divIcon({
+        className: 'gpm-pin-wrap',
+        html: `<div style="background:#8b1e1e;color:#ffffff;border-radius:20px;padding:5px 9px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:3px;box-shadow:0 3px 8px rgba(0,0,0,0.3);border:2px solid #ffffff;white-space:nowrap;">📍 ${acara.nama_acara.replace('GPM ', '')}</div>`,
+        iconSize: [130, 32],
+        iconAnchor: [65, 16]
+      });
+
+      const marker = L.marker([lat, lng], { icon: customPin }).addTo(mapInstance!);
+      marker.bindPopup(`<b>${acara.nama_acara}</b><br>${acara.lokasi}<br><i>Ketuk untuk memilih lokasi</i>`);
+      marker.on('click', () => {
+        pilihAcaraGpm(acara);
+      });
+      markers.push(marker);
+    });
+
+    setTimeout(() => {
+      if (mapInstance) mapInstance.invalidateSize();
+    }, 400);
+  });
+};
+
+const pilihAcaraGpm = (acara: ItemAcaraGPM) => {
+  acaraGPMDipilih.value = acara;
+  if (mapInstance) {
+    const lat = acara.latitude || (acara.nama_acara.includes('Tikala') ? 1.4878 : 1.4647);
+    const lng = acara.longitude || (acara.nama_acara.includes('Tikala') ? 124.8427 : 124.8415);
+    mapInstance.setView([lat, lng], 14, { animate: true });
+  }
+};
 
 // Mode Tampilan Mobile: 'publik', 'login', 'petugas'
 const tampilanMode = ref<'publik' | 'login' | 'petugas'>('publik');
@@ -962,7 +1080,7 @@ const cekKoneksiServer = async (tampilkanToast = false) => {
     latency: hasil.latencyMs || 0
   };
   if (tampilkanToast && hasil.sukses) {
-    alert(`âœ… ${hasil.pesan}`);
+    alert(`✅ ${hasil.pesan}`);
   }
 };
 
@@ -1003,8 +1121,8 @@ const simpanKonfigurasiServer = async () => {
     await muatDataGPM();
     tampilkanModalServer.value = false;
     alert(statusKoneksi.value.online 
-      ? 'âœ… Berhasil terhubung ke server website! Data kini tersinkronisasi langsung.' 
-      : 'âš ï¸ Alamat server disimpan, namun server belum merespon. Pastikan backend di PC sudah berjalan.');
+      ? '✅ Berhasil terhubung ke server website! Data kini tersinkronisasi langsung.' 
+      : '⚠️ï¸ Alamat server disimpan, namun server belum merespon. Pastikan backend di PC sudah berjalan.');
   } finally {
     sedangUjiKoneksi.value = false;
   }
@@ -1121,6 +1239,19 @@ const daftarKategoriList = [
 ];
 
 // Lifecycle: Ambil data saat awal dibuka
+
+watch(tabAktif, (baru) => {
+  if (baru === 'gpm') {
+    setTimeout(inisialisasiPetaGpm, 200);
+  }
+});
+
+watch(daftarAcaraGPM, () => {
+  if (tabAktif.value === 'gpm') {
+    inisialisasiPetaGpm();
+  }
+});
+
 onMounted(async () => {
   await cekKoneksiServer(false);
   await muatData();
@@ -1347,7 +1478,7 @@ const eksekusiLogout = () => {
 };
 
 const alertLupaPassword = () => {
-  alert('Silakan hubungi administrator Dinas Pangan Kota Manado.');
+  alert('Silakan hubungi administrator Dinas Pangan Kota Manad✅');
 };
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1384,7 +1515,7 @@ const hapusItem = async (item: ItemHargaPangan) => {
   if (!confirm(`Hapus data harga untuk "${item.nama_komoditas}"?`)) return;
   try {
     await hargaPanganMobileService.hapus(item.id);
-    pesanSuksesMobile.value = `ðŸ—‘ï¸ Data ${item.nama_komoditas} berhasil dihapus!`;
+    pesanSuksesMobile.value = `🗑️ï¸ Data ${item.nama_komoditas} berhasil dihapus!`;
     setTimeout(() => pesanSuksesMobile.value = '', 3500);
     if (idDiedit.value === item.id) {
       batalEditItem();
@@ -1413,7 +1544,7 @@ const simpanHargaPetugas = async (status: 'Terbit' | 'Draft') => {
         tanggal_penetapan: '14 Oktober 2026'
       });
       pesanSuksesMobile.value = status === 'Terbit' 
-        ? `âœ… Perubahan "${formPenetapan.value.nama_komoditas}" berhasil diterbitkan ke masyarakat!` 
+        ? `✅ Perubahan "${formPenetapan.value.nama_komoditas}" berhasil diterbitkan ke masyarakat!` 
         : `ðŸ“ Perubahan "${formPenetapan.value.nama_komoditas}" disimpan sebagai draf!`;
       batalEditItem();
     } else {
@@ -1427,7 +1558,7 @@ const simpanHargaPetugas = async (status: 'Terbit' | 'Draft') => {
         status: status
       });
       pesanSuksesMobile.value = status === 'Terbit' 
-        ? 'âœ… Harga berhasil diterbitkan ke masyarakat!' 
+        ? '✅ Harga berhasil diterbitkan ke masyarakat!' 
         : 'ðŸ“ Harga disimpan sebagai draf!';
       formPenetapan.value.nama_komoditas = '';
       formPenetapan.value.harga = '';
@@ -1447,7 +1578,7 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   if (item.id) {
     await hargaPanganMobileService.perbarui(item.id, { status: statusBaru });
     pesanSuksesMobile.value = statusBaru === 'Terbit'
-      ? `âœ… "${item.nama_komoditas}" diterbitkan ke halaman masyarakat!`
+      ? `✅ "${item.nama_komoditas}" diterbitkan ke halaman masyarakat!`
       : `ðŸ“ "${item.nama_komoditas}" diubah menjadi draf.`;
     setTimeout(() => pesanSuksesMobile.value = '', 3000);
     await muatData();
@@ -1524,7 +1655,7 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   margin-bottom: 16px;
 }
 
-.mobile-login-logo {
+.mobile-login-log❌{
   width: 40px;
   height: 40px;
   background: #ffffff;
@@ -1903,7 +2034,7 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   outline: none;
 }
 
-.s-row-two {
+.s-row-tw❌{
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
@@ -2777,13 +2908,13 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   white-space: nowrap;
 }
 
-.m-event-info {
+.m-event-inf❌{
   font-size: 0.8rem;
   color: #475569;
   margin-bottom: 8px;
 }
 
-.m-event-info p {
+.m-event-inf❌p {
   margin: 2px 0;
 }
 
@@ -2955,7 +3086,7 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
     opacity: 0;
     transform: scale(0.96) translateY(8px);
   }
-  to {
+  t❌{
     opacity: 1;
     transform: scale(1) translateY(0);
   }
