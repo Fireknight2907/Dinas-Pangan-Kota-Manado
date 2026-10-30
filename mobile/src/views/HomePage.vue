@@ -15,7 +15,7 @@
     <div v-if="tampilanMode === 'login'" class="mobile-login-screen">
       <!-- Tombol Kembali -->
       <button class="btn-back-to-public" @click="tampilanMode = 'publik'">
-        ← Kembali ke Beranda
+        â† Kembali ke Beranda
       </button>
 
       <div class="mobile-login-card">
@@ -35,7 +35,7 @@
           <h3>Selamat Datang</h3>
           <p>Masuk ke akun Anda untuk melanjutkan</p>
           <div class="m-login-hint-badge">
-            💡 Contoh akun: <strong>effrend</strong> / Sandi: <strong>12345678</strong>
+            ðŸ’¡ Contoh akun: <strong>effrend</strong> / Sandi: <strong>12345678</strong>
           </div>
         </div>
 
@@ -44,7 +44,7 @@
           <div class="m-input-group">
             <label>NAMA PENGGUNA / EMAIL</label>
             <div class="m-input-icon-box">
-              <span class="m-icon">👤</span>
+              <span class="m-icon">ðŸ‘¤</span>
               <input 
                 type="text" 
                 v-model="loginInput.email" 
@@ -57,7 +57,7 @@
           <div class="m-input-group">
             <label>KATA SANDI</label>
             <div class="m-input-icon-box">
-              <span class="m-icon">🔒</span>
+              <span class="m-icon">ðŸ”’</span>
               <input 
                 :type="lihatPassword ? 'text' : 'password'" 
                 v-model="loginInput.password" 
@@ -65,7 +65,7 @@
                 placeholder="Masukan kata sandi"
               />
               <button type="button" class="btn-eye" @click="lihatPassword = !lihatPassword">
-                {{ lihatPassword ? '👁️' : '👁️‍🗨️' }}
+                {{ lihatPassword ? 'ðŸ‘ï¸' : 'ðŸ‘ï¸â€ðŸ—¨ï¸' }}
               </button>
             </div>
           </div>
@@ -104,8 +104,20 @@
           </div>
 
           <div class="staff-header-user">
+            <!-- Indikator Koneksi Web -->
+            <button 
+              type="button" 
+              class="btn-server-status" 
+              :class="statusKoneksi.online ? 'is-online' : 'is-offline'" 
+              @click="bukaModalServer"
+              title="Koneksi Website & Backend"
+            >
+              <span class="status-pulse-dot"></span>
+              <span class="status-label-short">{{ statusKoneksi.online ? 'Web Online' : 'Offline' }}</span>
+            </button>
+
             <div class="notif-bell-icon">
-              🔔
+              ðŸ””
               <span class="red-dot"></span>
             </div>
             <div class="staff-avatar-mini" title="Roni Tilaar">
@@ -141,6 +153,9 @@
       </ion-header>
 
       <ion-content class="mobile-staff-content">
+        <ion-refresher slot="fixed" @ionRefresh="handleRefresh($event)">
+          <ion-refresher-content pulling-text="Tarik ke bawah untuk memperbarui..." refreshing-spinner="crescent" refreshing-text="Menyinkronkan data dari web..."></ion-refresher-content>
+        </ion-refresher>
         <!-- SUB-VIEW A: FORMULIR PENETAPAN HARGA & DAFTAR (GAMBAR 3 RESPONSIVE) -->
         <div v-if="menuPetugas === 'tetapkan'" class="staff-view-container">
           <div class="staff-heading-area">
@@ -158,10 +173,10 @@
           <!-- FORMULIR PENETAPAN HARGA -->
           <div class="staff-form-panel" id="formPenetapanPanel">
             <div class="panel-title-row">
-              <span class="plus-icon-red">{{ idDiedit ? '✏️' : '+' }}</span>
+              <span class="plus-icon-red">{{ idDiedit ? 'âœï¸' : '+' }}</span>
               <h3>{{ idDiedit ? 'Ubah Penetapan Harga' : 'Formulir Penetapan Harga' }}</h3>
               <button v-if="idDiedit" type="button" class="btn-cancel-edit-pill" @click="batalEditItem">
-                ✕ Batal
+                âœ• Batal
               </button>
             </div>
 
@@ -211,7 +226,7 @@
 
               <div class="s-button-stack">
                 <button type="submit" class="btn-publish-action">
-                  <span>✈️</span> {{ idDiedit ? 'Simpan & Terbitkan ke Masyarakat' : 'Terbitkan ke Halaman Masyarakat' }}
+                  <span>âœˆï¸</span> {{ idDiedit ? 'Simpan & Terbitkan ke Masyarakat' : 'Terbitkan ke Halaman Masyarakat' }}
                 </button>
                 <button type="button" class="btn-draft-action" @click="simpanHargaPetugas('Draft')">
                   {{ idDiedit ? 'Simpan Perubahan Draf' : 'Simpan sebagai Draf' }}
@@ -232,7 +247,7 @@
                     <span class="unit-text"> / {{ item.satuan || 'kg' }}</span>
                   </div>
                   <div class="item-sub-meta">
-                    {{ item.nama_pasar }} · {{ item.tanggal_penetapan || '14 Oktober 2026' }}
+                    {{ item.nama_pasar }} Â· {{ item.tanggal_penetapan || '14 Oktober 2026' }}
                   </div>
                 </div>
 
@@ -247,10 +262,10 @@
                       {{ item.status === 'Draft' ? 'Draf' : (item.status || 'Terbit') }}
                     </span>
                     <button type="button" class="btn-mini-action edit" @click.stop="mulaiEditItem(item)" title="Edit harga">
-                      ✏️ Edit
+                      âœï¸ Edit
                     </button>
                     <button type="button" class="btn-mini-action delete" @click.stop="hapusItem(item)" title="Hapus komoditas">
-                      🗑️
+                      ðŸ—‘ï¸
                     </button>
                   </div>
                 </div>
@@ -306,26 +321,26 @@
               :class="['m-gpm-nav-btn', subMenuPetugasGPM === 'scan' ? 'active' : '']"
               @click="subMenuPetugasGPM = 'scan'"
             >
-              📷 Pindai Kode QR
+              ðŸ“· Pindai Kode QR
             </button>
             <button 
               :class="['m-gpm-nav-btn', subMenuPetugasGPM === 'antrean' ? 'active' : '']"
               @click="subMenuPetugasGPM = 'antrean'"
             >
-              📋 Data Antrean
+              ðŸ“‹ Data Antrean
             </button>
             <button 
               :class="['m-gpm-nav-btn', subMenuPetugasGPM === 'buat' ? 'active' : '']"
               @click="subMenuPetugasGPM = 'buat'"
             >
-              📍 Tambah GPM
+              ðŸ“ Tambah GPM
             </button>
           </div>
 
           <!-- TAB 1: SCAN QR CODE MOBILE -->
           <div v-if="subMenuPetugasGPM === 'scan'" class="staff-form-panel">
             <div class="panel-title-row">
-              <span class="plus-icon-red">📷</span>
+              <span class="plus-icon-red">ðŸ“·</span>
               <h3>Pindai Kode QR Antrean Tiket</h3>
             </div>
             <p style="font-size: 0.82rem; color: #64748b; margin: 4px 0 12px 0;">
@@ -353,14 +368,14 @@
             </div>
 
             <div v-if="pesanScanErrorPetugas" class="m-error-alert">
-              ⚠️ {{ pesanScanErrorPetugas }}
+              âš ï¸ {{ pesanScanErrorPetugas }}
             </div>
 
             <!-- HASIL SCAN PROFIL PENDAFTAR -->
             <div v-if="hasilScanPetugas" class="m-scan-profile-result">
               <div class="m-profile-header">
                 <span style="font-size: 0.8rem; font-weight: 700; color: #2e7d32;">
-                  ✓ DATA PENDAFTAR DITEMUKAN
+                  âœ“ DATA PENDAFTAR DITEMUKAN
                 </span>
                 <span class="m-badge-queue">
                   #{{ String(hasilScanPetugas.nomor_antrean).padStart(3, '0') }}
@@ -383,20 +398,20 @@
                 <div style="grid-column: 1 / -1;">
                   <span class="m-info-lbl">Status Kehadiran</span>
                   <span :class="['m-status-tag', hasilScanPetugas.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu']">
-                    {{ hasilScanPetugas.status_kehadiran === 'Hadir' ? '✓ Hadir / Terverifikasi' : '⏳ Menunggu Verifikasi' }}
+                    {{ hasilScanPetugas.status_kehadiran === 'Hadir' ? 'âœ“ Hadir / Terverifikasi' : 'â³ Menunggu Verifikasi' }}
                   </span>
                 </div>
               </div>
 
               <div v-if="hasilScanPetugas.status_kehadiran === 'Hadir'" class="m-verified-box">
-                ✅ Pendaftar telah diverifikasi hadir di lokasi GPM.
+                âœ… Pendaftar telah diverifikasi hadir di lokasi GPM.
               </div>
               <button 
                 v-else 
                 class="btn-m-verify-confirm" 
                 @click="verifikasiKehadiranMobile"
               >
-                ✅ Konfirmasi Kehadiran & Layani Antrean
+                âœ… Konfirmasi Kehadiran & Layani Antrean
               </button>
             </div>
           </div>
@@ -404,7 +419,7 @@
           <!-- TAB 2: DATA ANTREAN MASYARAKAT -->
           <div v-if="subMenuPetugasGPM === 'antrean'" class="staff-form-panel">
             <div class="panel-title-row">
-              <span class="plus-icon-red">📋</span>
+              <span class="plus-icon-red">ðŸ“‹</span>
               <h3>Daftar Orang yang Ambil Nomor ({{ pendaftarGPMList.length }})</h3>
             </div>
 
@@ -416,7 +431,7 @@
                 <div class="m-queue-meta">
                   <strong>{{ item.nama_pendaftar }}</strong>
                   <div style="font-size: 0.76rem; color: #64748b;">
-                    📱 {{ item.nomor_telepon }} · <code>{{ item.kode_barcode }}</code>
+                    ðŸ“± {{ item.nomor_telepon }} Â· <code>{{ item.kode_barcode }}</code>
                   </div>
                 </div>
                 <div>
@@ -431,7 +446,7 @@
           <!-- TAB 3: TAMBAH TITIK LOKASI GPM BARU -->
           <div v-if="subMenuPetugasGPM === 'buat'" class="staff-form-panel">
             <div class="panel-title-row">
-              <span class="plus-icon-red">📍</span>
+              <span class="plus-icon-red">ðŸ“</span>
               <h3>Jadwalkan Lokasi GPM Baru</h3>
             </div>
 
@@ -473,7 +488,7 @@
                 <input type="text" v-model="formGPMBaru.komoditas_tersedia" placeholder="Beras SPHP, Minyakita, Gula Pasir" />
               </div>
               <button type="submit" class="btn-publish-action" :disabled="sedangSimpanGPMBaru">
-                <span>📍</span> {{ sedangSimpanGPMBaru ? 'Menyimpan...' : 'Terbitkan Acara ke Peta' }}
+                <span>ðŸ“</span> {{ sedangSimpanGPMBaru ? 'Menyimpan...' : 'Terbitkan Acara ke Peta' }}
               </button>
             </form>
           </div>
@@ -502,6 +517,18 @@
 
           <div class="header-actions-right">
             <!-- Tombol Login Petugas Mobile -->
+            <!-- Indikator Koneksi Web -->
+            <button 
+              type="button" 
+              class="btn-server-status" 
+              :class="statusKoneksi.online ? 'is-online' : 'is-offline'" 
+              @click="bukaModalServer"
+              title="Koneksi Website & Backend"
+            >
+              <span class="status-pulse-dot"></span>
+              <span class="status-label-short">{{ statusKoneksi.online ? 'Web Online' : 'Offline' }}</span>
+            </button>
+
             <button class="btn-login-mobile" @click="bukaLoginMobile">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2">
                 <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/>
@@ -530,6 +557,9 @@
 
       <!-- 3. Konten Utama Beranda Publik -->
       <ion-content :fullscreen="true" class="mobile-content-area">
+        <ion-refresher slot="fixed" @ionRefresh="handleRefresh($event)">
+          <ion-refresher-content pulling-text="Tarik ke bawah untuk memperbarui..." refreshing-spinner="crescent" refreshing-text="Menyinkronkan data dari web..."></ion-refresher-content>
+        </ion-refresher>
         <!-- KONTEN A: HARGA PANGAN -->
         <div v-if="tabAktif === 'harga'">
           <!-- Hero Banner Maroon -->
@@ -582,7 +612,7 @@
                 placeholder="Cari komoditas: beras, cabai, daging, ikan..."
                 class="mobile-search-input"
               />
-              <button v-if="kataKunciPencarian" class="btn-clear-mobile" @click="resetPencarian">✕</button>
+              <button v-if="kataKunciPencarian" class="btn-clear-mobile" @click="resetPencarian">âœ•</button>
             </div>
 
             <div class="mobile-select-box">
@@ -633,7 +663,7 @@
           <!-- Hero Banner GPM Mobile -->
           <div class="mobile-hero-card gpm-hero-theme">
             <div class="hero-badge-tag">
-              <span>🎟️</span>
+              <span>ðŸŽŸï¸</span>
               <span>Antrean Daring GPM Manado</span>
             </div>
             <h2 class="hero-title-text">Gerakan Pangan Murah</h2>
@@ -641,7 +671,7 @@
               Daftarkan diri Anda untuk mendapatkan nomor antrean dan kode QR resmi kegiatan Gerakan Pangan Murah di Kota Manado. <strong>Tanpa masuk akun.</strong>
             </p>
             <div class="hero-update-date">
-              <span>📍 {{ daftarAcaraGPM.length }} Lokasi Pelaksanaan Tersedia</span>
+              <span>ðŸ“ {{ daftarAcaraGPM.length }} Lokasi Pelaksanaan Tersedia</span>
             </div>
           </div>
 
@@ -657,7 +687,7 @@
                 <div class="m-ticket-queue-num">
                   #{{ String(tiketGPMHasil.tiket.nomor_antrean).padStart(3, '0') }}
                 </div>
-                <span class="m-ticket-badge-wait">⏳ Menunggu Verifikasi di Lokasi</span>
+                <span class="m-ticket-badge-wait">â³ Menunggu Verifikasi di Lokasi</span>
               </div>
 
               <!-- Barcode Generator Mobile -->
@@ -672,11 +702,11 @@
               </div>
 
               <div class="m-ticket-instruction">
-                📱 <strong>Petunjuk:</strong> Tunjukkan Kode QR ini ke petugas Dinas Pangan di lokasi GPM saat giliran Anda dipanggil untuk dipindai.
+                ðŸ“± <strong>Petunjuk:</strong> Tunjukkan Kode QR ini ke petugas Dinas Pangan di lokasi GPM saat giliran Anda dipanggil untuk dipindai.
               </div>
 
               <button class="btn-m-take-new" @click="tiketGPMHasil = null">
-                ➕ Ambil Antrean Lain
+                âž• Ambil Antrean Lain
               </button>
             </div>
           </div>
@@ -686,7 +716,7 @@
             <!-- Peta Sebaran Lokasi GPM Visual Card -->
             <div class="m-map-visual-card">
               <div class="m-map-header">
-                <span>🗺️ Titik Lokasi GPM di Kota Manado</span>
+                <span>ðŸ—ºï¸ Titik Lokasi GPM di Kota Manado</span>
                 <span style="font-size: 0.75rem; color: #8b1e1e; font-weight: bold;">(Ketuk titik)</span>
               </div>
               <div class="m-map-body-graphic">
@@ -696,7 +726,7 @@
                   :class="['m-map-grid-pin', acaraGPMDipilih?.id === acara.id ? 'active' : '']"
                   @click="acaraGPMDipilih = acara"
                 >
-                  <span class="pin-icon">📍</span>
+                  <span class="pin-icon">ðŸ“</span>
                   <div class="pin-info-wrap">
                     <strong class="pin-name">{{ acara.nama_acara }}</strong>
                     <span class="pin-sub">{{ acara.lokasi }} ({{ acara.kecamatan }})</span>
@@ -712,21 +742,21 @@
                 <span class="m-event-quota">Sisa {{ acaraGPMDipilih.sisa_kuota ?? 247 }} kuota</span>
               </div>
               <div class="m-event-info">
-                <p>📍 {{ acaraGPMDipilih.lokasi }} (Kec. {{ acaraGPMDipilih.kecamatan }})</p>
-                <p>📅 {{ acaraGPMDipilih.tanggal }} · ⏰ {{ acaraGPMDipilih.jam_mulai }} - {{ acaraGPMDipilih.jam_selesai }} WITA</p>
+                <p>ðŸ“ {{ acaraGPMDipilih.lokasi }} (Kec. {{ acaraGPMDipilih.kecamatan }})</p>
+                <p>ðŸ“… {{ acaraGPMDipilih.tanggal }} Â· â° {{ acaraGPMDipilih.jam_mulai }} - {{ acaraGPMDipilih.jam_selesai }} WITA</p>
               </div>
               <div class="m-event-commodities">
-                <strong>🌾 Komoditas Pangan Murah:</strong>
+                <strong>ðŸŒ¾ Komoditas Pangan Murah:</strong>
                 <p>{{ acaraGPMDipilih.komoditas_tersedia }}</p>
               </div>
 
               <!-- Form Ambil Antrean (Tanpa Login) -->
               <form @submit.prevent="ambilNomorAntreanMobile" class="m-queue-form">
-                <h4 class="m-form-heading">🎟️ Formulir Ambil Nomor Antrean</h4>
+                <h4 class="m-form-heading">ðŸŽŸï¸ Formulir Ambil Nomor Antrean</h4>
                 <p class="m-form-subheading">Masyarakat tidak perlu masuk akun, cukup isi nama dan no. HP:</p>
 
                 <div v-if="pesanErrorGPM" class="m-error-alert">
-                  ⚠️ {{ pesanErrorGPM }}
+                  âš ï¸ {{ pesanErrorGPM }}
                 </div>
 
                 <div class="m-input-group-mobile">
@@ -754,7 +784,7 @@
                 </div>
 
                 <button type="submit" class="btn-m-get-queue" :disabled="sedangDaftarGPM">
-                  {{ sedangDaftarGPM ? 'Memproses...' : '🎟️ Dapatkan Nomor Antrean & Kode QR' }}
+                  {{ sedangDaftarGPM ? 'Memproses...' : 'ðŸŽŸï¸ Dapatkan Nomor Antrean & Kode QR' }}
                 </button>
               </form>
             </div>
@@ -768,6 +798,110 @@
       </ion-content>
     </div>
 
+    <!-- ===============================================================================
+         MODAL PENGATURAN KONEKSI SERVER & WEBSITE
+         =============================================================================== -->
+    <div v-if="tampilkanModalServer" class="server-config-modal-overlay" @click.self="tampilkanModalServer = false">
+      <div class="server-config-modal-card">
+        <div class="server-modal-header">
+          <div class="server-modal-title-wrap">
+            <span class="server-icon-pulse">ðŸŒ</span>
+            <div>
+              <h3 class="server-m-title">Koneksi Server & Web</h3>
+              <p class="server-m-sub">Sinkronisasi data HP dan Website Dinas Pangan</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-server-modal" @click="tampilkanModalServer = false">âœ•</button>
+        </div>
+
+        <div class="server-modal-body">
+          <!-- Status Banner -->
+          <div :class="['server-status-banner', statusKoneksi.online ? 'is-online' : 'is-offline']">
+            <div class="server-status-icon">
+              {{ statusKoneksi.online ? 'ðŸŸ¢' : 'ðŸ”´' }}
+            </div>
+            <div class="server-status-details">
+              <strong>{{ statusKoneksi.online ? 'Terhubung ke Website & Backend' : 'Server Belum Terhubung' }}</strong>
+              <p>{{ statusKoneksi.pesan }}</p>
+              <div v-if="statusKoneksi.online" class="server-latency-text">
+                Respon Server: {{ statusKoneksi.latency }}ms Â· Status: OK 200
+              </div>
+            </div>
+          </div>
+
+          <!-- Petunjuk Cepat -->
+          <div class="server-hint-box">
+            ðŸ’¡ <strong>Panduan:</strong> Pastikan backend server <code>node backend/server.js</code> sedang menyala di laptop/PC dan HP terhubung ke Wi-Fi yang sama.
+          </div>
+
+          <!-- Form Input Alamat IP Server -->
+          <div class="server-form-group">
+            <label>ALAMAT IP / URL SERVER BACKEND</label>
+            <div class="server-input-wrapper">
+              <input 
+                type="text" 
+                v-model="inputUrlServer" 
+                placeholder="http://192.168.0.201:3000"
+                class="server-input-field"
+              />
+              <button 
+                type="button" 
+                class="btn-test-conn" 
+                :disabled="sedangUjiKoneksi"
+                @click="lakukanUjiKoneksi"
+              >
+                {{ sedangUjiKoneksi ? 'Menguji...' : 'Uji Koneksi' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Pilihan Preset Cepat -->
+          <div class="server-presets-section">
+            <span class="presets-label">Pilihan Cepat Alamat Server:</span>
+            <div class="presets-chips">
+              <button 
+                type="button" 
+                class="btn-preset-chip is-cloud" 
+                @click="pilihPreset(VERCEL_HOST)"
+              >
+                ☁️ Vercel Hosting (Online)
+              </button>
+              <button 
+                type="button" 
+                class="btn-preset-chip" 
+                @click="pilihPreset(`http://${DEFAULT_HOST_LAN}:${DEFAULT_PORT}`)"
+              >
+                ðŸ’» IP Laptop Ini ({{ DEFAULT_HOST_LAN }})
+              </button>
+              <button 
+                type="button" 
+                class="btn-preset-chip" 
+                @click="pilihPreset('http://10.0.2.2:3000')"
+              >
+                ðŸ“± Emulator Android (10.0.2.2)
+              </button>
+              <button 
+                type="button" 
+                class="btn-preset-chip" 
+                @click="pilihPreset('http://localhost:3000')"
+              >
+                ðŸŒ Localhost (localhost:3000)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="server-modal-footer">
+          <button type="button" class="btn-cancel-server" @click="tampilkanModalServer = false">
+            Batal
+          </button>
+          <button type="button" class="btn-save-server" @click="simpanKonfigurasiServer" :disabled="sedangUjiKoneksi">
+            ðŸ’¾ Simpan & Hubungkan
+          </button>
+        </div>
+      </div>
+    </div>
+
   </ion-page>
 </template>
 
@@ -777,7 +911,15 @@
 // ===================================================================================
 
 import { ref, computed, onMounted } from 'vue';
-import { IonPage, IonHeader, IonContent } from '@ionic/vue';
+import { IonPage, IonHeader, IonContent, IonRefresher, IonRefresherContent } from '@ionic/vue';
+import { 
+  getServerBaseUrl, 
+  setServerBaseUrl, 
+  ujiKoneksiBackend, 
+  DEFAULT_HOST_LAN, 
+  DEFAULT_PORT,
+  VERCEL_HOST 
+} from '../services/ServerConfig';
 import { 
   hargaPanganMobileService, 
   ItemHargaPangan, 
@@ -799,6 +941,86 @@ const userAktif = ref(hargaPanganMobileService.ambilUser());
 
 // Tab Navigasi Publik ('harga' | 'gpm')
 const tabAktif = ref('harga');
+
+// Konfigurasi Koneksi Server & Website (Sinkronisasi HP <-> Web)
+const tampilkanModalServer = ref(false);
+const inputUrlServer = ref(getServerBaseUrl());
+const sedangUjiKoneksi = ref(false);
+const statusKoneksi = ref({
+  online: false,
+  pesan: 'Memeriksa koneksi ke website...',
+  url: getServerBaseUrl(),
+  latency: 0
+});
+
+const cekKoneksiServer = async (tampilkanToast = false) => {
+  const hasil = await ujiKoneksiBackend();
+  statusKoneksi.value = {
+    online: hasil.sukses,
+    pesan: hasil.pesan,
+    url: getServerBaseUrl(),
+    latency: hasil.latencyMs || 0
+  };
+  if (tampilkanToast && hasil.sukses) {
+    alert(`âœ… ${hasil.pesan}`);
+  }
+};
+
+const bukaModalServer = () => {
+  inputUrlServer.value = getServerBaseUrl();
+  tampilkanModalServer.value = true;
+  cekKoneksiServer(false);
+};
+
+const pilihPreset = (url: string) => {
+  inputUrlServer.value = url;
+};
+
+const lakukanUjiKoneksi = async () => {
+  if (!inputUrlServer.value.trim()) return;
+  sedangUjiKoneksi.value = true;
+  try {
+    const hasil = await ujiKoneksiBackend(inputUrlServer.value.trim());
+    statusKoneksi.value = {
+      online: hasil.sukses,
+      pesan: hasil.pesan,
+      url: inputUrlServer.value.trim(),
+      latency: hasil.latencyMs || 0
+    };
+  } finally {
+    sedangUjiKoneksi.value = false;
+  }
+};
+
+const simpanKonfigurasiServer = async () => {
+  if (!inputUrlServer.value.trim()) return;
+  sedangUjiKoneksi.value = true;
+  try {
+    setServerBaseUrl(inputUrlServer.value.trim());
+    await cekKoneksiServer(false);
+    await muatData();
+    await muatStatsDashboard();
+    await muatDataGPM();
+    tampilkanModalServer.value = false;
+    alert(statusKoneksi.value.online 
+      ? 'âœ… Berhasil terhubung ke server website! Data kini tersinkronisasi langsung.' 
+      : 'âš ï¸ Alamat server disimpan, namun server belum merespon. Pastikan backend di PC sudah berjalan.');
+  } finally {
+    sedangUjiKoneksi.value = false;
+  }
+};
+
+const handleRefresh = async (event: any) => {
+  await cekKoneksiServer(false);
+  await Promise.all([
+    muatData(),
+    muatStatsDashboard(),
+    muatDataGPM()
+  ]);
+  if (event && event.target && typeof event.target.complete === 'function') {
+    event.target.complete();
+  }
+};
 
 // State GPM Mobile (Publik & Petugas)
 const daftarAcaraGPM = ref<ItemAcaraGPM[]>([]);
@@ -883,16 +1105,33 @@ const daftarKategoriList = [
   { key: 'Semua', label: 'Semua', icon: '' },
   { key: 'Bahan Pokok', label: 'Bahan Pokok', icon: '' },
   { key: 'Hewani', label: 'Hewani', icon: '' },
-  { key: 'Sayuran', label: 'Sayuran', icon: '🥬' },
-  { key: 'Buah', label: 'Buah', icon: '🍊' },
+  { key: 'Sayuran', label: 'Sayuran', icon: 'ðŸ¥¬' },
+  { key: 'Buah', label: 'Buah', icon: 'ðŸŠ' },
   { key: 'Lainnya', label: 'Lainnya', icon: '' }
 ];
 
 // Lifecycle: Ambil data saat awal dibuka
 onMounted(async () => {
+  await cekKoneksiServer(false);
   await muatData();
   await muatStatsDashboard();
   await muatDataGPM();
+
+  // Sinkronisasi otomatis saat HP kembali dibuka (Focus)
+  if (typeof window !== 'undefined') {
+    window.addEventListener('focus', () => {
+      muatData();
+      muatStatsDashboard();
+      muatDataGPM();
+    });
+  }
+
+  // Polling berkala setiap 15 detik agar perubahan di web otomatis tampil di HP
+  setInterval(() => {
+    muatData();
+    muatStatsDashboard();
+  }, 15000);
+
 });
 
 // ===================== METHOD GPM MOBILE =====================
@@ -914,14 +1153,14 @@ const ambilNomorAntreanMobile = async () => {
   if (!acaraGPMDipilih.value) return;
   if (!formAntreanGPM.value.nama_lengkap.trim() || !formAntreanGPM.value.nomor_telepon.trim()) {
     pesanErrorGPM.value = 'Nama lengkap dan nomor telepon wajib diisi!';
-    return;
+  
   }
 
   // Validasi Nama: Hanya huruf dan spasi, dilarang simbol/angka
   const regexNama = /^[a-zA-Z\s'.]+$/;
   if (!regexNama.test(formAntreanGPM.value.nama_lengkap.trim())) {
     pesanErrorGPM.value = 'Nama lengkap hanya boleh berisi huruf dan spasi (tanpa angka atau simbol)!';
-    return;
+  
   }
 
   // Validasi Nomor Telepon: Hanya angka, minimal > 10 digit (11-15 digit)
@@ -929,11 +1168,11 @@ const ambilNomorAntreanMobile = async () => {
   const regexTelp = /^[0-9]+$/;
   if (!regexTelp.test(telp)) {
     pesanErrorGPM.value = 'Nomor telepon hanya boleh berisi angka!';
-    return;
+  
   }
   if (telp.length <= 10) {
     pesanErrorGPM.value = 'Nomor telepon harus lebih dari 10 digit (minimal 11 digit, contoh: 081234567890)!';
-    return;
+  
   }
 
   sedangDaftarGPM.value = true;
@@ -959,7 +1198,7 @@ const pindaiBarcodeMobile = async (barcodeOverride?: string) => {
   const code = barcodeOverride || inputBarcodePetugas.value;
   if (!code.trim()) {
     pesanScanErrorPetugas.value = 'Silakan masukan kode tiket!';
-    return;
+  
   }
   sedangScanBarcode.value = true;
   pesanScanErrorPetugas.value = '';
@@ -988,7 +1227,7 @@ const verifikasiKehadiranMobile = async () => {
 const simpanAcaraGPMBaruMobile = async () => {
   if (!formGPMBaru.value.nama_acara || !formGPMBaru.value.lokasi) {
     alert('Nama acara dan lokasi wajib diisi!');
-    return;
+  
   }
   sedangSimpanGPMBaru.value = true;
   try {
@@ -1065,9 +1304,9 @@ const formatRupiah = (nominal: number) => {
   }).format(nominal).replace('IDR', 'Rp');
 };
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // OPERASI LOGIN & LOGOUT MOBILE
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const bukaLoginMobile = () => {
   if (userAktif.value) {
     tampilanMode.value = 'petugas';
@@ -1101,9 +1340,9 @@ const alertLupaPassword = () => {
   alert('Silakan hubungi administrator Dinas Pangan Kota Manado.');
 };
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // OPERASI PETUGAS MOBILE (TETAPKAN HARGA)
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const mulaiEditItem = (item: ItemHargaPangan) => {
   idDiedit.value = item.id || null;
   formPenetapan.value = {
@@ -1135,7 +1374,7 @@ const hapusItem = async (item: ItemHargaPangan) => {
   if (!confirm(`Hapus data harga untuk "${item.nama_komoditas}"?`)) return;
   try {
     await hargaPanganMobileService.hapus(item.id);
-    pesanSuksesMobile.value = `🗑️ Data ${item.nama_komoditas} berhasil dihapus!`;
+    pesanSuksesMobile.value = `ðŸ—‘ï¸ Data ${item.nama_komoditas} berhasil dihapus!`;
     setTimeout(() => pesanSuksesMobile.value = '', 3500);
     if (idDiedit.value === item.id) {
       batalEditItem();
@@ -1150,7 +1389,7 @@ const hapusItem = async (item: ItemHargaPangan) => {
 const simpanHargaPetugas = async (status: 'Terbit' | 'Draft') => {
   if (!formPenetapan.value.nama_komoditas || !formPenetapan.value.harga) {
     alert('Nama komoditas dan harga wajib diisi!');
-    return;
+  
   }
 
   try {
@@ -1164,8 +1403,8 @@ const simpanHargaPetugas = async (status: 'Terbit' | 'Draft') => {
         tanggal_penetapan: '14 Oktober 2026'
       });
       pesanSuksesMobile.value = status === 'Terbit' 
-        ? `✅ Perubahan "${formPenetapan.value.nama_komoditas}" berhasil diterbitkan ke masyarakat!` 
-        : `📝 Perubahan "${formPenetapan.value.nama_komoditas}" disimpan sebagai draf!`;
+        ? `âœ… Perubahan "${formPenetapan.value.nama_komoditas}" berhasil diterbitkan ke masyarakat!` 
+        : `ðŸ“ Perubahan "${formPenetapan.value.nama_komoditas}" disimpan sebagai draf!`;
       batalEditItem();
     } else {
       await hargaPanganMobileService.tambah({
@@ -1178,8 +1417,8 @@ const simpanHargaPetugas = async (status: 'Terbit' | 'Draft') => {
         status: status
       });
       pesanSuksesMobile.value = status === 'Terbit' 
-        ? '✅ Harga berhasil diterbitkan ke masyarakat!' 
-        : '📝 Harga disimpan sebagai draf!';
+        ? 'âœ… Harga berhasil diterbitkan ke masyarakat!' 
+        : 'ðŸ“ Harga disimpan sebagai draf!';
       formPenetapan.value.nama_komoditas = '';
       formPenetapan.value.harga = '';
     }
@@ -1198,8 +1437,8 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   if (item.id) {
     await hargaPanganMobileService.perbarui(item.id, { status: statusBaru });
     pesanSuksesMobile.value = statusBaru === 'Terbit'
-      ? `✅ "${item.nama_komoditas}" diterbitkan ke halaman masyarakat!`
-      : `📝 "${item.nama_komoditas}" diubah menjadi draf.`;
+      ? `âœ… "${item.nama_komoditas}" diterbitkan ke halaman masyarakat!`
+      : `ðŸ“ "${item.nama_komoditas}" diubah menjadi draf.`;
     setTimeout(() => pesanSuksesMobile.value = '', 3000);
     await muatData();
     await muatStatsDashboard();
@@ -2606,5 +2845,350 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   border-radius: 6px;
   font-size: 0.78rem;
   margin-bottom: 10px;
+}
+
+/* ===================================================================================
+   KOMPONEN KONEKSI SERVER BACKEND & WEBSITE (SINKRONISASI HP <-> WEB)
+   =================================================================================== */
+
+.btn-server-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-server-status:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.btn-server-status.is-online {
+  border-color: rgba(74, 222, 128, 0.5);
+  background: rgba(34, 197, 94, 0.2);
+}
+
+.btn-server-status.is-offline {
+  border-color: rgba(248, 113, 113, 0.4);
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.status-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+}
+
+.btn-server-status.is-online .status-pulse-dot {
+  background: #22c55e;
+  animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+.status-label-short {
+  letter-spacing: 0.2px;
+}
+
+/* Modal Pengaturan Server */
+.server-config-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.server-config-modal-card {
+  background: #ffffff;
+  width: 100%;
+  max-width: 440px;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  animation: modal-fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.server-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #8b1e1e;
+  color: #ffffff;
+}
+
+.server-modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.server-icon-pulse {
+  font-size: 1.6rem;
+}
+
+.server-m-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.server-m-sub {
+  margin: 2px 0 0 0;
+  font-size: 0.72rem;
+  opacity: 0.88;
+}
+
+.btn-close-server-modal {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px;
+  opacity: 0.85;
+}
+
+.btn-close-server-modal:hover {
+  opacity: 1;
+}
+
+.server-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.server-status-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 0.84rem;
+}
+
+.server-status-banner.is-online {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.server-status-banner.is-offline {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.server-status-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+  margin-top: 1px;
+}
+
+.server-status-details strong {
+  display: block;
+  font-size: 0.88rem;
+  margin-bottom: 2px;
+}
+
+.server-status-details p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.server-latency-text {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #15803d;
+}
+
+.server-hint-box {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.76rem;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.server-hint-box code {
+  background: #e2e8f0;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 0.74rem;
+  color: #0f172a;
+}
+
+.server-form-group label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #475569;
+  margin-bottom: 6px;
+  letter-spacing: 0.3px;
+}
+
+.server-input-wrapper {
+  display: flex;
+  gap: 8px;
+}
+
+.server-input-field {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-family: monospace;
+  box-sizing: border-box;
+}
+
+.server-input-field:focus {
+  border-color: #8b1e1e;
+  outline: none;
+}
+
+.btn-test-conn {
+  background: #334155;
+  color: #ffffff;
+  border: none;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-test-conn:hover {
+  background: #1e293b;
+}
+
+.server-presets-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.presets-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.presets-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.btn-preset-chip {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-preset-chip:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.server-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+}
+
+.btn-cancel-server {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.btn-save-server {
+  background: #8b1e1e;
+  border: none;
+  color: #ffffff;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.btn-save-server:hover {
+  background: #701616;
+}
+.btn-preset-chip.is-cloud {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+.btn-preset-chip.is-cloud:hover {
+  background: #dbeafe;
 }
 </style>

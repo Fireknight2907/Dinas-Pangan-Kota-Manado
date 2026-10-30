@@ -1,3 +1,4 @@
+import { supabaseClient } from './SupabaseClient.js';
 // ===================================================================================
 // SERVICE GPM (GERAKAN PANGAN MURAH) - OOP (WEBSITE)
 // Bidang: Cadangan dan Distribusi Pangan - Dinas Pangan Kota Manado
@@ -123,23 +124,57 @@ class GPMApiService {
 
     // [Modul Service] 1. Mengambil semua acara GPM untuk publik (peta & card)
     async ambilSemuaAcara(status = '', kecamatan = '') {
+        // 1. Prioritaskan Cloud Supabase
+        try {
+            const dataCloud = await supabaseClient.getAcaraGPM();
+            if (Array.isArray(dataCloud) && dataCloud.length > 0) {
+                const mapped = dataCloud.map(item => ({
+                    id: String(item.id),
+                    nama_acara: item.nama_acara || 'Acara GPM Manado',
+                    lokasi: item.lokasi || 'Kota Manado',
+                    kecamatan: item.kecamatan || 'Wenang',
+                    tanggal: item.tanggal ? String(item.tanggal).split('T')[0] : '2026-10-20',
+                    jam_mulai: item.jam_mulai || '08:00',
+                    jam_selesai: item.jam_selesai || '14:00',
+                    latitude: Number(item.latitude) || 1.4883,
+                    longitude: Number(item.longitude) || 124.8436,
+                    kuota_maksimal: Number(item.kuota_maksimal) || 250,
+                    antrean_terisi: Number(item.antrean_terisi) || 0,
+                    sisa_kuota: Math.max(0, (Number(item.kuota_maksimal) || 250) - (Number(item.antrean_terisi) || 0)),
+                    komoditas_tersedia: item.komoditas_tersedia || 'Beras, Minyak Goreng, Gula Pasir',
+                    deskripsi: item.deskripsi || '',
+                    status: item.status || 'Aktif'
+                }));
+                this.fallbackAcara = mapped;
+                return mapped.filter(item => {
+                    const cocokStatus = !status || status === 'Semua' || item.status.toLowerCase() === status.toLowerCase();
+                    const cocokKecamatan = !kecamatan || kecamatan === 'Semua' || item.kecamatan.toLowerCase() === kecamatan.toLowerCase();
+                    return cocokStatus && cocokKecamatan;
+                });
+            }
+        } catch (err) {
+            console.warn('[GPMService] Supabase getAcaraGPM offline, mencoba backend/fallback:', err);
+        }
+
+        // 2. Coba API server
         try {
             const params = new URLSearchParams();
             if (status && status !== 'Semua') params.append('status', status);
             if (kecamatan && kecamatan !== 'Semua') params.append('kecamatan', kecamatan);
 
             const respon = await fetch(`${this.baseUrl}/acara${params.toString() ? '?' + params.toString() : ''}`);
-            if (!respon.ok) throw new Error('Respon server tidak berhasil');
-            const hasil = await respon.json();
-            return hasil.data || [];
-        } catch (error) {
-            console.warn('[GPMService] Backend offline, menggunakan fallback acara:', error);
-            return this.fallbackAcara.filter(item => {
-                const cocokStatus = !status || status === 'Semua' || item.status === status;
-                const cocokKecamatan = !kecamatan || kecamatan === 'Semua' || item.kecamatan.toLowerCase() === kecamatan.toLowerCase();
-                return cocokStatus && cocokKecamatan;
-            });
-        }
+            if (respon.ok) {
+                const hasil = await respon.json();
+                if (hasil.data) return hasil.data;
+            }
+        } catch (error) {}
+
+        // 3. Fallback lokal
+        return this.fallbackAcara.filter(item => {
+            const cocokStatus = !status || status === 'Semua' || item.status === status;
+            const cocokKecamatan = !kecamatan || kecamatan === 'Semua' || item.kecamatan.toLowerCase() === kecamatan.toLowerCase();
+            return cocokStatus && cocokKecamatan;
+        });
     }
 
     // [Modul Service] 2. Mengambil detail satu acara GPM
@@ -275,6 +310,18 @@ class GPMApiService {
 
     // [Modul Service] 7. Petugas Tambah Acara GPM Baru
     async tambahAcara(dataAcara) {
+        // 1. Simpan ke Supabase Cloud
+        try {
+            const itemMasuk = await supabaseClient.tambahAcaraGPM(dataAcara);
+            if (itemMasuk && itemMasuk.id) {
+                this.fallbackAcara.unshift(itemMasuk);
+                return itemMasuk;
+            }
+        } catch (err) {
+            console.warn('Supabase tambahAcara offline, mencoba backend/fallback:', err);
+        }
+
+        // 2. Coba API server
         try {
             const respon = await fetch(`${this.baseUrl}/acara`, {
                 method: 'POST',
@@ -282,31 +329,35 @@ class GPMApiService {
                 body: JSON.stringify(dataAcara)
             });
             const hasil = await respon.json();
-            if (!respon.ok) throw new Error(hasil.pesan || 'Gagal menambah acara GPM');
-            return hasil.data;
-        } catch (error) {
-            const itemBaru = {
-                id: 'gpm-' + Date.now(),
-                ...dataAcara,
-                antrean_terisi: 0,
-                sisa_kuota: parseInt(dataAcara.kuota_maksimal || 200, 10),
-                status: 'Aktif'
-            };
-            this.fallbackAcara.unshift(itemBaru);
-            return itemBaru;
-        }
+            if (respon.ok && hasil.data) return hasil.data;
+        } catch (error) {}
+
+        // 3. Fallback lokal
+        const itemBaru = {
+            id: 'gpm-' + Date.now(),
+            ...dataAcara,
+            antrean_terisi: 0,
+            sisa_kuota: parseInt(dataAcara.kuota_maksimal || 200, 10),
+            status: 'Aktif'
+        };
+        this.fallbackAcara.unshift(itemBaru);
+        return itemBaru;
     }
 
     // [Modul Service] 8. Petugas Hapus Acara GPM
     async hapusAcara(id) {
         try {
+            await supabaseClient.hapusAcaraGPM(id);
+        } catch (e) {}
+
+        try {
             await fetch(`${this.baseUrl}/acara/${id}`, {
                 method: 'DELETE',
                 headers: this.ambilHeaderAuth()
             });
-        } catch (e) {
-            this.fallbackAcara = this.fallbackAcara.filter(a => a.id !== id);
-        }
+        } catch (e) {}
+
+        this.fallbackAcara = this.fallbackAcara.filter(a => String(a.id) !== String(id));
         return true;
     }
 

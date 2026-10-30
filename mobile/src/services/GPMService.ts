@@ -2,8 +2,11 @@
 // SERVICE GPM (GERAKAN PANGAN MURAH) - OOP (MOBILE)
 // Bidang: Cadangan dan Distribusi Pangan - Dinas Pangan Kota Manado
 // Framework: Vue 3 + TypeScript + Ionic Framework + Capacitor
-// Modul: Komunikasi HTTP Mobile dengan Backend API GPM & Antrean Barcode
+// Modul: Komunikasi HTTP Mobile dengan Backend API GPM & Antrean Barcode (Sinkron Web)
 // ===================================================================================
+
+import { getApiRoot, onServerUrlChanged } from './ServerConfig';
+import { supabaseClient } from './SupabaseClient';
 
 export interface ItemAcaraGPM {
     id: string;
@@ -67,9 +70,14 @@ class GPMMobileApiService {
     private fallbackPendaftar: ItemPendaftarGPM[] = [];
 
     constructor() {
-        this.apiRoot = (import.meta as any).env?.VITE_API_ROOT || 'http://localhost:3000/api';
+        this.apiRoot = getApiRoot();
         this.baseUrl = `${this.apiRoot}/gpm`;
         this.inisialisasiDataLokal();
+
+        onServerUrlChanged((baruApi) => {
+            this.apiRoot = baruApi;
+            this.baseUrl = `${baruApi}/gpm`;
+        });
     }
 
     private inisialisasiDataLokal() {
@@ -197,34 +205,90 @@ class GPMMobileApiService {
         };
     }
 
-    // [Modul Mobile Service] 1. Mengambil semua jadwal acara GPM
+    // [Modul Mobile Service] 1. Mengambil semua jadwal acara GPM (Cloud Supabase -> Server -> Local)
     async ambilSemuaAcara(status = '', kecamatan = ''): Promise<ItemAcaraGPM[]> {
+        // 1. Prioritaskan Supabase Cloud Database (HP & Web Real-time Sync)
+        try {
+            const dataCloud = await supabaseClient.getAcaraGPM();
+            if (Array.isArray(dataCloud) && dataCloud.length > 0) {
+                const mapped: ItemAcaraGPM[] = dataCloud.map((item: any) => ({
+                    id: String(item.id),
+                    nama_acara: item.nama_acara || 'Acara GPM Manado',
+                    lokasi: item.lokasi || 'Kota Manado',
+                    kecamatan: item.kecamatan || 'Wenang',
+                    tanggal: item.tanggal ? String(item.tanggal).split('T')[0] : '2026-10-20',
+                    jam_mulai: item.jam_mulai || '08:00',
+                    jam_selesai: item.jam_selesai || '14:00',
+                    latitude: Number(item.latitude) || 1.4883,
+                    longitude: Number(item.longitude) || 124.8436,
+                    kuota_maksimal: Number(item.kuota_maksimal) || 250,
+                    antrean_terisi: Number(item.antrean_terisi) || 0,
+                    sisa_kuota: Math.max(0, (Number(item.kuota_maksimal) || 250) - (Number(item.antrean_terisi) || 0)),
+                    komoditas_tersedia: item.komoditas_tersedia || 'Beras, Minyak Goreng, Gula Pasir',
+                    deskripsi: item.deskripsi || '',
+                    status: item.status || 'Aktif'
+                }));
+
+                this.fallbackAcara = mapped;
+                this.simpanAcaraKeStorage();
+
+                return mapped.filter(item => {
+                    const cocokStatus = !status || status === 'Semua' || item.status.toLowerCase() === status.toLowerCase();
+                    const cocokKecamatan = !kecamatan || kecamatan === 'Semua' || item.kecamatan.toLowerCase() === kecamatan.toLowerCase();
+                    return cocokStatus && cocokKecamatan;
+                });
+            }
+        } catch (err) {
+            console.warn('Supabase getAcaraGPM offline, mencoba backend / lokal...', err);
+        }
+
+        // 2. Coba API server LAN jika ada
         try {
             const params = new URLSearchParams();
             if (status && status !== 'Semua') params.append('status', status);
             if (kecamatan && kecamatan !== 'Semua') params.append('kecamatan', kecamatan);
 
-            const respon = await fetch(`${this.baseUrl}/acara${params.toString() ? '?' + params.toString() : ''}`);
-            if (!respon.ok) throw new Error('Gagal mengambil data dari server');
-            const json = await respon.json();
-            return json.data || [];
-        } catch (error) {
-            return this.fallbackAcara.filter(item => {
-                const cocokStatus = !status || status === 'Semua' || item.status === status;
-                const cocokKecamatan = !kecamatan || kecamatan === 'Semua' || item.kecamatan.toLowerCase() === kecamatan.toLowerCase();
-                return cocokStatus && cocokKecamatan;
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+            const respon = await fetch(`${this.baseUrl}/acara${params.toString() ? '?' + params.toString() : ''}`, {
+                signal: controller.signal
             });
-        }
+            clearTimeout(timeoutId);
+
+            if (respon.ok) {
+                const json = await respon.json();
+                const dataServer = json.data || [];
+                if (dataServer.length > 0) {
+                    this.fallbackAcara = dataServer;
+                    this.simpanAcaraKeStorage();
+                    return dataServer;
+                }
+            }
+        } catch (error) {}
+
+        // 3. Fallback lokal di HP
+        return this.fallbackAcara.filter(item => {
+            const cocokStatus = !status || status === 'Semua' || item.status.toLowerCase() === status.toLowerCase();
+            const cocokKecamatan = !kecamatan || kecamatan === 'Semua' || item.kecamatan.toLowerCase() === kecamatan.toLowerCase();
+            return cocokStatus && cocokKecamatan;
+        });
     }
 
     // [Modul Mobile Service] 2. Masyarakat Ambil Antrean & Barcode (Tanpa Login)
     async ambilNomorAntrean(acara_id: string, nama_lengkap: string, nomor_telepon: string): Promise<HasilTiketGPM> {
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+
             const respon = await fetch(`${this.baseUrl}/antrian`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ acara_id, nama_lengkap, nomor_telepon })
+                body: JSON.stringify({ acara_id, nama_lengkap, nomor_telepon }),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
+
             const json = await respon.json();
             if (!respon.ok) throw new Error(json.pesan || 'Gagal mengambil nomor antrean');
             return json.data;
@@ -269,9 +333,15 @@ class GPMMobileApiService {
     // [Modul Mobile Service] 3. Petugas Scan Barcode
     async scanBarcode(kodeBarcode: string): Promise<ItemPendaftarGPM> {
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000);
+
             const respon = await fetch(`${this.baseUrl}/scan/${encodeURIComponent(kodeBarcode)}`, {
-                headers: this.ambilHeaderAuth()
+                headers: this.ambilHeaderAuth(),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
+
             const json = await respon.json();
             if (!respon.ok) throw new Error(json.pesan || 'Barcode tidak ditemukan');
             return json.data;
@@ -294,10 +364,16 @@ class GPMMobileApiService {
     // [Modul Mobile Service] 4. Petugas Verifikasi Kehadiran
     async verifikasiKehadiran(kodeBarcode: string): Promise<ItemPendaftarGPM> {
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+
             const respon = await fetch(`${this.baseUrl}/verifikasi/${encodeURIComponent(kodeBarcode)}`, {
                 method: 'POST',
-                headers: this.ambilHeaderAuth()
+                headers: this.ambilHeaderAuth(),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
+
             const json = await respon.json();
             if (!respon.ok) throw new Error(json.pesan || 'Gagal memverifikasi');
             return json.data;
@@ -315,9 +391,15 @@ class GPMMobileApiService {
     // [Modul Mobile Service] 5. Mengambil Semua Pendaftar untuk Petugas
     async ambilPendaftarAcara(acara_id: string) {
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000);
+
             const respon = await fetch(`${this.baseUrl}/acara/${acara_id}/pendaftar`, {
-                headers: this.ambilHeaderAuth()
+                headers: this.ambilHeaderAuth(),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
+
             const json = await respon.json();
             return json;
         } catch (error) {
@@ -339,11 +421,17 @@ class GPMMobileApiService {
     // [Modul Mobile Service] 6. Petugas Tambah Acara GPM Baru
     async tambahAcara(dataAcara: Partial<ItemAcaraGPM>): Promise<ItemAcaraGPM> {
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+
             const respon = await fetch(`${this.baseUrl}/acara`, {
                 method: 'POST',
                 headers: this.ambilHeaderAuth(),
-                body: JSON.stringify(dataAcara)
+                body: JSON.stringify(dataAcara),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
+
             const json = await respon.json();
             return json.data;
         } catch (error) {
@@ -372,9 +460,15 @@ class GPMMobileApiService {
     // [Modul Mobile Service] 7. Mengambil Statistik Global GPM
     async ambilStatistik(): Promise<StatistikGPM> {
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000);
+
             const respon = await fetch(`${this.baseUrl}/statistik`, {
-                headers: this.ambilHeaderAuth()
+                headers: this.ambilHeaderAuth(),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
+
             const json = await respon.json();
             return json.data;
         } catch (error) {

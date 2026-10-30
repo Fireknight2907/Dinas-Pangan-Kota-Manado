@@ -4,6 +4,8 @@
 // Berfungsi untuk mengelola komunikasi HTTP dengan Backend API / Supabase / Local Storage
 // ===================================================================================
 
+import { supabaseClient } from './SupabaseClient.js';
+
 class HargaPanganApiService {
     constructor() {
         this.apiRoot = import.meta.env.VITE_API_ROOT || 'http://localhost:3000/api';
@@ -134,6 +136,32 @@ class HargaPanganApiService {
     // 1. DATA KOMODITAS
     // ─────────────────────────────────────────────
     async ambilSemua(kategori = 'Semua', pasar = 'Semua', cari = '', status = '') {
+        // 1. Prioritaskan Cloud Supabase Database (HP & Web Real-time Sync)
+        try {
+            const dataCloud = await supabaseClient.getHargaPangan();
+            if (Array.isArray(dataCloud) && dataCloud.length > 0) {
+                localStorage.setItem('sipatokean_custom_items', JSON.stringify(dataCloud));
+                let hasil = [...dataCloud];
+                if (status) {
+                    hasil = hasil.filter(i => (i.status || 'Terbit').toLowerCase() === status.toLowerCase());
+                }
+                if (kategori && kategori !== 'Semua') {
+                    hasil = hasil.filter(i => (i.kategori || '').toLowerCase() === kategori.toLowerCase());
+                }
+                if (pasar && pasar !== 'Semua') {
+                    hasil = hasil.filter(i => (i.nama_pasar || '').toLowerCase() === pasar.toLowerCase());
+                }
+                if (cari && cari.trim() !== '') {
+                    const c = cari.toLowerCase().trim();
+                    hasil = hasil.filter(i => (i.nama_komoditas || '').toLowerCase().includes(c));
+                }
+                return hasil;
+            }
+        } catch (err) {
+            console.warn('Supabase getHargaPangan offline, beralih ke local / API:', err);
+        }
+
+        // 2. Coba API server jika tersedia
         try {
             const params = new URLSearchParams();
             if (kategori && kategori !== 'Semua') params.append('kategori', kategori);
@@ -143,12 +171,13 @@ class HargaPanganApiService {
 
             const url = `${this.baseUrl}${params.toString() ? '?' + params.toString() : ''}`;
             const respon = await fetch(url);
-            if (!respon.ok) throw new Error('Gagal memuat data dari server');
-            const hasil = await respon.json();
-            return hasil.data || [];
-        } catch (error) {
-            return this.ambilDataFallback(kategori, pasar, cari, status);
-        }
+            if (respon.ok) {
+                const hasil = await respon.json();
+                if (hasil.data) return hasil.data;
+            }
+        } catch (error) {}
+
+        return this.ambilDataFallback(kategori, pasar, cari, status);
     }
 
     async ambilStatistik() {
@@ -258,6 +287,20 @@ class HargaPanganApiService {
     // 4. CRUD HARGA KOMODITAS
     // ─────────────────────────────────────────────
     async tambah(dataBaru) {
+        // 1. Simpan ke Supabase Cloud
+        try {
+            const itemMasuk = await supabaseClient.tambahHargaPangan(dataBaru);
+            if (itemMasuk && itemMasuk.id) {
+                const list = this.ambilDataFallback();
+                list.unshift(itemMasuk);
+                localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
+                return itemMasuk;
+            }
+        } catch (err) {
+            console.warn('Supabase tambah offline, beralih ke local / API:', err);
+        }
+
+        // 2. Coba API server
         try {
             const respon = await fetch(this.baseUrl, {
                 method: 'POST',
@@ -268,22 +311,41 @@ class HargaPanganApiService {
                 body: JSON.stringify(dataBaru)
             });
             const hasil = await respon.json();
-            if (!respon.ok) throw new Error(hasil.pesan || 'Gagal menyimpan data');
-            return hasil.data;
-        } catch (e) {
-            const list = this.ambilDataFallback();
-            const itemBaru = {
-                id: 'komoditas-' + Date.now(),
-                ...dataBaru,
-                tanggal_penetapan: dataBaru.tanggal_penetapan || '14 Oktober 2026'
-            };
-            list.unshift(itemBaru);
-            localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
-            return itemBaru;
-        }
+            if (respon.ok && hasil.data) return hasil.data;
+        } catch (e) {}
+
+        // 3. Fallback lokal
+        const list = this.ambilDataFallback();
+        const itemBaru = {
+            id: 'komoditas-' + Date.now(),
+            ...dataBaru,
+            tanggal_penetapan: dataBaru.tanggal_penetapan || '14 Oktober 2026'
+        };
+        list.unshift(itemBaru);
+        localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
+        return itemBaru;
     }
 
     async perbarui(id, dataUpdate) {
+        // 1. Update ke Supabase Cloud
+        try {
+            const itemUpdate = await supabaseClient.updateHargaPangan(id, dataUpdate);
+            if (itemUpdate) {
+                const list = this.ambilDataFallback();
+                const idx = list.findIndex(i => String(i.id) === String(id));
+                if (idx !== -1) {
+                    list[idx] = { ...list[idx], ...itemUpdate };
+                } else {
+                    list.unshift(itemUpdate);
+                }
+                localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
+                return itemUpdate;
+            }
+        } catch (err) {
+            console.warn('Supabase update offline, beralih ke local / API:', err);
+        }
+
+        // 2. Coba API server
         try {
             const respon = await fetch(`${this.baseUrl}/${id}`, {
                 method: 'PUT',
@@ -294,34 +356,45 @@ class HargaPanganApiService {
                 body: JSON.stringify(dataUpdate)
             });
             const hasil = await respon.json();
-            if (!respon.ok) throw new Error(hasil.pesan || 'Gagal memperbarui data');
-            return hasil.data;
-        } catch (e) {
-            const list = this.ambilDataFallback();
-            const idx = list.findIndex(i => i.id === id);
-            if (idx !== -1) {
-                list[idx] = { ...list[idx], ...dataUpdate };
-                localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
-            }
+            if (respon.ok && hasil.data) return hasil.data;
+        } catch (e) {}
+
+        // 3. Fallback lokal
+        const list = this.ambilDataFallback();
+        const idx = list.findIndex(i => String(i.id) === String(id));
+        if (idx !== -1) {
+            list[idx] = { ...list[idx], ...dataUpdate };
+            localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
             return list[idx];
         }
+        return { id, ...dataUpdate };
     }
 
     async hapus(id) {
+        // 1. Hapus dari Supabase Cloud
         try {
-            const respon = await fetch(`${this.baseUrl}/${id}`, {
+            await supabaseClient.hapusHargaPangan(id);
+            let list = this.ambilDataFallback();
+            list = list.filter(i => String(i.id) !== String(id));
+            localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
+            return { sukses: true };
+        } catch (err) {
+            console.warn('Supabase hapus offline, beralih ke local / API:', err);
+        }
+
+        // 2. Coba API server
+        try {
+            await fetch(`${this.baseUrl}/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${this.ambilToken() || ''}` }
             });
-            const hasil = await respon.json();
-            if (!respon.ok) throw new Error(hasil.pesan || 'Gagal menghapus data');
-            return hasil;
-        } catch (e) {
-            let list = this.ambilDataFallback();
-            list = list.filter(i => i.id !== id);
-            localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
-            return { sukses: true };
-        }
+        } catch (e) {}
+
+        // 3. Fallback lokal
+        let list = this.ambilDataFallback();
+        list = list.filter(i => String(i.id) !== String(id));
+        localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
+        return { sukses: true };
     }
 
     // ─────────────────────────────────────────────
