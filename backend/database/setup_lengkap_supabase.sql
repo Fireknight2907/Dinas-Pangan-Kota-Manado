@@ -1,6 +1,6 @@
 -- ====================================================================
--- SKRIP SETUP RESMI SUPABASE - DINAS PANGAN KOTA MANADO (SIPATOKAAN)
--- Jalankan skrip ini di: Supabase Dashboard -> SQL Editor -> New Query -> Run
+-- SKRIP INISIALISASI DATABASE - DINAS PANGAN KOTA MANADO (SIPATOKAAN)
+-- Skema Database: PostgreSQL / Supabase
 -- ====================================================================
 
 -- 1. Hapus tabel lama yang kosong agar skema bersih dan terhindar dari bentrok kolom
@@ -73,8 +73,7 @@ CREATE TABLE harga_pangan (
     diperbarui_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Aktifkan RLS dan Berikan Hak Akses Penuh untuk Web & Mobile (Anon & Auth)
--- Menghilangkan dialog "Potential issue detected" di Supabase
+-- 6. Pengaturan Row Level Security (RLS) & Kebijakan Hak Akses Aplikasi
 ALTER TABLE pengguna ENABLE ROW LEVEL SECURITY;
 ALTER TABLE acara_gpm ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pendaftar_gpm ENABLE ROW LEVEL SECURITY;
