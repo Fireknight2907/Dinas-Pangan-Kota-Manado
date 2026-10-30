@@ -45,6 +45,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   const [daftarKecamatan, setDaftarKecamatan] = useState([]);
 
   // Form Input Harga (Khusus Staf)
+  const [idEditHarga, setIdEditHarga] = useState(null);
+  const [modalEditKabid, setModalEditKabid] = useState({ buka: false, item: null, form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuan: 'kg', harga: '', nama_pasar: '' } });
   const [formHarga, setFormHarga] = useState({
     nama_komoditas: '',
     kategori: 'Bahan Pokok',

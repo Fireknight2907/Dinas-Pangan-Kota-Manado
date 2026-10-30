@@ -1091,6 +1091,16 @@ const formPenetapan = ref({
   status: 'Terbit'
 });
 
+// Hak Akses Kedinasan Mobile (Staf vs Kepala Bidang)
+const isKabid = computed(() => {
+  const p = (userAktif.value?.peran || '').toLowerCase();
+  return p === 'kabid' || p === 'kepala bidang' || p === 'admin';
+});
+const isStaf = computed(() => {
+  const p = (userAktif.value?.peran || '').toLowerCase();
+  return p === 'staf' || p === 'petugas';
+});
+
 // State Login Mobile (Gambar 4)
 const loginInput = ref({
   email: 'effrend',
