@@ -205,12 +205,40 @@
 
               <div class="s-row-two">
                 <div class="s-field">
-                  <label>Satuan</label>
-                  <input type="text" v-model="formPenetapan.satuan" required placeholder="kg" />
+                  <label>Satuan (Kuantitas & Unit)</label>
+                  <div style="display: flex; gap: 6px;">
+                    <input 
+                      type="text" 
+                      inputmode="numeric"
+                      pattern="[0-9]*"
+                      v-model="formPenetapan.satuanJumlah" 
+                      @keydown="hanyaBolehAngka"
+                      @input="formPenetapan.satuanJumlah = (($event.target as HTMLInputElement).value || '').replace(/[^0-9]/g, '')"
+                      required 
+                      placeholder="1" 
+                      style="width: 50%;"
+                    />
+                    <select v-model="formPenetapan.satuanUnit" class="s-select-market" style="width: 50%;">
+                      <option value="KG">KG</option>
+                      <option value="Gram">Gram</option>
+                    </select>
+                  </div>
                 </div>
                 <div class="s-field">
-                  <label>Harga (Rp)</label>
-                  <input type="number" v-model="formPenetapan.harga" required min="0" placeholder="13500" />
+                  <label>Harga Acuan (Rp)</label>
+                  <input 
+                    type="text" 
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    v-model="formPenetapan.harga" 
+                    @keydown="hanyaBolehAngka"
+                    @input="formPenetapan.harga = (($event.target as HTMLInputElement).value || '').replace(/[^0-9]/g, '')"
+                    required 
+                    placeholder="13500 (angka saja)" 
+                  />
+                  <small v-if="formPenetapan.harga" style="color: #059669; font-weight: 600; font-size: 0.72rem; margin-top: 2px; display: block;">
+                    Terformat: {{ formatRupiah(parseInt(formPenetapan.harga, 10)) }}
+                  </small>
                 </div>
               </div>
 
@@ -275,7 +303,7 @@
                 <div class="price-info-left">
                   <div class="item-main-title">
                     <strong>{{ item.nama_komoditas }}</strong>
-                    <span class="unit-text"> / {{ item.satuan || 'kg' }}</span>
+                    <span class="unit-text"> / {{ formatSatuanTampil(item.satuan) }}</span>
                   </div>
                   <div class="item-sub-meta">
                     {{ item.nama_pasar }} · {{ item.tanggal_penetapan || '14 Oktober 2026' }}
@@ -837,7 +865,7 @@
               class="mobile-item-card"
             >
               <div class="item-header-row">
-                <span class="unit-label">SATUAN {{ item.satuan || 'KG' }}</span>
+                <span class="unit-label">SATUAN {{ formatSatuanTampil(item.satuan) }}</span>
                 <span class="market-pill-tag" :title="item.nama_pasar">
                   {{ item.nama_pasar }}
                 </span>
@@ -1427,7 +1455,8 @@ const idDiedit = ref<string | null>(null);
 // Form Penetapan Harga Petugas Mobile (Gambar 3)
 const formPenetapan = ref({
   nama_komoditas: '',
-  satuan: 'kg',
+  satuanJumlah: '1',
+  satuanUnit: 'KG',
   harga: '',
   nama_pasar: 'Pasar Tradisional Bahu',
   status: 'Terbit'
@@ -1821,12 +1850,61 @@ const alertLupaPassword = () => {
 // -------------------------------------------------------------
 // OPERASI PETUGAS MOBILE (TETAPKAN HARGA)
 // -------------------------------------------------------------
+
+// Format tampilan satuan agar bersih dari tanda garis miring atau teks anomali
+const formatSatuanTampil = (satuan?: string) => {
+  if (!satuan) return '1 KG';
+  let s = String(satuan).replace(/[\/]+/g, '').trim();
+  if (!s) return '1 KG';
+  if (/^kg$|^kilogram$/i.test(s)) return '1 KG';
+  if (/^gram$|^gr$|^g$/i.test(s)) return '1 Gram';
+  const match = s.match(/^(\d+)\s*(kg|kilogram|gram|gr|g)$/i);
+  if (match) {
+    const angka = match[1];
+    const unit = /gram|gr|g/i.test(match[2]) ? 'Gram' : 'KG';
+    return `${angka} ${unit}`;
+  }
+  return s;
+};
+
+// Mengurai nilai satuan lama menjadi komponen angka kuantitas dan pilihan unit (KG / Gram)
+const uraiSatuan = (satuan?: string) => {
+  if (!satuan) return { jumlah: '1', unit: 'KG' };
+  const str = String(satuan).replace(/[\/]+/g, '').trim();
+  const digitMatch = str.match(/\d+/);
+  const jumlah = digitMatch ? digitMatch[0] : '1';
+  const isGram = /gram|gr|\bg\b/i.test(str);
+  return {
+    jumlah,
+    unit: isGram ? 'Gram' : 'KG'
+  };
+};
+
+// Memastikan input hanya menerima angka bulat positif (0-9) dan navigasi keyboard
+const hanyaBolehAngka = (e: KeyboardEvent) => {
+  if ([
+    'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+    'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+    'Home', 'End'
+  ].includes(e.key)) {
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) {
+    return;
+  }
+  if (!/^[0-9]$/.test(e.key)) {
+    e.preventDefault();
+  }
+};
+
 const mulaiEditItem = (item: ItemHargaPangan) => {
   idDiedit.value = item.id || null;
+  const parsed = uraiSatuan(item.satuan);
   formPenetapan.value = {
     nama_komoditas: item.nama_komoditas,
-    satuan: item.satuan || 'kg',
-    harga: String(item.harga),
+    satuanJumlah: parsed.jumlah,
+    satuanUnit: parsed.unit,
+    harga: String(item.harga ? Math.round(item.harga) : '').replace(/[^0-9]/g, ''),
     nama_pasar: item.nama_pasar,
     status: item.status || 'Terbit'
   };
@@ -1840,7 +1918,8 @@ const batalEditItem = () => {
   idDiedit.value = null;
   formPenetapan.value = {
     nama_komoditas: '',
-    satuan: 'kg',
+    satuanJumlah: '1',
+    satuanUnit: 'KG',
     harga: '',
     nama_pasar: daftarPasar.value[0] || 'Pasar Tradisional Bahu',
     status: 'Terbit'
@@ -1869,10 +1948,20 @@ const hapusItem = async (item: ItemHargaPangan) => {
 };
 
 const simpanHargaPetugas = async (statusOverride?: string) => {
-  if (!formPenetapan.value.nama_komoditas || !formPenetapan.value.harga) {
-    alert('Nama komoditas dan besaran harga acuan wajib diisi!');
+  if (!formPenetapan.value.nama_komoditas.trim()) {
+    alert('Nama komoditas pangan wajib diisi!');
     return;
   }
+
+  const hargaAngka = parseInt(String(formPenetapan.value.harga).replace(/[^0-9]/g, ''), 10);
+  if (!hargaAngka || hargaAngka <= 0) {
+    alert('Besaran harga acuan wajib diisi dengan angka bulat positif lebih dari 0!');
+    return;
+  }
+
+  const kuantitas = parseInt(String(formPenetapan.value.satuanJumlah).replace(/[^0-9]/g, ''), 10) || 1;
+  const unit = formPenetapan.value.satuanUnit === 'Gram' ? 'Gram' : 'KG';
+  const satuanGabungan = `${kuantitas} ${unit}`;
 
   // Staf selalu menghasilkan status 'Draft' untuk verifikasi Kabid; Kabid dapat menentukan langsung 'Terbit' atau 'Draft'
   const status = isKabid.value ? ((statusOverride as any) || 'Terbit') : 'Draft';
@@ -1880,31 +1969,33 @@ const simpanHargaPetugas = async (statusOverride?: string) => {
   try {
     if (idDiedit.value) {
       await hargaPanganMobileService.perbarui(idDiedit.value, {
-        nama_komoditas: formPenetapan.value.nama_komoditas,
-        satuan: formPenetapan.value.satuan,
-        harga: parseFloat(formPenetapan.value.harga),
+        nama_komoditas: formPenetapan.value.nama_komoditas.trim(),
+        satuan: satuanGabungan,
+        harga: hargaAngka,
         nama_pasar: formPenetapan.value.nama_pasar,
         status: status,
         tanggal_penetapan: '14 Oktober 2026'
       });
       pesanSuksesMobile.value = isKabid.value
-        ? (status === 'Terbit' ? `✅ Perubahan "${formPenetapan.value.nama_komoditas}" berhasil diterbitkan ke masyarakat!` : `📝 Perubahan "${formPenetapan.value.nama_komoditas}" disimpan sebagai draf!`)
-        : `📨 Perubahan "${formPenetapan.value.nama_komoditas}" berhasil diajukan ke Kepala Bidang untuk diverifikasi!`;
+        ? (status === 'Terbit' ? `✅ Perubahan "${formPenetapan.value.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diterbitkan ke masyarakat!` : `📝 Perubahan "${formPenetapan.value.nama_komoditas}" disimpan sebagai draf!`)
+        : `📨 Perubahan "${formPenetapan.value.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diajukan ke Kepala Bidang untuk diverifikasi!`;
       batalEditItem();
     } else {
       await hargaPanganMobileService.tambah({
-        nama_komoditas: formPenetapan.value.nama_komoditas,
+        nama_komoditas: formPenetapan.value.nama_komoditas.trim(),
         kategori: 'Bahan Pokok',
-        satuan: formPenetapan.value.satuan,
-        harga: parseFloat(formPenetapan.value.harga),
+        satuan: satuanGabungan,
+        harga: hargaAngka,
         nama_pasar: formPenetapan.value.nama_pasar,
         tanggal_penetapan: '14 Oktober 2026',
         status: status
       });
       pesanSuksesMobile.value = isKabid.value
-        ? (status === 'Terbit' ? '✅ Harga berhasil diterbitkan ke masyarakat!' : '📝 Harga disimpan sebagai draf!')
-        : `📨 Pengajuan harga "${formPenetapan.value.nama_komoditas}" berhasil diajukan ke Kepala Bidang untuk diverifikasi!`;
+        ? (status === 'Terbit' ? `✅ Harga "${formPenetapan.value.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diterbitkan ke masyarakat!` : '📝 Harga disimpan sebagai draf!')
+        : `📨 Pengajuan harga "${formPenetapan.value.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diajukan ke Kepala Bidang untuk diverifikasi!`;
       formPenetapan.value.nama_komoditas = '';
+      formPenetapan.value.satuanJumlah = '1';
+      formPenetapan.value.satuanUnit = 'KG';
       formPenetapan.value.harga = '';
     }
 

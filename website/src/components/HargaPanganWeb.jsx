@@ -46,11 +46,58 @@ export default function HargaPanganWeb({ onBukaLogin }) {
   const [formStaf, setFormStaf] = useState({
     nama_komoditas: '',
     kategori: 'Bahan Pokok',
-    satuan: 'KG',
+    satuanJumlah: '1',
+    satuanUnit: 'KG',
     harga: '',
     nama_pasar: 'Pasar Bersehati Karombasan',
     tanggal_penetapan: new Date().toISOString().split('T')[0]
   });
+
+  // Format tampilan satuan agar bersih dan rapi
+  const formatSatuanTampil = (satuan) => {
+    if (!satuan) return '1 KG';
+    let s = String(satuan).replace(/[\/]+/g, '').trim();
+    if (!s) return '1 KG';
+    if (/^kg$|^kilogram$/i.test(s)) return '1 KG';
+    if (/^gram$|^gr$|^g$/i.test(s)) return '1 Gram';
+    const match = s.match(/^(\d+)\s*(kg|kilogram|gram|gr|g)$/i);
+    if (match) {
+      const angka = match[1];
+      const unit = /gram|gr|g/i.test(match[2]) ? 'Gram' : 'KG';
+      return `${angka} ${unit}`;
+    }
+    return s;
+  };
+
+  // Mengurai string satuan menjadi kuantitas angka dan pilihan unit
+  const uraiSatuan = (satuan) => {
+    if (!satuan) return { jumlah: '1', unit: 'KG' };
+    const str = String(satuan).replace(/[\/]+/g, '').trim();
+    const digitMatch = str.match(/\d+/);
+    const jumlah = digitMatch ? digitMatch[0] : '1';
+    const isGram = /gram|gr|\bg\b/i.test(str);
+    return {
+      jumlah,
+      unit: isGram ? 'Gram' : 'KG'
+    };
+  };
+
+  // Validasi input angka (0-9)
+  const hanyaBolehAngka = (e) => {
+    if ([
+      'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+      'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+      'Home', 'End'
+    ].includes(e.key)) {
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) {
+      return;
+    }
+    if (!/^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+    }
+  };
 
   // ─────────────────────────────────────────────
   // 2. LIFECYCLE & PEMANGGILAN API
@@ -96,7 +143,8 @@ export default function HargaPanganWeb({ onBukaLogin }) {
     setFormStaf({
       nama_komoditas: '',
       kategori: 'Bahan Pokok',
-      satuan: 'KG',
+      satuanJumlah: '1',
+      satuanUnit: 'KG',
       harga: '',
       nama_pasar: 'Pasar Bersehati Karombasan',
       tanggal_penetapan: new Date().toISOString().split('T')[0]
@@ -107,11 +155,13 @@ export default function HargaPanganWeb({ onBukaLogin }) {
   // Membuka modal edit dengan data yang dipilih
   const bukaModalEdit = (item) => {
     setModeEdit(item.id);
+    const parsed = uraiSatuan(item.satuan);
     setFormStaf({
       nama_komoditas: item.nama_komoditas,
       kategori: item.kategori,
-      satuan: item.satuan,
-      harga: item.harga,
+      satuanJumlah: parsed.jumlah,
+      satuanUnit: parsed.unit,
+      harga: String(item.harga ? Math.round(item.harga) : '').replace(/[^0-9]/g, ''),
       nama_pasar: item.nama_pasar,
       tanggal_penetapan: item.tanggal_penetapan || new Date().toISOString().split('T')[0]
     });
@@ -121,14 +171,29 @@ export default function HargaPanganWeb({ onBukaLogin }) {
   // Menyimpan data (Insert atau Update)
   const handleSimpanDataStaf = async (e) => {
     e.preventDefault();
+    const hargaAngka = parseInt(String(formStaf.harga).replace(/[^0-9]/g, ''), 10);
+    if (!hargaAngka || hargaAngka <= 0) {
+      alert('Besaran harga acuan wajib diisi dengan angka bulat positif lebih dari 0!');
+      return;
+    }
+    const kuantitas = parseInt(String(formStaf.satuanJumlah).replace(/[^0-9]/g, ''), 10) || 1;
+    const unit = formStaf.satuanUnit === 'Gram' ? 'Gram' : 'KG';
+    const satuanGabungan = `${kuantitas} ${unit}`;
+
+    const payload = {
+      ...formStaf,
+      harga: hargaAngka,
+      satuan: satuanGabungan
+    };
+
     try {
       if (modeEdit) {
         // Mode Perbarui / Update
-        await hargaPanganService.perbarui(modeEdit, formStaf);
+        await hargaPanganService.perbarui(modeEdit, payload);
         tampilkanPesan('Data komoditas berhasil diperbarui!');
       } else {
         // Mode Tambah Baru
-        await hargaPanganService.tambah(formStaf);
+        await hargaPanganService.tambah(payload);
         tampilkanPesan('Data harga pangan baru berhasil disimpan ke sistem!');
       }
       setTampilkanModalStaf(false);
@@ -355,7 +420,7 @@ export default function HargaPanganWeb({ onBukaLogin }) {
                 {/* Baris Atas: Satuan & Label Pasar */}
                 <div className="card-top-row">
                   <span className="satuan-badge">
-                    SATUAN {item.satuan || 'KG'}
+                    SATUAN {formatSatuanTampil(item.satuan)}
                   </span>
                   <span className="market-pill-badge" title={item.nama_pasar}>
                     {item.nama_pasar}
@@ -444,33 +509,51 @@ export default function HargaPanganWeb({ onBukaLogin }) {
                 </div>
 
                 <div className="form-group-item">
-                  <label className="form-label-text">Satuan <span className="req">*</span></label>
-                  <select
-                    className="form-input-control"
-                    value={formStaf.satuan}
-                    onChange={(e) => setFormStaf({ ...formStaf, satuan: e.target.value })}
-                  >
-                    <option value="KG">KG (Kilogram)</option>
-                    <option value="LITER">LITER</option>
-                    <option value="IKAT">IKAT</option>
-                    <option value="BIJI">BIJI</option>
-                  </select>
+                  <label className="form-label-text">Satuan Pangan <span className="req">*</span></label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      required
+                      placeholder="Jumlah (Contoh: 1 / 500)"
+                      className="form-input-control"
+                      value={formStaf.satuanJumlah}
+                      onKeyDown={hanyaBolehAngka}
+                      onChange={(e) => setFormStaf({ ...formStaf, satuanJumlah: e.target.value.replace(/[^0-9]/g, '') })}
+                    />
+                    <select
+                      className="form-input-control"
+                      value={formStaf.satuanUnit}
+                      onChange={(e) => setFormStaf({ ...formStaf, satuanUnit: e.target.value })}
+                    >
+                      <option value="KG">KG (Kilogram)</option>
+                      <option value="Gram">Gram</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
               {/* Harga & Nama Pasar */}
               <div className="form-row-two-columns">
                 <div className="form-group-item">
-                  <label className="form-label-text">Harga (Rp) <span className="req">*</span></label>
+                  <label className="form-label-text">Harga Acuan (Rp) <span className="req">*</span></label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     required
-                    min="0"
-                    placeholder="Contoh: 15500"
+                    placeholder="Contoh: 15500 (hanya angka)"
                     className="form-input-control"
                     value={formStaf.harga}
-                    onChange={(e) => setFormStaf({ ...formStaf, harga: e.target.value })}
+                    onKeyDown={hanyaBolehAngka}
+                    onChange={(e) => setFormStaf({ ...formStaf, harga: e.target.value.replace(/[^0-9]/g, '') })}
                   />
+                  {formStaf.harga && (
+                    <small style={{ color: '#059669', fontWeight: 600, fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>
+                      Terformat: {formatRupiah(parseInt(formStaf.harga, 10))}
+                    </small>
+                  )}
                 </div>
 
                 <div className="form-group-item">

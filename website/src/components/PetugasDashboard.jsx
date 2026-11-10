@@ -46,11 +46,24 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
   // Form Input Harga (Khusus Staf)
   const [idEditHarga, setIdEditHarga] = useState(null);
-  const [modalEditKabid, setModalEditKabid] = useState({ buka: false, item: null, form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuan: 'kg', harga: '', nama_pasar: '' } });
+  const [modalEditKabid, setModalEditKabid] = useState({
+    buka: false,
+    item: null,
+    form: {
+      nama_komoditas: '',
+      kategori: 'Bahan Pokok',
+      satuanJumlah: '1',
+      satuanUnit: 'KG',
+      harga: '',
+      nama_pasar: '',
+      status: 'Terbit'
+    }
+  });
   const [formHarga, setFormHarga] = useState({
     nama_komoditas: '',
     kategori: 'Bahan Pokok',
-    satuan: 'kg',
+    satuanJumlah: '1',
+    satuanUnit: 'KG',
     harga: '',
     nama_pasar: '',
     status: 'Draft'
@@ -171,14 +184,63 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   // ─────────────────────────────────────────────
   // 3. LOGIKA HARGA PANGAN & VERIFIKASI (KABID & STAF)
   // ─────────────────────────────────────────────
+
+  // Format tampilan satuan agar bersih dari tanda garis miring atau teks anomali
+  const formatSatuanTampil = (satuan) => {
+    if (!satuan) return '1 KG';
+    let s = String(satuan).replace(/[\/]+/g, '').trim();
+    if (!s) return '1 KG';
+    if (/^kg$|^kilogram$/i.test(s)) return '1 KG';
+    if (/^gram$|^gr$|^g$/i.test(s)) return '1 Gram';
+    const match = s.match(/^(\d+)\s*(kg|kilogram|gram|gr|g)$/i);
+    if (match) {
+      const angka = match[1];
+      const unit = /gram|gr|g/i.test(match[2]) ? 'Gram' : 'KG';
+      return `${angka} ${unit}`;
+    }
+    return s;
+  };
+
+  // Mengurai nilai satuan lama menjadi komponen angka kuantitas dan pilihan unit (KG / Gram)
+  const uraiSatuan = (satuan) => {
+    if (!satuan) return { jumlah: '1', unit: 'KG' };
+    const str = String(satuan).replace(/[\/]+/g, '').trim();
+    const digitMatch = str.match(/\d+/);
+    const jumlah = digitMatch ? digitMatch[0] : '1';
+    const isGram = /gram|gr|\bg\b/i.test(str);
+    return {
+      jumlah,
+      unit: isGram ? 'Gram' : 'KG'
+    };
+  };
+
+  // Memastikan input hanya menerima angka bulat positif (0-9) dan navigasi keyboard
+  const hanyaBolehAngka = (e) => {
+    if ([
+      'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+      'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+      'Home', 'End'
+    ].includes(e.key)) {
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) {
+      return;
+    }
+    if (!/^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+    }
+  };
+
   // Staf: Menyimpan harga komoditas (bisa Draft untuk diajukan ke Kabid atau Terbit)
   const handleMulaiEditStaf = (item) => {
     setIdEditHarga(item.id);
+    const parsed = uraiSatuan(item.satuan);
     setFormHarga({
       nama_komoditas: item.nama_komoditas,
       kategori: item.kategori || 'Bahan Pokok',
-      satuan: item.satuan || 'kg',
-      harga: item.harga ? String(item.harga) : '',
+      satuanJumlah: parsed.jumlah,
+      satuanUnit: parsed.unit,
+      harga: String(item.harga ? Math.round(item.harga) : '').replace(/[^0-9]/g, ''),
       nama_pasar: item.nama_pasar || (daftarPasar[0] || 'Pasar Bersehati Karombasan'),
       status: item.status || 'Draft'
     });
@@ -190,21 +252,32 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     setFormHarga({
       nama_komoditas: '',
       kategori: 'Bahan Pokok',
-      satuan: 'kg',
+      satuanJumlah: '1',
+      satuanUnit: 'KG',
       harga: '',
       nama_pasar: daftarPasar[0] || 'Pasar Bersehati Karombasan',
       status: 'Draft'
     });
   };
 
-  // Simpan harga komoditas (Staf langsung terbit 1 tombol tanpa verifikasi)
+  // Simpan harga komoditas (Staf: 1 tombol pengajuan ke verifikasi Kabid)
   const handleSimpanHarga = async (e, statusBaru = 'Draft') => {
     if (e) e.preventDefault();
 
-    if (!formHarga.nama_komoditas.trim() || !formHarga.harga) {
-      alert('Nama jenis pangan dan besaran harga wajib diisi!');
+    if (!formHarga.nama_komoditas.trim()) {
+      alert('Nama jenis pangan wajib diisi!');
       return;
     }
+
+    const hargaAngka = parseInt(String(formHarga.harga).replace(/[^0-9]/g, ''), 10);
+    if (!hargaAngka || hargaAngka <= 0) {
+      alert('Besaran harga acuan wajib diisi dengan angka bulat positif lebih dari 0!');
+      return;
+    }
+
+    const kuantitasSatuan = parseInt(String(formHarga.satuanJumlah).replace(/[^0-9]/g, ''), 10) || 1;
+    const unitSatuan = formHarga.satuanUnit === 'Gram' ? 'Gram' : 'KG';
+    const satuanGabungan = `${kuantitasSatuan} ${unitSatuan}`;
 
     // Staf wajib verifikasi: simpan baru maupun edit selalu menghasilkan 'Draft' (Ajukan Harga)
     const statusFinal = (peran === 'Staf') ? 'Draft' : statusBaru;
@@ -212,26 +285,30 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     setSedangMenyimpan(true);
     try {
       const payload = {
-        ...formHarga,
-        harga: parseFloat(formHarga.harga),
+        nama_komoditas: formHarga.nama_komoditas.trim(),
+        kategori: formHarga.kategori,
+        satuan: satuanGabungan,
+        harga: hargaAngka,
+        nama_pasar: formHarga.nama_pasar,
         status: statusFinal,
         tanggal_penetapan: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
       };
 
       if (idEditHarga) {
         await hargaPanganService.perbarui(idEditHarga, payload);
-        tampilkanPesan(`✅ Perubahan data "${formHarga.nama_komoditas}" berhasil diajukan ke Kepala Bidang untuk diverifikasi ulang.`);
+        tampilkanPesan(`✅ Perubahan data "${formHarga.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diajukan ke Kepala Bidang untuk diverifikasi.`);
         setIdEditHarga(null);
       } else {
         await hargaPanganService.tambah(payload);
-        tampilkanPesan(`✅ Data harga "${formHarga.nama_komoditas}" berhasil diajukan ke Kepala Bidang untuk diverifikasi.`);
+        tampilkanPesan(`✅ Pengajuan harga "${formHarga.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diajukan ke Kepala Bidang untuk diverifikasi.`);
       }
 
       // Reset form
       setFormHarga({
         nama_komoditas: '',
         kategori: 'Bahan Pokok',
-        satuan: 'kg',
+        satuanJumlah: '1',
+        satuanUnit: 'KG',
         harga: '',
         nama_pasar: daftarPasar[0] || 'Pasar Bersehati Karombasan',
         status: 'Draft'
@@ -247,14 +324,16 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
   // Kabid: Ubah data yang dibuat staf (Modal Edit Kabid)
   const handleBukaEditKabid = (item) => {
+    const parsed = uraiSatuan(item.satuan);
     setModalEditKabid({
       buka: true,
       item,
       form: {
         nama_komoditas: item.nama_komoditas,
         kategori: item.kategori || 'Bahan Pokok',
-        satuan: item.satuan || 'kg',
-        harga: String(item.harga || ''),
+        satuanJumlah: parsed.jumlah,
+        satuanUnit: parsed.unit,
+        harga: String(item.harga ? Math.round(item.harga) : '').replace(/[^0-9]/g, ''),
         nama_pasar: item.nama_pasar || (daftarPasar[0] || 'Pasar Bersehati Karombasan'),
         status: item.status || 'Terbit'
       }
@@ -265,17 +344,31 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     if (e) e.preventDefault();
     if (!modalEditKabid.item) return;
 
+    const hargaAngka = parseInt(String(modalEditKabid.form.harga).replace(/[^0-9]/g, ''), 10);
+    if (!hargaAngka || hargaAngka <= 0) {
+      alert('Besaran harga acuan wajib diisi dengan angka bulat positif lebih dari 0!');
+      return;
+    }
+
+    const kuantitasSatuan = parseInt(String(modalEditKabid.form.satuanJumlah).replace(/[^0-9]/g, ''), 10) || 1;
+    const unitSatuan = modalEditKabid.form.satuanUnit === 'Gram' ? 'Gram' : 'KG';
+    const satuanGabungan = `${kuantitasSatuan} ${unitSatuan}`;
+
     try {
       await hargaPanganService.perbarui(modalEditKabid.item.id, {
-        nama_komoditas: modalEditKabid.form.nama_komoditas,
+        nama_komoditas: modalEditKabid.form.nama_komoditas.trim(),
         kategori: modalEditKabid.form.kategori,
-        satuan: modalEditKabid.form.satuan,
-        harga: parseFloat(modalEditKabid.form.harga),
+        satuan: satuanGabungan,
+        harga: hargaAngka,
         nama_pasar: modalEditKabid.form.nama_pasar,
         status: modalEditKabid.form.status || 'Terbit'
       });
-      tampilkanPesan(`✅ Data "${modalEditKabid.form.nama_komoditas}" berhasil diperbarui oleh Kepala Bidang.`);
-      setModalEditKabid({ buka: false, item: null, form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuan: 'kg', harga: '', nama_pasar: '', status: 'Terbit' } });
+      tampilkanPesan(`✅ Data "${modalEditKabid.form.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diperbarui oleh Kepala Bidang.`);
+      setModalEditKabid({
+        buka: false,
+        item: null,
+        form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuanJumlah: '1', satuanUnit: 'KG', harga: '', nama_pasar: '', status: 'Terbit' }
+      });
       await muatDataDashboard();
     } catch (error) {
       alert('Gagal memperbarui data: ' + error.message);
@@ -803,16 +896,28 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                     </div>
 
                     <div className="form-field-group">
-                      <label className="field-label-text">Satuan</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="kg / liter / butir"
-                        className="field-input-box"
-                        value={formHarga.satuan}
-                        onChange={(e) => setFormHarga({ ...formHarga, satuan: e.target.value })}
-                      >
-                      </input>
+                      <label className="field-label-text">Satuan Pangan (Jumlah & Unit)</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          required
+                          placeholder="Jumlah (Contoh: 1 / 500)"
+                          className="field-input-box"
+                          value={formHarga.satuanJumlah}
+                          onKeyDown={hanyaBolehAngka}
+                          onChange={(e) => setFormHarga({ ...formHarga, satuanJumlah: e.target.value.replace(/[^0-9]/g, '') })}
+                        />
+                        <select
+                          className="field-select-box"
+                          value={formHarga.satuanUnit}
+                          onChange={(e) => setFormHarga({ ...formHarga, satuanUnit: e.target.value })}
+                        >
+                          <option value="KG">KG (Kilogram)</option>
+                          <option value="Gram">Gram</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
 
@@ -820,14 +925,21 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                     <div className="form-field-group">
                       <label className="field-label-text">Harga Acuan (Rp)</label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         required
-                        min="0"
-                        placeholder="13500"
+                        placeholder="Contoh: 15000 (hanya angka)"
                         className="field-input-box"
                         value={formHarga.harga}
-                        onChange={(e) => setFormHarga({ ...formHarga, harga: e.target.value })}
+                        onKeyDown={hanyaBolehAngka}
+                        onChange={(e) => setFormHarga({ ...formHarga, harga: e.target.value.replace(/[^0-9]/g, '') })}
                       />
+                      {formHarga.harga && (
+                        <small style={{ color: '#059669', fontWeight: 600, fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>
+                          Terformat: {formatRupiah(parseInt(formHarga.harga, 10))}
+                        </small>
+                      )}
                     </div>
 
                     <div className="form-field-group">
@@ -866,7 +978,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                       <div className="price-item-info-col">
                         <div className="item-title-unit">
                           <strong className="item-name">{item.nama_komoditas}</strong>
-                          <span className="item-unit"> / {item.satuan || 'kg'}</span>
+                          <span className="item-unit"> / {formatSatuanTampil(item.satuan)}</span>
                         </div>
                         <div className="item-market-date">
                           {item.nama_pasar} · {item.tanggal_penetapan || 'Hari ini'}
@@ -956,7 +1068,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                         <strong style={{ fontSize: '1rem', color: '#92400e' }}>{item.nama_komoditas}</strong>
                         <span style={{ fontSize: '0.85rem', color: '#b45309', marginLeft: '8px' }}>({item.kategori})</span>
                         <div style={{ fontSize: '0.82rem', color: '#78350f', marginTop: '4px' }}>
-                          Pasar: <strong>{item.nama_pasar}</strong> · Satuan: {item.satuan} · Tanggal: {item.tanggal_penetapan}
+                          Pasar: <strong>{item.nama_pasar}</strong> · Satuan: {formatSatuanTampil(item.satuan)} · Tanggal: {item.tanggal_penetapan}
                         </div>
                       </div>
 
@@ -1038,7 +1150,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                       <td style={{ padding: '10px', fontWeight: 700 }}>{h.nama_komoditas}</td>
                       <td style={{ padding: '10px' }}>{h.kategori}</td>
                       <td style={{ padding: '10px' }}>{h.nama_pasar}</td>
-                      <td style={{ padding: '10px', fontWeight: 800, color: '#8b1e1e' }}>{formatRupiah(h.harga)}/{h.satuan}</td>
+                      <td style={{ padding: '10px', fontWeight: 800, color: '#8b1e1e' }}>{formatRupiah(h.harga)} / {formatSatuanTampil(h.satuan)}</td>
                       <td style={{ padding: '10px' }}>
                         <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700, background: '#dcfce7', color: '#166534' }}>
                           Terbit
@@ -1225,7 +1337,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                       <td style={{ padding: '10px', fontWeight: 700 }}>{h.nama_komoditas}</td>
                       <td style={{ padding: '10px' }}>{h.kategori}</td>
                       <td style={{ padding: '10px' }}>{h.nama_pasar}</td>
-                      <td style={{ padding: '10px', fontWeight: 800, color: '#8b1e1e' }}>{formatRupiah(h.harga)}/{h.satuan}</td>
+                      <td style={{ padding: '10px', fontWeight: 800, color: '#8b1e1e' }}>{formatRupiah(h.harga)} / {formatSatuanTampil(h.satuan)}</td>
                       <td style={{ padding: '10px' }}>
                         <span style={{ 
                           padding: '3px 8px', 
@@ -2050,7 +2162,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
             zIndex: 9999,
             padding: '20px'
           }}
-          onClick={() => setModalEditKabid({ buka: false, item: null, form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuan: 'kg', harga: '', nama_pasar: '', status: 'Terbit' } })}
+          onClick={() => setModalEditKabid({ buka: false, item: null, form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuanJumlah: '1', satuanUnit: 'KG', harga: '', nama_pasar: '', status: 'Terbit' } })}
         >
           <div
             style={{
@@ -2074,7 +2186,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               </div>
               <button
                 type="button"
-                onClick={() => setModalEditKabid({ buka: false, item: null, form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuan: 'kg', harga: '', nama_pasar: '', status: 'Terbit' } })}
+                onClick={() => setModalEditKabid({ buka: false, item: null, form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuanJumlah: '1', satuanUnit: 'KG', harga: '', nama_pasar: '', status: 'Terbit' } })}
                 style={{ background: 'none', border: 'none', fontSize: '1.2rem', color: '#64748b', cursor: 'pointer' }}
               >
                 ✕
@@ -2121,18 +2233,35 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
                 <div>
                   <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    Satuan
+                    Satuan Pangan (Jumlah & Unit)
                   </label>
-                  <input
-                    type="text"
-                    required
-                    className="field-input-box"
-                    value={modalEditKabid.form.satuan}
-                    onChange={(e) => setModalEditKabid({
-                      ...modalEditKabid,
-                      form: { ...modalEditKabid.form, satuan: e.target.value }
-                    })}
-                  />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      required
+                      placeholder="Jumlah (Contoh: 1 / 500)"
+                      className="field-input-box"
+                      value={modalEditKabid.form.satuanJumlah}
+                      onKeyDown={hanyaBolehAngka}
+                      onChange={(e) => setModalEditKabid({
+                        ...modalEditKabid,
+                        form: { ...modalEditKabid.form, satuanJumlah: e.target.value.replace(/[^0-9]/g, '') }
+                      })}
+                    />
+                    <select
+                      className="field-select-box"
+                      value={modalEditKabid.form.satuanUnit}
+                      onChange={(e) => setModalEditKabid({
+                        ...modalEditKabid,
+                        form: { ...modalEditKabid.form, satuanUnit: e.target.value }
+                      })}
+                    >
+                      <option value="KG">KG (Kilogram)</option>
+                      <option value="Gram">Gram</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -2142,16 +2271,24 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                     Harga Acuan (Rp)
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     required
-                    min="0"
+                    placeholder="Contoh: 15000 (hanya angka)"
                     className="field-input-box"
                     value={modalEditKabid.form.harga}
+                    onKeyDown={hanyaBolehAngka}
                     onChange={(e) => setModalEditKabid({
                       ...modalEditKabid,
-                      form: { ...modalEditKabid.form, harga: e.target.value }
+                      form: { ...modalEditKabid.form, harga: e.target.value.replace(/[^0-9]/g, '') }
                     })}
                   />
+                  {modalEditKabid.form.harga && (
+                    <small style={{ color: '#059669', fontWeight: 600, fontSize: '0.78rem', marginTop: '4px', display: 'block' }}>
+                      Terformat: {formatRupiah(parseInt(modalEditKabid.form.harga, 10))}
+                    </small>
+                  )}
                 </div>
 
                 <div>
@@ -2193,7 +2330,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button
                   type="button"
-                  onClick={() => setModalEditKabid({ buka: false, item: null, form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuan: 'kg', harga: '', nama_pasar: '', status: 'Terbit' } })}
+                  onClick={() => setModalEditKabid({ buka: false, item: null, form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuanJumlah: '1', satuanUnit: 'KG', harga: '', nama_pasar: '', status: 'Terbit' } })}
                   style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '10px 18px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
                 >
                   Batal
