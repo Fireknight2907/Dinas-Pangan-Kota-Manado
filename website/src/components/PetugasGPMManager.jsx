@@ -112,13 +112,68 @@ export default function PetugasGPMManager({ token, pengguna }) {
   });
   const [sedangSelesaikanAcara, setSedangSelesaikanAcara] = useState(false);
 
+  // Master Komoditas Pangan dari Informasi Harga untuk Dropdown Checklist Form GPM
+  const [daftarKomoditasMaster, setDaftarKomoditasMaster] = useState([]);
+  const [dropdownKomoditasBuka, setDropdownKomoditasBuka] = useState(false);
+
   // ─────────────────────────────────────────────
   // 2. LIFECYCLE & LOAD DATA
   // ─────────────────────────────────────────────
   useEffect(() => {
     muatDataAwal();
     muatKecamatan();
+    muatMasterKomoditas();
   }, []);
+
+  const muatMasterKomoditas = async () => {
+    try {
+      const listPangan = await hargaPanganService.ambilSemua();
+      const namaDariHarga = Array.isArray(listPangan)
+        ? listPangan.map(p => p.nama_komoditas ? p.nama_komoditas.trim() : '').filter(Boolean)
+        : [];
+      
+      const paketBawaanGPM = [
+        'Beras SPHP 5kg',
+        'Beras Premium 5kg',
+        'Beras Medium 5kg',
+        'Minyakita 1L',
+        'Minyak Goreng Kemasan 1L',
+        'Gula Pasir 1kg',
+        'Telur Ayam 1 Baki',
+        'Daging Ayam 1 KG',
+        'Daging Sapi 1 KG',
+        'Bawang Merah 1 KG',
+        'Bawang Putih 1 KG',
+        'Cabai Rawit 1 KG'
+      ];
+      
+      const gabungan = Array.from(new Set([...namaDariHarga, ...paketBawaanGPM]));
+      setDaftarKomoditasMaster(gabungan);
+    } catch (e) {
+      console.warn('[PetugasGPM] Gagal memuat komoditas master harga pangan:', e);
+    }
+  };
+
+  const handleToggleKomoditas = (itemNama) => {
+    let list = formGPM.komoditas_tersedia
+      ? formGPM.komoditas_tersedia.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+    const idx = list.indexOf(itemNama);
+    if (idx > -1) {
+      list.splice(idx, 1);
+    } else {
+      list.push(itemNama);
+    }
+    setFormGPM(prev => ({ ...prev, komoditas_tersedia: list.join(', ') }));
+  };
+
+  const handlePilihSemuaKomoditas = () => {
+    setFormGPM(prev => ({ ...prev, komoditas_tersedia: daftarKomoditasMaster.join(', ') }));
+  };
+
+  const handleKosongkanKomoditas = () => {
+    setFormGPM(prev => ({ ...prev, komoditas_tersedia: '' }));
+  };
 
   const muatKecamatan = () => {
     const list = hargaPanganService.ambilKecamatan();
@@ -1028,17 +1083,166 @@ export default function PetugasGPMManager({ token, pengguna }) {
               />
             </div>
 
-            <div>
+            <div style={{ position: 'relative' }}>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
-                Komoditas Pangan yang Disediakan
+                Komoditas Pangan yang Disediakan (Pilih dari Data Harga Pangan)
               </label>
-              <input
-                type="text"
-                placeholder="Beras SPHP 5kg, Minyakita 1L, Gula Pasir 1kg"
+
+              {/* Box Pemilih Dropdown */}
+              <div
+                onClick={() => setDropdownKomoditasBuka(!dropdownKomoditasBuka)}
                 className="event-input-box"
-                value={formGPM.komoditas_tersedia}
-                onChange={(e) => setFormGPM({ ...formGPM, komoditas_tersedia: e.target.value })}
-              />
+                style={{
+                  minHeight: '44px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  background: '#ffffff',
+                  border: dropdownKomoditasBuka ? '2px solid #8b1e1e' : '1.5px solid #d1d5db',
+                  borderRadius: '8px',
+                  userSelect: 'none'
+                }}
+              >
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', flex: 1, alignItems: 'center' }}>
+                  {(!formGPM.komoditas_tersedia || formGPM.komoditas_tersedia.trim() === '') ? (
+                    <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                      📋 Klik untuk mencentang komoditas dari informasi harga...
+                    </span>
+                  ) : (
+                    formGPM.komoditas_tersedia.split(',').map(s => s.trim()).filter(Boolean).map((k, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          background: '#fee2e2',
+                          color: '#991b1b',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        ✓ {k}
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleKomoditas(k);
+                          }}
+                          style={{ cursor: 'pointer', marginLeft: '2px', color: '#dc2626' }}
+                          title="Hapus"
+                        >
+                          ✕
+                        </span>
+                      </span>
+                    ))
+                  )}
+                </div>
+                <span style={{ fontSize: '0.85rem', color: '#64748b', marginLeft: '8px', fontWeight: 700 }}>
+                  {dropdownKomoditasBuka ? '▲' : '▼'}
+                </span>
+              </div>
+
+              {/* Dropdown Checklist Popover */}
+              {dropdownKomoditasBuka && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    zIndex: 1050,
+                    background: '#ffffff',
+                    border: '1.5px solid #8b1e1e',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                    marginTop: '4px',
+                    padding: '12px',
+                    maxHeight: '260px',
+                    overflowY: 'auto'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid #f1f5f9' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#8b1e1e' }}>
+                      Pilih Komoditas Tersedia ({formGPM.komoditas_tersedia ? formGPM.komoditas_tersedia.split(',').filter(Boolean).length : 0} dipilih)
+                    </span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={handlePilihSemuaKomoditas}
+                        style={{ background: 'none', border: 'none', color: '#1d4ed8', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        Pilih Semua
+                      </button>
+                      <span style={{ color: '#cbd5e1' }}>|</span>
+                      <button
+                        type="button"
+                        onClick={handleKosongkanKomoditas}
+                        style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        Kosongkan
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '6px' }}>
+                    {daftarKomoditasMaster.map((item, idx) => {
+                      const listTerpilih = formGPM.komoditas_tersedia
+                        ? formGPM.komoditas_tersedia.split(',').map(s => s.trim()).filter(Boolean)
+                        : [];
+                      const isChecked = listTerpilih.includes(item);
+                      return (
+                        <label
+                          key={idx}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            background: isChecked ? '#fef2f2' : '#f8fafc',
+                            border: isChecked ? '1px solid #fca5a5' : '1px solid #e2e8f0',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                            fontWeight: isChecked ? 700 : 500,
+                            color: isChecked ? '#991b1b' : '#334155'
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleToggleKomoditas(item)}
+                            style={{ accentColor: '#8b1e1e', width: '15px', height: '15px', cursor: 'pointer' }}
+                          />
+                          <span>{item}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      onClick={() => setDropdownKomoditasBuka(false)}
+                      style={{
+                        background: '#8b1e1e',
+                        color: '#ffffff',
+                        border: 'none',
+                        padding: '6px 16px',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ✓ Selesai Memilih
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="form-field-full">

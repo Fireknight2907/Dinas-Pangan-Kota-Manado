@@ -630,8 +630,69 @@
                 </div>
               </div>
               <div class="s-field">
-                <label>Komoditas Pangan yang Disediakan</label>
-                <input type="text" v-model="formGPMBaru.komoditas_tersedia" placeholder="Beras SPHP, Minyakita, Gula Pasir" />
+                <label>Komoditas Pangan yang Disediakan (Pilih dari Data Harga)</label>
+                <!-- Box Dropdown Multi-Select -->
+                <div 
+                  @click="dropdownGPMKomoditasBuka = !dropdownGPMKomoditasBuka"
+                  style="min-height: 44px; border: 1.5px solid #d1d5db; border-radius: 8px; padding: 8px 10px; background: #ffffff; cursor: pointer; display: flex; align-items: center; justify-content: space-between;"
+                >
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px; flex: 1;">
+                    <span v-if="!formGPMBaru.komoditas_tersedia" style="color: #94a3b8; font-size: 0.82rem;">
+                      📋 Sentuh untuk mencentang komoditas...
+                    </span>
+                    <span 
+                      v-else
+                      v-for="(k, idx) in formGPMBaru.komoditas_tersedia.split(',').map(s => s.trim()).filter(Boolean)" 
+                      :key="idx"
+                      style="background: #fee2e2; color: #991b1b; font-size: 0.75rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;"
+                    >
+                      ✓ {{ k }}
+                      <span @click.stop="toggleKomoditasGPM(k)" style="color: #dc2626; margin-left: 2px;">✕</span>
+                    </span>
+                  </div>
+                  <span style="font-size: 0.8rem; color: #64748b; font-weight: bold; margin-left: 6px;">
+                    {{ dropdownGPMKomoditasBuka ? '▲' : '▼' }}
+                  </span>
+                </div>
+
+                <!-- Popover Checklist -->
+                <div 
+                  v-if="dropdownGPMKomoditasBuka"
+                  style="border: 1.5px solid #8b1e1e; border-radius: 8px; background: #ffffff; padding: 10px; margin-top: 6px; max-height: 220px; overflow-y: auto; box-shadow: 0 4px 14px rgba(0,0,0,0.12);"
+                >
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9;">
+                    <span style="font-size: 0.78rem; font-weight: 800; color: #8b1e1e;">Centang Komoditas</span>
+                    <button 
+                      type="button" 
+                      @click="formGPMBaru.komoditas_tersedia = ''" 
+                      style="background: none; border: none; color: #dc2626; font-size: 0.72rem; font-weight: 700; cursor: pointer;"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                  <div style="display: grid; grid-template-columns: 1fr; gap: 6px;">
+                    <label 
+                      v-for="(item, idx) in daftarKomoditasPilihanGPM" 
+                      :key="idx"
+                      style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; background: #f8fafc; border: 1px solid #e2e8f0; font-size: 0.8rem; cursor: pointer;"
+                    >
+                      <input 
+                        type="checkbox" 
+                        :checked="formGPMBaru.komoditas_tersedia.split(',').map(s => s.trim()).includes(item)" 
+                        @change="toggleKomoditasGPM(item)"
+                        style="accent-color: #8b1e1e; width: 16px; height: 16px; cursor: pointer;"
+                      />
+                      <span>{{ item }}</span>
+                    </label>
+                  </div>
+                  <button 
+                    type="button" 
+                    @click="dropdownGPMKomoditasBuka = false"
+                    style="width: 100%; margin-top: 8px; background: #8b1e1e; color: #ffffff; border: none; padding: 6px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer;"
+                  >
+                    ✓ Selesai
+                  </button>
+                </div>
               </div>
               <button type="submit" class="btn-publish-action" :disabled="sedangSimpanGPMBaru">
                 <span>📍</span> {{ sedangSimpanGPMBaru ? 'Menyimpan...' : 'Terbitkan Acara ke Peta' }}
@@ -896,7 +957,7 @@
             </div>
             <h2 class="hero-title-text">Gerakan Pangan Murah</h2>
             <p class="hero-desc-text">
-              Daftarkan diri Anda untuk mendapatkan nomor antrean dan kode QR resmi kegiatan Gerakan Pangan Murah di Kota Manado <strong>Tanpa masuk akun.</strong>
+              Dapatkan komoditas pangan pokok berkualitas dengan harga terjangkau langsung dari produsen untuk stabilisasi pasokan dan harga di Kota Manado. <strong>Masyarakat tak perlu masuk akun (cukup nama & no. HP).</strong>
             </p>
             <div class="hero-update-date">
               <span>📍  {{ daftarAcaraGPM.length }} Lokasi Pelaksanaan Tersedia</span>
@@ -1421,6 +1482,39 @@ const formGPMBaru = ref({
   komoditas_tersedia: 'Beras SPHP 5kg, Minyakita 1L, Gula Pasir 1kg'
 });
 const sedangSimpanGPMBaru = ref(false);
+const dropdownGPMKomoditasBuka = ref(false);
+
+const daftarKomoditasPilihanGPM = computed(() => {
+  const dariHarga = semuaKomoditas.value.map(k => k.nama_komoditas ? k.nama_komoditas.trim() : '').filter(Boolean);
+  const bawaan = [
+    'Beras SPHP 5kg',
+    'Beras Premium 5kg',
+    'Beras Medium 5kg',
+    'Minyakita 1L',
+    'Minyak Goreng Kemasan 1L',
+    'Gula Pasir 1kg',
+    'Telur Ayam 1 Baki',
+    'Daging Ayam 1 KG',
+    'Daging Sapi 1 KG',
+    'Bawang Merah 1 KG',
+    'Bawang Putih 1 KG',
+    'Cabai Rawit 1 KG'
+  ];
+  return Array.from(new Set([...dariHarga, ...bawaan]));
+});
+
+const toggleKomoditasGPM = (nama: string) => {
+  let list = formGPMBaru.value.komoditas_tersedia
+    ? formGPMBaru.value.komoditas_tersedia.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+  const idx = list.indexOf(nama);
+  if (idx > -1) {
+    list.splice(idx, 1);
+  } else {
+    list.push(nama);
+  }
+  formGPMBaru.value.komoditas_tersedia = list.join(', ');
+};
 
 // State Filter Kategori & Pasar
 const kategoriAktif = ref('Semua');
@@ -2223,6 +2317,9 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
   padding-top: max(8px, env(safe-area-inset-top, 28px));
+  position: relative;
+  z-index: 9999;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .btn-cancel-edit-pill {
@@ -2637,6 +2734,9 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   background: #ffffff;
   border-bottom: 1px solid #f1f5f9;
   padding-top: max(8px, env(safe-area-inset-top, 28px));
+  position: relative;
+  z-index: 9999;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .mobile-top-bar {

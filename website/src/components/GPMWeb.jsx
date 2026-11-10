@@ -155,7 +155,7 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
           </h1>
 
           <p className="gpm-hero-desc">
-            Dapatkan komoditas pangan pokok berkualitas (beras SPHP, minyak goreng, gula, telur, dan cabai) dengan harga terjangkau langsung dari produsen untuk stabilisasi pasokan dan harga di Kota Manado.
+            Dapatkan komoditas pangan pokok berkualitas dengan harga terjangkau langsung dari produsen untuk stabilisasi pasokan dan harga di Kota Manado.
           </p>
 
           <div className="gpm-hero-meta-badges">
@@ -165,7 +165,7 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
             </div>
             <div className="gpm-meta-item">
               <span>🛡️</span>
-              <span>Masyarakat <strong>Bebas Masuk Akun</strong> (Cukup Masukan Nama & No. HP)</span>
+              <span>Masyarakat <strong>Tak Perlu Masuk</strong> (Cukup Masukan Nama & No. HP)</span>
             </div>
             <div className="gpm-meta-item">
               <span>⚡</span>

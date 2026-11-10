@@ -217,15 +217,37 @@ class GPMMobileApiService {
                 supabaseClient.getPendaftarGPM().catch(() => [])
             ]);
 
-            const listPendaftar = Array.isArray(pendaftarCloud) && pendaftarCloud.length > 0
-                ? pendaftarCloud
-                : this.fallbackPendaftar;
+            const MAP_ID: Record<string, string> = {
+                '1': '777e05ab-a8c0-4bdc-9999-a12e522786d6',
+                '777e05ab-a8c0-4bdc-9999-a12e522786d6': '1',
+                'gpm-001-sparta-tikala': '777e05ab-a8c0-4bdc-9999-a12e522786d6',
+                '2': 'f1da6320-1a2b-48f2-8d0d-c1cf28208808',
+                'f1da6320-1a2b-48f2-8d0d-c1cf28208808': '2'
+            };
+
+            const gabungPendaftar = [
+                ...(Array.isArray(pendaftarCloud) ? pendaftarCloud : []),
+                ...(Array.isArray(this.fallbackPendaftar) ? this.fallbackPendaftar : [])
+            ];
+            const listPendaftar: any[] = [];
+            const seen = new Set<string>();
+            for (const p of gabungPendaftar) {
+                const key = p.kode_barcode || p.id;
+                if (key && !seen.has(key)) {
+                    seen.add(key);
+                    listPendaftar.push(p);
+                }
+            }
 
             if (Array.isArray(dataCloud) && dataCloud.length > 0) {
                 const mapped: ItemAcaraGPM[] = dataCloud.map((item: any) => {
                     const idStr = String(item.id);
-                    // Hitung jumlah pendaftar aktual dari tabel pendaftar_gpm
-                    const terdaftar = listPendaftar.filter((p: any) => String(p.acara_id) === idStr).length;
+                    // Hitung jumlah pendaftar aktual dari tabel pendaftar_gpm & cache lokal
+                    const terdaftar = listPendaftar.filter((p: any) => {
+                        const aid = String(p.acara_id || '').toLowerCase();
+                        const curId = idStr.toLowerCase();
+                        return aid === curId || (MAP_ID[aid] && MAP_ID[aid].toLowerCase() === curId);
+                    }).length;
                     const kuotaMaks = Number(item.kuota_maksimal) || 250;
                     const terisi = terdaftar > 0 ? terdaftar : (Number(item.antrean_terisi) || 0);
 
@@ -688,29 +710,34 @@ class GPMMobileApiService {
         const totalHadir = pendaftar.filter(p => p.status_kehadiran === 'Hadir').length;
         const totalMenunggu = totalPendaftar - totalHadir;
 
+        // Karakter UTF-8 BOM untuk kompatibilitas penuh dengan Microsoft Excel (mencegah teks berantakan)
         let csv = '\uFEFF';
-        csv += 'REKAPITULASI RESMI GERAKAN PANGAN MURAH (GPM)\n';
-        csv += 'DINAS PANGAN KOTA MANADO\n';
-        csv += '============================================================\n';
+        csv += 'LAPORAN REKAPITULASI RESMI GERAKAN PANGAN MURAH (GPM)\n';
+        csv += 'DINAS PANGAN PEMERINTAH KOTA MANADO\n\n';
+
+        csv += 'RINGKASAN KEGIATAN\n';
         csv += `Nama Kegiatan,"${(acara.nama_acara || '').replace(/"/g, '""')}"\n`;
         csv += `Lokasi Pelaksanaan,"${(acara.lokasi || '').replace(/"/g, '""')} (Kec. ${(acara.kecamatan || '').replace(/"/g, '""')})"\n`;
-        csv += `Tanggal Pelaksanaan,"${acara.tanggal || '-'} (${acara.jam_mulai || '08:00'} - ${acara.jam_selesai || '13:00'} WITA)"\n`;
-        csv += `Komoditas Pangan Tersedia,"${(acara.komoditas_tersedia || '').replace(/"/g, '""')}"\n`;
-        csv += `Status Acara,"${acara.status || 'Selesai'}"\n`;
+        csv += `Jadwal Pelaksanaan,"${acara.tanggal || '-'} (${acara.jam_mulai || '08:00'} - ${acara.jam_selesai || '13:00'} WITA)"\n`;
+        csv += `Komoditas Disediakan,"${(acara.komoditas_tersedia || '').replace(/"/g, '""')}"\n`;
+        csv += `Status Kegiatan,"${acara.status || 'Selesai'}"\n\n`;
+
+        csv += 'DATA KUOTA & KEHADIRAN WARGA\n';
         csv += `Total Kuota Maksimal,${acara.kuota_maksimal || 250}\n`;
         csv += `Total Warga Mendaftar,${totalPendaftar}\n`;
         csv += `Total Warga Hadir (Terverifikasi),${totalHadir}\n`;
         csv += `Total Belum Hadir / Menunggu,${totalMenunggu}\n`;
-        csv += `Waktu Unduh Rekapitulasi,"${new Date().toLocaleString('id-ID')}"\n`;
-        csv += '============================================================\n\n';
+        csv += `Waktu Unduh Rekapitulasi,"${new Date().toLocaleString('id-ID')}"\n\n`;
 
-        csv += 'No Urut,Nomor Antrean,Nama Lengkap Warga,Nomor Telepon/WA,Kode Barcode QR,Status Kehadiran,Waktu Pendaftaran,Waktu Hadir\n';
+        csv += 'DATA DETAIL PENDAFTAR & ANTREAN\n';
+        csv += 'No Urut,Nomor Antrean,Nama Lengkap,Nomor Telepon / WhatsApp,Kode Tiket QR,Status Kehadiran,Waktu Pendaftaran,Waktu Hadir\n';
 
         pendaftar.forEach((p, index) => {
             const noUrut = index + 1;
-            const noAntrean = `"#${String(p.nomor_antrean || index + 1).padStart(3, '0')}"`;
+            const noAntrean = `="#${String(p.nomor_antrean || index + 1).padStart(3, '0')}"`;
             const nama = `"${(p.nama_pendaftar || '').replace(/"/g, '""')}"`;
-            const telp = `"'${p.nomor_telepon || ''}"`;
+            const rawTelp = String(p.nomor_telepon || '').replace(/[^0-9]/g, '');
+            const telp = rawTelp ? `="${rawTelp}"` : `"-"`;
             const kode = `"${(p.kode_barcode || '').replace(/"/g, '""')}"`;
             const status = `"${p.status_kehadiran || 'Menunggu'}"`;
             const waktuDaftar = `"${p.waktu_mendaftar ? new Date(p.waktu_mendaftar).toLocaleString('id-ID') : '-'}"`;

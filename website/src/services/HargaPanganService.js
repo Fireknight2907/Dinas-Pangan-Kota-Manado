@@ -130,6 +130,21 @@ class HargaPanganApiService {
         }
     }
 
+    normalisasiSatuan(satuan) {
+        if (!satuan) return '1 KG';
+        let s = String(satuan).replace(/[\/]+/g, '').trim();
+        if (!s) return '1 KG';
+        if (/^kg$|^kilogram$/i.test(s)) return '1 KG';
+        if (/^gram$|^gr$|^g$/i.test(s)) return '1 Gram';
+        const match = s.match(/^(\d+)\s*(kg|kilogram|gram|gr|g)$/i);
+        if (match) {
+            const angka = match[1];
+            const unit = /^(gram|gr|g)$/i.test(match[2].trim()) ? 'Gram' : 'KG';
+            return `${angka} ${unit}`;
+        }
+        return s;
+    }
+
     // ─────────────────────────────────────────────
     // 1. DATA KOMODITAS
     // ─────────────────────────────────────────────
@@ -138,8 +153,9 @@ class HargaPanganApiService {
         try {
             const dataCloud = await supabaseClient.getHargaPangan();
             if (Array.isArray(dataCloud) && dataCloud.length > 0) {
-                localStorage.setItem('sipatokean_custom_items', JSON.stringify(dataCloud));
-                let hasil = [...dataCloud];
+                const cleaned = dataCloud.map(i => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
+                localStorage.setItem('sipatokean_custom_items', JSON.stringify(cleaned));
+                let hasil = [...cleaned];
                 if (status) {
                     hasil = hasil.filter(i => (i.status || 'Terbit').toLowerCase() === status.toLowerCase());
                 }
@@ -563,16 +579,18 @@ class HargaPanganApiService {
     ambilDataFallback(kategori, pasar, cari, status) {
         const kustom = localStorage.getItem('sipatokean_custom_items');
         let items = kustom ? JSON.parse(kustom) : [
-            { id: '1', nama_komoditas: 'Beras Medium', kategori: 'Bahan Pokok', satuan: 'kg', harga: 13500, nama_pasar: 'Pasar Bersehati Karombasan', tanggal_penetapan: '14 Oktober 2026', status: 'Terbit' },
-            { id: '2', nama_komoditas: 'Minyak Goreng Kemasan', kategori: 'Bahan Pokok', satuan: 'liter', harga: 18000, nama_pasar: 'Pasar Tradisional Tuminting', tanggal_penetapan: '14 Oktober 2026', status: 'Draft' },
-            { id: '3', nama_komoditas: 'Gula Pasir', kategori: 'Bahan Pokok', satuan: 'kg', harga: 16000, nama_pasar: 'Pasar Bersehati Sario', tanggal_penetapan: '14 Oktober 2026', status: 'Terbit' },
-            { id: '4', nama_komoditas: 'Beras Premium', kategori: 'Bahan Pokok', satuan: 'kg', harga: 15500, nama_pasar: 'Pasar Bersehati Karombasan', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' },
-            { id: '5', nama_komoditas: 'Telur Ayam', kategori: 'Hewani', satuan: 'kg', harga: 28000, nama_pasar: 'Pasar Bersehati Sario', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' },
-            { id: '6', nama_komoditas: 'Daging Ayam', kategori: 'Hewani', satuan: 'kg', harga: 38000, nama_pasar: 'Pasar Bersehati Sario', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' },
-            { id: '7', nama_komoditas: 'Daging Sapi', kategori: 'Hewani', satuan: 'kg', harga: 135000, nama_pasar: 'Pasar Tradisional Bahu', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' },
-            { id: '8', nama_komoditas: 'Bawang Merah', kategori: 'Sayuran', satuan: 'kg', harga: 32000, nama_pasar: 'Pasar Tradisional Bahu', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' },
-            { id: '9', nama_komoditas: 'Bawang Putih', kategori: 'Sayuran', satuan: 'kg', harga: 35000, nama_pasar: 'Pasar Bersehati Karombasan', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' }
+            { id: '1', nama_komoditas: 'Beras Medium', kategori: 'Bahan Pokok', satuan: '1 KG', harga: 13500, nama_pasar: 'Pasar Bersehati Karombasan', tanggal_penetapan: '14 Oktober 2026', status: 'Terbit' },
+            { id: '2', nama_komoditas: 'Minyak Goreng Kemasan', kategori: 'Bahan Pokok', satuan: '1 KG', harga: 18000, nama_pasar: 'Pasar Tradisional Tuminting', tanggal_penetapan: '14 Oktober 2026', status: 'Draft' },
+            { id: '3', nama_komoditas: 'Gula Pasir', kategori: 'Bahan Pokok', satuan: '1 KG', harga: 16000, nama_pasar: 'Pasar Bersehati Sario', tanggal_penetapan: '14 Oktober 2026', status: 'Terbit' },
+            { id: '4', nama_komoditas: 'Beras Premium', kategori: 'Bahan Pokok', satuan: '1 KG', harga: 15500, nama_pasar: 'Pasar Bersehati Karombasan', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' },
+            { id: '5', nama_komoditas: 'Telur Ayam', kategori: 'Hewani', satuan: '1 KG', harga: 28000, nama_pasar: 'Pasar Bersehati Sario', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' },
+            { id: '6', nama_komoditas: 'Daging Ayam', kategori: 'Hewani', satuan: '1 KG', harga: 38000, nama_pasar: 'Pasar Bersehati Sario', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' },
+            { id: '7', nama_komoditas: 'Daging Sapi', kategori: 'Hewani', satuan: '1 KG', harga: 135000, nama_pasar: 'Pasar Tradisional Bahu', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' },
+            { id: '8', nama_komoditas: 'Bawang Merah', kategori: 'Sayuran', satuan: '1 KG', harga: 32000, nama_pasar: 'Pasar Tradisional Bahu', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' },
+            { id: '9', nama_komoditas: 'Bawang Putih', kategori: 'Sayuran', satuan: '1 KG', harga: 35000, nama_pasar: 'Pasar Bersehati Karombasan', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' }
         ];
+
+        items = items.map(i => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
 
         if (status) {
             items = items.filter(i => i.status === status);
