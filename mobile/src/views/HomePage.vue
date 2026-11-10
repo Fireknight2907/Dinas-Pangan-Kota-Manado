@@ -19,10 +19,10 @@
       </button>
 
       <div class="mobile-login-card">
-        <!-- Log❌& Brand Header -->
+        <!-- Logo& Brand Header -->
         <div class="mobile-login-brand">
           <div class="mobile-login-logo">
-            <img src="/logodinaspangan.png" alt="Log❌SIPATOKAAN" class="mobile-logo-img" />
+            <img src="/logodinaspangan.png" alt="LogoSIPATOKAAN" class="mobile-logo-img" />
           </div>
           <div>
             <h2 class="mobile-login-title">SI PATOKAAN</h2>
@@ -95,7 +95,7 @@
         <div class="staff-header-top">
           <div class="staff-header-brand">
             <div class="staff-logo-box">
-              <img src="/logodinaspangan.png" alt="Log❌SIPATOKAAN" class="staff-logo-img" />
+              <img src="/logodinaspangan.png" alt="LogoSIPATOKAAN" class="staff-logo-img" />
             </div>
             <div>
               <h2 class="staff-header-name">Bidang Distribusi & Cadangan</h2>
@@ -454,7 +454,7 @@
             </div>
 
             <div v-if="pesanScanErrorPetugas" class="m-error-alert">
-              ⚠️ï¸ {{ pesanScanErrorPetugas }}
+              ⚠️  {{ pesanScanErrorPetugas }}
             </div>
 
             <!-- HASIL SCAN PROFIL PENDAFTAR -->
@@ -474,7 +474,7 @@
                   <strong class="m-info-val">{{ hasilScanPetugas.nama_pendaftar }}</strong>
                 </div>
                 <div>
-                  <span class="m-info-lbl">N✅ HP / WA</span>
+                  <span class="m-info-lbl">No. HP / WA</span>
                   <strong class="m-info-val">{{ hasilScanPetugas.nomor_telepon }}</strong>
                 </div>
                 <div style="grid-column: 1 / -1;">
@@ -596,7 +596,7 @@
         <div class="mobile-top-bar">
           <div class="brand-left">
             <div class="logo-box-maroon">
-              <img src="/logodinaspangan.png" alt="Log❌SIPATOKAAN" class="public-logo-img" />
+              <img src="/logodinaspangan.png" alt="LogoSIPATOKAAN" class="public-logo-img" />
             </div>
             <div class="brand-title-wrap">
               <h1 class="brand-name">SIPATOKAAN</h1>
@@ -651,7 +651,7 @@
         </ion-refresher>
         <!-- KONTEN A: HARGA PANGAN -->
         <div v-if="tabAktif === 'harga'">
-          <!-- Her❌Banner Maroon -->
+          <!-- HeroBanner Maroon -->
           <div class="mobile-hero-card">
             <div class="hero-badge-tag">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -712,7 +712,7 @@
             </div>
           </div>
 
-          <!-- 6. Subheader Inf❌Row -->
+          <!-- 6. Subheader InfoRow -->
           <div class="mobile-info-summary-row">
             <span class="info-found-text">{{ komoditasTerfilter.length }} komoditas ditemukan</span>
             <span class="info-unit-text">Harga per kg</span>
@@ -749,15 +749,15 @@
 
         <!-- KONTEN B: GERAKAN PANGAN MURAH (GPM) PUBLIK (TANPA LOGIN) -->
         <div v-else-if="tabAktif === 'gpm'" class="mobile-gpm-public-section">
-          <!-- Her❌Banner GPM Mobile -->
+          <!-- HeroBanner GPM Mobile -->
           <div class="mobile-hero-card gpm-hero-theme">
             <div class="hero-badge-tag">
-              <span>🎟️ï¸</span>
+              <span>🎟️ </span>
               <span>Antrean Daring GPM Manado</span>
             </div>
             <h2 class="hero-title-text">Gerakan Pangan Murah</h2>
             <p class="hero-desc-text">
-              Daftarkan diri Anda untuk mendapatkan nomor antrean dan kode QR resmi kegiatan Gerakan Pangan Murah di Kota Manad✅ <strong>Tanpa masuk akun.</strong>
+              Daftarkan diri Anda untuk mendapatkan nomor antrean dan kode QR resmi kegiatan Gerakan Pangan Murah di Kota Manado <strong>Tanpa masuk akun.</strong>
             </p>
             <div class="hero-update-date">
               <span>📍  {{ daftarAcaraGPM.length }} Lokasi Pelaksanaan Tersedia</span>
@@ -784,7 +784,7 @@
 
               <div class="m-ticket-meta-box">
                 <p><span>Nama Pendaftar:</span> <strong>{{ tiketGPMHasil.tiket.nama_pendaftar }}</strong></p>
-                <p><span>N✅ HP/WA:</span> <strong>{{ tiketGPMHasil.tiket.nomor_telepon }}</strong></p>
+                <p><span>No. HP/WA:</span> <strong>{{ tiketGPMHasil.tiket.nomor_telepon }}</strong></p>
                 <p><span>Acara:</span> <strong>{{ tiketGPMHasil.acara.nama_acara }}</strong></p>
                 <p><span>Tempat:</span> <strong>{{ tiketGPMHasil.acara.lokasi }}</strong></p>
                 <p><span>Waktu:</span> <strong>{{ tiketGPMHasil.acara.tanggal }} ({{ tiketGPMHasil.acara.jam }})</strong></p>
@@ -846,11 +846,11 @@
 
               <!-- Form Ambil Antrean (Tanpa Login) -->
               <form @submit.prevent="ambilNomorAntreanMobile" class="m-queue-form">
-                <h4 class="m-form-heading">🎟️ï¸ Formulir Ambil Nomor Antrean</h4>
+                <h4 class="m-form-heading">🎟️  Formulir Ambil Nomor Antrean</h4>
                 <p class="m-form-subheading">Masyarakat tidak perlu masuk akun, cukup isi nama dan nomor HP:</p>
 
                 <div v-if="pesanErrorGPM" class="m-error-alert">
-                  ⚠️ï¸ {{ pesanErrorGPM }}
+                  ⚠️  {{ pesanErrorGPM }}
                 </div>
 
                 <div class="m-input-group-mobile">
@@ -878,7 +878,7 @@
                 </div>
 
                 <button type="submit" class="btn-m-get-queue" :disabled="sedangDaftarGPM">
-                  {{ sedangDaftarGPM ? 'Memproses...' : '🎟️ï¸ Dapatkan Nomor Antrean & Kode QR' }}
+                  {{ sedangDaftarGPM ? 'Memproses...' : '🎟️  Dapatkan Nomor Antrean & Kode QR' }}
                 </button>
               </form>
             </div>
@@ -1042,44 +1042,65 @@ const inisialisasiPetaGpm = () => {
     if (!el) return;
 
     if (mapInstance) {
-      mapInstance.remove();
+      try {
+        mapInstance.remove();
+      } catch (err) {}
       mapInstance = null;
     }
 
-    // Buat Peta Leaflet Berpusat di Kota Manado
-    mapInstance = L.map('petaGpmMobile', {
-      zoomControl: true,
-      scrollWheelZoom: false,
-      attributionControl: false
-    }).setView([1.482, 124.842], 13);
+    // Bersihkan _leaflet_id agar Leaflet tidak memicu error container already initialized
+    if ((el as any)._leaflet_id) {
+      delete (el as any)._leaflet_id;
+    }
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
-    }).addTo(mapInstance);
+    try {
+      // Buat Peta Leaflet Berpusat di Kota Manado
+      mapInstance = L.map(el, {
+        zoomControl: true,
+        scrollWheelZoom: false,
+        attributionControl: false
+      }).setView([1.482, 124.842], 13);
 
-    markers = [];
-    daftarAcaraGPM.value.forEach(acara => {
-      const lat = acara.latitude || (acara.nama_acara.includes('Tikala') ? 1.4878 : 1.4647);
-      const lng = acara.longitude || (acara.nama_acara.includes('Tikala') ? 124.8427 : 124.8415);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+      }).addTo(mapInstance);
 
-      const customPin = L.divIcon({
-        className: 'gpm-pin-wrap',
-        html: `<div style="background:#8b1e1e;color:#ffffff;border-radius:20px;padding:5px 9px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:3px;box-shadow:0 3px 8px rgba(0,0,0,0.3);border:2px solid #ffffff;white-space:nowrap;">📍 ${acara.nama_acara.replace('GPM ', '')}</div>`,
-        iconSize: [130, 32],
-        iconAnchor: [65, 16]
+      markers = [];
+      const dataAcara = (daftarAcaraGPM.value && daftarAcaraGPM.value.length > 0)
+        ? daftarAcaraGPM.value
+        : [
+            { id: '1', nama_acara: 'GPM Lapangan Sparta Tikala', lokasi: 'Depan Kantor Walikota Manado', kecamatan: 'Tikala', latitude: 1.4878, longitude: 124.8427 },
+            { id: '2', nama_acara: 'GPM Pelataran Bersehati Karombasan', lokasi: 'Pasar Bersehati Karombasan', kecamatan: 'Wanea', latitude: 1.4647, longitude: 124.8415 }
+          ];
+
+      dataAcara.forEach((acara: any) => {
+        const lat = acara.latitude || (acara.nama_acara.includes('Tikala') ? 1.4878 : 1.4647);
+        const lng = acara.longitude || (acara.nama_acara.includes('Tikala') ? 124.8427 : 124.8415);
+
+        const customPin = L.divIcon({
+          className: 'gpm-pin-wrap',
+          html: `<div style="background:#8b1e1e;color:#ffffff;border-radius:20px;padding:5px 9px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:3px;box-shadow:0 3px 8px rgba(0,0,0,0.3);border:2px solid #ffffff;white-space:nowrap;">📍 ${acara.nama_acara.replace('GPM ', '')}</div>`,
+          iconSize: [130, 32],
+          iconAnchor: [65, 16]
+        });
+
+        const marker = L.marker([lat, lng], { icon: customPin }).addTo(mapInstance!);
+        marker.bindPopup(`<b>${acara.nama_acara}</b><br>${acara.lokasi}<br><i>Ketuk untuk memilih lokasi</i>`);
+        marker.on('click', () => {
+          pilihAcaraGpm(acara);
+        });
+        markers.push(marker);
       });
 
-      const marker = L.marker([lat, lng], { icon: customPin }).addTo(mapInstance!);
-      marker.bindPopup(`<b>${acara.nama_acara}</b><br>${acara.lokasi}<br><i>Ketuk untuk memilih lokasi</i>`);
-      marker.on('click', () => {
-        pilihAcaraGpm(acara);
-      });
-      markers.push(marker);
-    });
-
-    setTimeout(() => {
-      if (mapInstance) mapInstance.invalidateSize();
-    }, 400);
+      setTimeout(() => {
+        if (mapInstance) mapInstance.invalidateSize();
+      }, 300);
+      setTimeout(() => {
+        if (mapInstance) mapInstance.invalidateSize();
+      }, 700);
+    } catch (e) {
+      console.warn('Gagal memuat peta Leaflet mobile:', e);
+    }
   });
 };
 
@@ -1092,7 +1113,9 @@ const pilihAcaraGpm = async (acara: ItemAcaraGPM) => {
   if (mapInstance) {
     const lat = acara.latitude || (acara.nama_acara.includes('Tikala') ? 1.4878 : 1.4647);
     const lng = acara.longitude || (acara.nama_acara.includes('Tikala') ? 124.8427 : 124.8415);
-    mapInstance.setView([lat, lng], 14, { animate: true });
+    try {
+      mapInstance.setView([lat, lng], 14, { animate: true });
+    } catch (e) {}
   }
 };
 
@@ -1165,7 +1188,7 @@ const simpanKonfigurasiServer = async () => {
     tampilkanModalServer.value = false;
     alert(statusKoneksi.value.online 
       ? '✅ Berhasil terhubung ke server website! Data kini tersinkronisasi langsung.' 
-      : '⚠️ï¸ Alamat server disimpan, namun server belum merespon. Pastikan backend di PC sudah berjalan.');
+      : '⚠️  Alamat server disimpan, namun server belum merespon. Pastikan backend di PC sudah berjalan.');
   } finally {
     sedangUjiKoneksi.value = false;
   }
@@ -1343,6 +1366,10 @@ onMounted(async () => {
   await muatData();
   await muatStatsDashboard();
   await muatDataGPM();
+
+  if (tabAktif.value === 'gpm') {
+    setTimeout(inisialisasiPetaGpm, 300);
+  }
 
   // Sinkronisasi otomatis saat HP kembali dibuka (Focus)
   if (typeof window !== 'undefined') {
@@ -1585,7 +1612,7 @@ const eksekusiLogout = () => {
 };
 
 const alertLupaPassword = () => {
-  alert('Silakan hubungi administrator Dinas Pangan Kota Manad✅');
+  alert('Silakan hubungi administrator Dinas Pangan Kota Manado');
 };
 
 // -------------------------------------------------------------
@@ -1626,7 +1653,7 @@ const hapusItem = async (item: ItemHargaPangan) => {
   if (!confirm(`Hapus data harga untuk "${item.nama_komoditas}"?`)) return;
   try {
     await hargaPanganMobileService.hapus(item.id);
-    pesanSuksesMobile.value = `🗑️ï¸ Data ${item.nama_komoditas} berhasil dihapus!`;
+    pesanSuksesMobile.value = `🗑️  Data ${item.nama_komoditas} berhasil dihapus!`;
     setTimeout(() => pesanSuksesMobile.value = '', 3500);
     if (idDiedit.value === item.id) {
       batalEditItem();
@@ -1766,7 +1793,7 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   margin-bottom: 16px;
 }
 
-.mobile-login-log❌{
+.mobile-login-logo{
   width: 40px;
   height: 40px;
   background: #ffffff;
@@ -2143,9 +2170,12 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   padding: 9px 12px;
   font-size: 0.85rem;
   outline: none;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  -webkit-appearance: none;
 }
 
-.s-row-tw❌{
+.s-row-two {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
@@ -2512,8 +2542,15 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   border-radius: 8px;
   padding: 9px 12px;
   font-size: 0.8rem;
-  background-color: #ffffff;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
   outline: none;
+  -webkit-appearance: none;
+}
+
+.mobile-search-input::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1;
 }
 
 .btn-clear-mobile {
@@ -2681,6 +2718,14 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   font-family: monospace;
   font-weight: 700;
   font-size: 0.9rem;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  -webkit-appearance: none;
+}
+
+.m-scan-input::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1;
 }
 
 .btn-m-scan-action {
@@ -2928,15 +2973,22 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   color: #334155;
 }
 
+.gpm-pin-wrap {
+  background: transparent !important;
+  border: none !important;
+}
+
 .m-leaflet-map-box {
   width: 100%;
   height: 220px;
+  min-height: 220px;
   border-radius: 10px;
   overflow: hidden;
   margin-bottom: 12px;
   border: 1px solid #e2e8f0;
   z-index: 1;
   background: #f1f5f9;
+  position: relative;
 }
 
 .m-map-visual-card {
@@ -3030,13 +3082,13 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   white-space: nowrap;
 }
 
-.m-event-inf❌{
+.m-event-info{
   font-size: 0.8rem;
   color: #475569;
   margin-bottom: 8px;
 }
 
-.m-event-inf❌p {
+.m-event-infop {
   margin: 2px 0;
 }
 
@@ -3082,11 +3134,27 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
 
 .m-input-text {
   width: 100%;
-  padding: 10px 12px;
+  padding: 11px 14px;
   border: 1.5px solid #cbd5e1;
   border-radius: 8px;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   box-sizing: border-box;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  -webkit-appearance: none;
+}
+
+.m-input-text::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1;
+}
+
+.m-input-text:focus {
+  border-color: #8b1e1e !important;
+  outline: none;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  box-shadow: 0 0 0 3px rgba(139, 30, 30, 0.12);
 }
 
 .btn-m-get-queue {
@@ -3208,7 +3276,7 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
     opacity: 0;
     transform: scale(0.96) translateY(8px);
   }
-  t❌{
+  to {
     opacity: 1;
     transform: scale(1) translateY(0);
   }
