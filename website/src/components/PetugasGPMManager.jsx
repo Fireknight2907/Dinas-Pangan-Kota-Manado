@@ -144,6 +144,57 @@ export default function PetugasGPMManager({ token, pengguna }) {
   // ─────────────────────────────────────────────
   // 3. FITUR SCAN QR CODE PETUGAS
   // ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────
+  // 3. FITUR SCAN QR CODE & KAMERA LIVE
+  // ─────────────────────────────────────────────
+  const handleMulaiScanKamera = async () => {
+    setKameraAktif(true);
+    setPesanScanError('');
+    setTimeout(async () => {
+      try {
+        const el = document.getElementById('webQrReader');
+        if (!el) return;
+        const html5QrCode = new Html5Qrcode("webQrReader");
+        html5QrCodeRef.current = html5QrCode;
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: { width: 240, height: 240 }
+          },
+          (decodedText) => {
+            handleHentikanScanKamera();
+            setInputQRCode(decodedText);
+            handleEksekusiScan(null, decodedText);
+          },
+          () => {}
+        );
+      } catch (err) {
+        setPesanScanError("Gagal membuka kamera: " + (err.message || 'Pastikan izin akses kamera diberikan pada peramban.'));
+        setKameraAktif(false);
+      }
+    }, 300);
+  };
+
+  const handleHentikanScanKamera = async () => {
+    if (html5QrCodeRef.current) {
+      try {
+        await html5QrCodeRef.current.stop();
+        html5QrCodeRef.current.clear();
+      } catch (e) {}
+      html5QrCodeRef.current = null;
+    }
+    setKameraAktif(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (html5QrCodeRef.current) {
+        try { html5QrCodeRef.current.stop(); } catch (e) {}
+      }
+    };
+  }, []);
+
   const handleEksekusiScan = async (e, qrOverride = null) => {
     if (e) e.preventDefault();
     const qrCode = qrOverride || inputQRCode;

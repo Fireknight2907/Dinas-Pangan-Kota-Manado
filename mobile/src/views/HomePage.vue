@@ -509,7 +509,10 @@
               <h3>Daftar Orang yang Ambil Nomor ({{ pendaftarGPMList.length }})</h3>
             </div>
 
-            <div class="m-queue-items-list">
+            <div v-if="pendaftarGPMList.length === 0" style="padding: 24px; text-align: center; color: #94a3b8; font-size: 0.88rem; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1; margin-top: 10px;">
+              Belum ada pendaftar nomor antrean untuk acara ini.
+            </div>
+            <div v-else class="m-queue-items-list">
               <div v-for="item in pendaftarGPMList" :key="item.id" class="m-queue-item-row">
                 <div class="m-queue-number-badge">
                   #{{ String(item.nomor_antrean).padStart(3, '0') }}
@@ -660,7 +663,7 @@
             <h2 class="hero-title-text">Harga Pangan Kota Manado</h2>
 
             <p class="hero-desc-text">
-              Informasi terkini harga produsen dan konsumen komoditas pangan di pasar Kota Manad✅ Data diperbarui rutin oleh Dinas Pangan untuk transparansi dan stabilisasi harga.
+              Informasi terkini harga produsen dan konsumen komoditas pangan di pasar Kota Manado Data diperbarui rutin oleh Dinas Pangan untuk transparansi dan stabilisasi harga.
             </p>
 
             <div class="hero-update-date">
@@ -1378,6 +1381,12 @@ const muatDataGPM = async () => {
   }
 };
 
+watch(menuPetugas, async (baru) => {
+  if (baru === 'gpm') {
+    await muatDataGPM();
+  }
+});
+
 watch(subMenuPetugasGPM, async (baru) => {
   if (baru !== 'scan' && kameraAktifMobile.value) {
     await hentikanScanKameraMobile();
@@ -1561,6 +1570,7 @@ const eksekusiLogin = async () => {
     tampilanMode.value = 'petugas';
     await muatData();
     await muatStatsDashboard();
+    await muatDataGPM();
   } catch (err: any) {
     alert('Gagal masuk: ' + err.message);
   } finally {
