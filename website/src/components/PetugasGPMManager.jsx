@@ -1124,10 +1124,6 @@ export default function PetugasGPMManager({ token, pengguna }) {
                       <span className="meta-lbl">Pelaksanaan</span>
                       <span className="meta-val">📅 {acara.tanggal} ({acara.jam_mulai} - {acara.jam_selesai} WITA)</span>
                     </div>
-                    <div className="meta-col">
-                      <span className="meta-lbl">Komoditas Dijual</span>
-                      <span className="meta-val">{acara.komoditas_tersedia || 'Beras SPHP, Minyak, Gula'}</span>
-                    </div>
                     <div className="meta-stats-row">
                       <div className="stat-pill">
                         <span className="stat-pill-num">{acara.kuota_maksimal || 250}</span>

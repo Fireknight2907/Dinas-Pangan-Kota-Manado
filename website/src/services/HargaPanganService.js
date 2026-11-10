@@ -328,7 +328,7 @@ class HargaPanganApiService {
         // 1. Update ke Supabase Cloud
         try {
             const itemUpdate = await supabaseClient.updateHargaPangan(id, dataUpdate);
-            if (itemUpdate) {
+            if (itemUpdate && itemUpdate.id) {
                 const list = this.ambilDataFallback();
                 const idx = list.findIndex(i => String(i.id) === String(id));
                 if (idx !== -1) {
@@ -337,7 +337,7 @@ class HargaPanganApiService {
                     list.unshift(itemUpdate);
                 }
                 localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
-                return itemUpdate;
+                return list[idx] || itemUpdate;
             }
         } catch (err) {
             console.warn('Supabase update offline, beralih ke local / API:', err);
@@ -365,7 +365,10 @@ class HargaPanganApiService {
             localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
             return list[idx];
         }
-        return { id, ...dataUpdate };
+        const itemBaru = { id, ...dataUpdate };
+        list.unshift(itemBaru);
+        localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
+        return itemBaru;
     }
 
     async hapus(id) {

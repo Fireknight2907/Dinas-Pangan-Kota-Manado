@@ -355,7 +355,7 @@ export class HargaPanganMobileService {
     // 1. Simpan ke Supabase Cloud
     try {
       const itemUpdate = await supabaseClient.updateHargaPangan(id, dataUpdate);
-      if (itemUpdate) {
+      if (itemUpdate && itemUpdate.id) {
         const list = this.ambilDataTersimpan();
         const idx = list.findIndex(i => String(i.id) === String(id));
         if (idx !== -1) {
@@ -364,7 +364,7 @@ export class HargaPanganMobileService {
           list.unshift(itemUpdate);
         }
         localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
-        return itemUpdate;
+        return list[idx] || itemUpdate;
       }
     } catch (err) {
       console.warn('Supabase update gagal, mencoba backend lokal:', err);

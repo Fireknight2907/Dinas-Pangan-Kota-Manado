@@ -212,25 +212,41 @@ class GPMMobileApiService {
     async ambilSemuaAcara(status = '', kecamatan = ''): Promise<ItemAcaraGPM[]> {
         // 1. Prioritaskan Supabase Cloud Database (HP & Web Real-time Sync)
         try {
-            const dataCloud = await supabaseClient.getAcaraGPM();
+            const [dataCloud, pendaftarCloud] = await Promise.all([
+                supabaseClient.getAcaraGPM(),
+                supabaseClient.getPendaftarGPM().catch(() => [])
+            ]);
+
+            const listPendaftar = Array.isArray(pendaftarCloud) && pendaftarCloud.length > 0
+                ? pendaftarCloud
+                : this.fallbackPendaftar;
+
             if (Array.isArray(dataCloud) && dataCloud.length > 0) {
-                const mapped: ItemAcaraGPM[] = dataCloud.map((item: any) => ({
-                    id: String(item.id),
-                    nama_acara: item.nama_acara || 'Acara GPM Manado',
-                    lokasi: item.lokasi || 'Kota Manado',
-                    kecamatan: item.kecamatan || 'Wenang',
-                    tanggal: item.tanggal ? String(item.tanggal).split('T')[0] : '2026-10-20',
-                    jam_mulai: item.jam_mulai || '08:00',
-                    jam_selesai: item.jam_selesai || '14:00',
-                    latitude: Number(item.latitude) || 1.4883,
-                    longitude: Number(item.longitude) || 124.8436,
-                    kuota_maksimal: Number(item.kuota_maksimal) || 250,
-                    antrean_terisi: Number(item.antrean_terisi) || 0,
-                    sisa_kuota: Math.max(0, (Number(item.kuota_maksimal) || 250) - (Number(item.antrean_terisi) || 0)),
-                    komoditas_tersedia: item.komoditas_tersedia || 'Beras, Minyak Goreng, Gula Pasir',
-                    deskripsi: item.deskripsi || '',
-                    status: item.status || 'Aktif'
-                }));
+                const mapped: ItemAcaraGPM[] = dataCloud.map((item: any) => {
+                    const idStr = String(item.id);
+                    // Hitung jumlah pendaftar aktual dari tabel pendaftar_gpm
+                    const terdaftar = listPendaftar.filter((p: any) => String(p.acara_id) === idStr).length;
+                    const kuotaMaks = Number(item.kuota_maksimal) || 250;
+                    const terisi = terdaftar > 0 ? terdaftar : (Number(item.antrean_terisi) || 0);
+
+                    return {
+                        id: idStr,
+                        nama_acara: item.nama_acara || 'Acara GPM Manado',
+                        lokasi: item.lokasi || 'Kota Manado',
+                        kecamatan: item.kecamatan || 'Wenang',
+                        tanggal: item.tanggal ? String(item.tanggal).split('T')[0] : '2026-10-20',
+                        jam_mulai: item.jam_mulai || '08:00',
+                        jam_selesai: item.jam_selesai || '14:00',
+                        latitude: Number(item.latitude) || 1.4883,
+                        longitude: Number(item.longitude) || 124.8436,
+                        kuota_maksimal: kuotaMaks,
+                        antrean_terisi: terisi,
+                        sisa_kuota: Math.max(0, kuotaMaks - terisi),
+                        komoditas_tersedia: item.komoditas_tersedia || 'Beras, Minyak Goreng, Gula Pasir',
+                        deskripsi: item.deskripsi || '',
+                        status: item.status || 'Aktif'
+                    };
+                });
 
                 this.fallbackAcara = mapped;
                 this.simpanAcaraKeStorage();
@@ -271,7 +287,17 @@ class GPMMobileApiService {
         } catch (error) {}
 
         // 3. Fallback lokal di HP
-        return this.fallbackAcara.filter(item => {
+        const listPendaftar = this.fallbackPendaftar;
+        return this.fallbackAcara.map(item => {
+            const terdaftar = listPendaftar.filter((p: any) => String(p.acara_id) === String(item.id)).length;
+            const kuotaMaks = Number(item.kuota_maksimal) || 250;
+            const terisi = terdaftar > 0 ? terdaftar : (Number(item.antrean_terisi) || 0);
+            return {
+                ...item,
+                antrean_terisi: terisi,
+                sisa_kuota: Math.max(0, kuotaMaks - terisi)
+            };
+        }).filter(item => {
             const cocokStatus = !status || status === 'Semua' || item.status.toLowerCase() === status.toLowerCase();
             const cocokKecamatan = !kecamatan || kecamatan === 'Semua' || item.kecamatan.toLowerCase() === kecamatan.toLowerCase();
             return cocokStatus && cocokKecamatan;

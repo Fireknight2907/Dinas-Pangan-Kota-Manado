@@ -1861,7 +1861,7 @@ const formatSatuanTampil = (satuan?: string) => {
   const match = s.match(/^(\d+)\s*(kg|kilogram|gram|gr|g)$/i);
   if (match) {
     const angka = match[1];
-    const unit = /gram|gr|g/i.test(match[2]) ? 'Gram' : 'KG';
+    const unit = /^(gram|gr|g)$/i.test(match[2].trim()) ? 'Gram' : 'KG';
     return `${angka} ${unit}`;
   }
   return s;
@@ -1873,7 +1873,7 @@ const uraiSatuan = (satuan?: string) => {
   const str = String(satuan).replace(/[\/]+/g, '').trim();
   const digitMatch = str.match(/\d+/);
   const jumlah = digitMatch ? digitMatch[0] : '1';
-  const isGram = /gram|gr|\bg\b/i.test(str);
+  const isGram = /\b(gram|gr|g)\b/i.test(str) && !/\b(kg|kilogram)\b/i.test(str);
   return {
     jumlah,
     unit: isGram ? 'Gram' : 'KG'

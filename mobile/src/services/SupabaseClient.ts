@@ -94,7 +94,10 @@ export class SupabaseRestClient {
     if (data.catatan_perubahan !== undefined) payload.catatan_perubahan = data.catatan_perubahan;
 
     const res = await this.request<any[]>(`harga_pangan?id=eq.${encodeURIComponent(id)}`, 'PATCH', payload);
-    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+    if (Array.isArray(res)) {
+      return res.length > 0 ? res[0] : null;
+    }
+    return res;
   }
 
   async hapusHargaPangan(id: string): Promise<boolean> {
