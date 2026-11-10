@@ -131,6 +131,11 @@ export class SupabaseRestClient {
     return Array.isArray(res) && res.length > 0 ? res[0] : res;
   }
 
+  async hapusAcaraGPM(id: string): Promise<boolean> {
+    await this.request(`acara_gpm?id=eq.${encodeURIComponent(id)}`, 'DELETE');
+    return true;
+  }
+
   // --- PENDAFTAR GPM ---
   async getPendaftarGPM(acaraId?: string): Promise<any[]> {
     const endpoint = acaraId 

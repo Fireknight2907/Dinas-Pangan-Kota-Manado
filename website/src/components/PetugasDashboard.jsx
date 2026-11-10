@@ -198,7 +198,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   };
 
   // Simpan harga komoditas (Staf langsung terbit 1 tombol tanpa verifikasi)
-  const handleSimpanHarga = async (e, statusBaru = 'Terbit') => {
+  const handleSimpanHarga = async (e, statusBaru = 'Draft') => {
     if (e) e.preventDefault();
 
     if (!formHarga.nama_komoditas.trim() || !formHarga.harga) {
@@ -206,8 +206,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       return;
     }
 
-    // Staf menggunakan 1 tombol langsung terbitkan ke publik. Kabid juga dapat menentukan status.
-    const statusFinal = (peran === 'Staf') ? 'Terbit' : statusBaru;
+    // Staf wajib verifikasi: simpan baru maupun edit selalu menghasilkan 'Draft' (Ajukan Harga)
+    const statusFinal = (peran === 'Staf') ? 'Draft' : statusBaru;
 
     setSedangMenyimpan(true);
     try {
@@ -220,11 +220,11 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
       if (idEditHarga) {
         await hargaPanganService.perbarui(idEditHarga, payload);
-        tampilkanPesan(`✅ Perubahan data "${formHarga.nama_komoditas}" berhasil diperbarui dan langsung terbit ke publik!`);
+        tampilkanPesan(`✅ Perubahan data "${formHarga.nama_komoditas}" berhasil diajukan ke Kepala Bidang untuk diverifikasi ulang.`);
         setIdEditHarga(null);
       } else {
         await hargaPanganService.tambah(payload);
-        tampilkanPesan(`✅ Komoditas "${formHarga.nama_komoditas}" berhasil disimpan dan langsung diterbitkan ke publik!`);
+        tampilkanPesan(`✅ Data harga "${formHarga.nama_komoditas}" berhasil diajukan ke Kepala Bidang untuk diverifikasi.`);
       }
 
       // Reset form
@@ -234,7 +234,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         satuan: 'kg',
         harga: '',
         nama_pasar: daftarPasar[0] || 'Pasar Bersehati Karombasan',
-        status: 'Terbit'
+        status: 'Draft'
       });
 
       await muatDataDashboard();
@@ -255,7 +255,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         kategori: item.kategori || 'Bahan Pokok',
         satuan: item.satuan || 'kg',
         harga: String(item.harga || ''),
-        nama_pasar: item.nama_pasar || (daftarPasar[0] || 'Pasar Bersehati Karombasan')
+        nama_pasar: item.nama_pasar || (daftarPasar[0] || 'Pasar Bersehati Karombasan'),
+        status: item.status || 'Terbit'
       }
     });
   };
@@ -270,10 +271,11 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         kategori: modalEditKabid.form.kategori,
         satuan: modalEditKabid.form.satuan,
         harga: parseFloat(modalEditKabid.form.harga),
-        nama_pasar: modalEditKabid.form.nama_pasar
+        nama_pasar: modalEditKabid.form.nama_pasar,
+        status: modalEditKabid.form.status || 'Terbit'
       });
       tampilkanPesan(`✅ Data "${modalEditKabid.form.nama_komoditas}" berhasil diperbarui oleh Kepala Bidang.`);
-      setModalEditKabid({ buka: false, item: null, form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuan: 'kg', harga: '', nama_pasar: '' } });
+      setModalEditKabid({ buka: false, item: null, form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuan: 'kg', harga: '', nama_pasar: '', status: 'Terbit' } });
       await muatDataDashboard();
     } catch (error) {
       alert('Gagal memperbarui data: ' + error.message);
@@ -844,7 +846,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
                   <div className="form-actions-stack">
                     <button type="submit" className="btn-terbitkan-masyarakat" disabled={sedangMenyimpan}>
-                      {sedangMenyimpan ? 'Menyimpan...' : (idEditHarga ? '✓ Perbarui & Terbitkan ke Publik' : '🚀 Simpan & Terbitkan ke Publik')}
+                      {sedangMenyimpan ? 'Mengajukan...' : (idEditHarga ? '📨 Ajukan Perubahan Harga' : '📨 Ajukan Harga')}
                     </button>
                     {idEditHarga && (
                       <button type="button" className="btn-simpan-draft" onClick={handleBatalEditStaf}>
@@ -963,6 +965,21 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                           {formatRupiah(item.harga)}
                         </div>
                         <button
+                          onClick={() => handleBukaEditKabid(item)}
+                          style={{
+                            background: '#eff6ff',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe',
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            fontSize: '0.82rem'
+                          }}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
                           onClick={() => handleVerifikasiHarga(item, 'Terbit')}
                           style={{
                             background: '#166534',
@@ -1029,10 +1046,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                       </td>
                       <td style={{ padding: '10px', textAlign: 'right' }}>
                         <button
-                          onClick={() => {
-                            setMenuAktif('tetapkan-harga');
-                            handleMulaiEditStaf(h);
-                          }}
+                          onClick={() => handleBukaEditKabid(h)}
                           style={{ background: 'none', border: 'none', color: '#1d4ed8', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, marginRight: '8px' }}
                         >
                           ✏️ Edit
@@ -2016,6 +2030,186 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           </div>
         </div>
       )}
+      {/* ─────────────────────────────────────────────
+          MODAL UBAH DATA HARGA PANGAN OLEH KEPALA BIDANG
+          ───────────────────────────────────────────── */}
+      {modalEditKabid.buka && modalEditKabid.item && (
+        <div
+          className="modal-overlay-backdrop"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px'
+          }}
+          onClick={() => setModalEditKabid({ buka: false, item: null, form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuan: 'kg', harga: '', nama_pasar: '', status: 'Terbit' } })}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '560px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              overflow: 'hidden'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+              <div>
+                <span style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: '#8b1e1e', letterSpacing: '0.5px' }}>
+                  Kewenangan Kepala Bidang
+                </span>
+                <h3 style={{ margin: '2px 0 0 0', fontSize: '1.15rem', color: '#0f172a' }}>
+                  ✏️ Ubah Data Harga Komoditas
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalEditKabid({ buka: false, item: null, form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuan: 'kg', harga: '', nama_pasar: '', status: 'Terbit' } })}
+                style={{ background: 'none', border: 'none', fontSize: '1.2rem', color: '#64748b', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={(e) => handleSimpanEditKabid(e)} style={{ padding: '24px' }}>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  Nama Komoditas / Jenis Pangan
+                </label>
+                <input
+                  type="text"
+                  required
+                  className="field-input-box"
+                  value={modalEditKabid.form.nama_komoditas}
+                  onChange={(e) => setModalEditKabid({
+                    ...modalEditKabid,
+                    form: { ...modalEditKabid.form, nama_komoditas: e.target.value }
+                  })}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                    Kategori
+                  </label>
+                  <select
+                    className="field-select-box"
+                    value={modalEditKabid.form.kategori}
+                    onChange={(e) => setModalEditKabid({
+                      ...modalEditKabid,
+                      form: { ...modalEditKabid.form, kategori: e.target.value }
+                    })}
+                  >
+                    <option value="Bahan Pokok">Bahan Pokok</option>
+                    <option value="Hewani">Hewani</option>
+                    <option value="Sayuran">Sayuran</option>
+                    <option value="Buah">Buah</option>
+                    <option value="Lainnya">Lainnya</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                    Satuan
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    className="field-input-box"
+                    value={modalEditKabid.form.satuan}
+                    onChange={(e) => setModalEditKabid({
+                      ...modalEditKabid,
+                      form: { ...modalEditKabid.form, satuan: e.target.value }
+                    })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                    Harga Acuan (Rp)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    className="field-input-box"
+                    value={modalEditKabid.form.harga}
+                    onChange={(e) => setModalEditKabid({
+                      ...modalEditKabid,
+                      form: { ...modalEditKabid.form, harga: e.target.value }
+                    })}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                    Pasar
+                  </label>
+                  <select
+                    className="field-select-box"
+                    value={modalEditKabid.form.nama_pasar}
+                    onChange={(e) => setModalEditKabid({
+                      ...modalEditKabid,
+                      form: { ...modalEditKabid.form, nama_pasar: e.target.value }
+                    })}
+                  >
+                    {daftarPasar.map((pasar, idx) => (
+                      <option key={idx} value={pasar}>{pasar}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  Status Publikasi Komoditas
+                </label>
+                <select
+                  className="field-select-box"
+                  value={modalEditKabid.form.status}
+                  onChange={(e) => setModalEditKabid({
+                    ...modalEditKabid,
+                    form: { ...modalEditKabid.form, status: e.target.value }
+                  })}
+                >
+                  <option value="Terbit">Terbit (Ditampilkan ke Publik Masyarakat)</option>
+                  <option value="Draft">Draft (Ditahan sebagai Draf Usulan)</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setModalEditKabid({ buka: false, item: null, form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuan: 'kg', harga: '', nama_pasar: '', status: 'Terbit' } })}
+                  style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '10px 18px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  style={{ background: '#166534', color: '#ffffff', border: 'none', padding: '10px 22px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  ✓ Simpan Perubahan Harga
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

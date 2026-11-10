@@ -97,8 +97,20 @@ export default function PetugasGPMManager({ token, pengguna }) {
   const [notifSukses, setNotifSukses] = useState('');
   const [filterCariTabel, setFilterCariTabel] = useState('');
 
-  // Cek apakah pengguna adalah Kepala Bagian atau Admin
-  const bisaKelolaMaster = pengguna?.peran === 'Kepala Bagian' || pengguna?.peran === 'Admin';
+  // Identifikasi Hak Akses Peran Petugas (OOP RBAC)
+  const peranUser = (pengguna?.peran || '').toLowerCase();
+  const isKabid = peranUser === 'kabid' || peranUser === 'kepala bidang' || peranUser === 'kepala bagian' || peranUser === 'admin';
+  const bisaKelolaMaster = isKabid;
+
+  // State Riwayat Kegiatan GPM & Ekspor Rekapitulasi
+  const [daftarRiwayat, setDaftarRiwayat] = useState([]);
+  const [modalRiwayatDetail, setModalRiwayatDetail] = useState({
+    buka: false,
+    acara: null,
+    pendaftar: [],
+    loading: false
+  });
+  const [sedangSelesaikanAcara, setSedangSelesaikanAcara] = useState(false);
 
   // ─────────────────────────────────────────────
   // 2. LIFECYCLE & LOAD DATA
@@ -118,17 +130,97 @@ export default function PetugasGPMManager({ token, pengguna }) {
 
   const muatDataAwal = async () => {
     try {
-      const acara = await gpmService.ambilSemuaAcara();
-      setDaftarAcara(acara);
-      if (acara.length > 0 && !acaraTerpilihId) {
-        setAcaraTerpilihId(acara[0].id);
-        muatPendaftar(acara[0].id);
+      const acaraAktif = await gpmService.ambilSemuaAcara('Aktif');
+      const riwayat = await gpmService.ambilRiwayatAcara();
+      setDaftarAcara(acaraAktif);
+      setDaftarRiwayat(riwayat);
+
+      const targetId = acaraTerpilihId && acaraAktif.some(a => a.id === acaraTerpilihId)
+        ? acaraTerpilihId
+        : (acaraAktif.length > 0 ? acaraAktif[0].id : '');
+
+      setAcaraTerpilihId(targetId);
+      if (targetId) {
+        muatPendaftar(targetId);
+      } else {
+        setDaftarPendaftar([]);
       }
 
       const stat = await gpmService.ambilStatistik();
       setStatistikGlobal(stat);
     } catch (err) {
       console.error('[PetugasGPM] Error muat data:', err);
+    }
+  };
+
+  // Selesaikan Kegiatan GPM (Hanya Kepala Bidang & Admin)
+  const handleSelesaikanAcara = async (acaraId) => {
+    if (!isKabid) {
+      alert('Hanya Kepala Bidang yang memiliki wewenang menyelesaikan kegiatan GPM.');
+      return;
+    }
+    const acara = daftarAcara.find(a => a.id === acaraId);
+    if (!acara) return;
+
+    const konfirmasi = window.confirm(
+      `Konfirmasi Selesaikan Kegiatan GPM:\n\nApakah Anda yakin ingin menyelesaikan dan mengunci kegiatan "${acara.nama_acara}"?\n\n- Kegiatan ini akan diarsipkan ke menu Riwayat GPM.\n- Pendaftaran tiket online untuk masyarakat otomatis ditutup.\n- Data antrean dan rekapitulasi akan dikunci untuk pelaporan.`
+    );
+    if (!konfirmasi) return;
+
+    setSedangSelesaikanAcara(true);
+    try {
+      await gpmService.selesaikanAcara(acaraId);
+      setNotifSukses(`✅ Kegiatan "${acara.nama_acara}" resmi diselesaikan dan diarsipkan ke menu Riwayat GPM.`);
+      await muatDataAwal();
+      setSubTab('riwayat');
+    } catch (err) {
+      alert('Gagal menyelesaikan kegiatan: ' + (err.message || 'Terjadi kesalahan sistem'));
+    } finally {
+      setSedangSelesaikanAcara(false);
+    }
+  };
+
+  // Hapus Riwayat Kegiatan GPM (Hanya Kepala Bidang & Admin)
+  const handleHapusRiwayat = async (acaraId) => {
+    if (!isKabid) {
+      alert('Hanya Kepala Bidang yang berhak menghapus riwayat kegiatan GPM.');
+      return;
+    }
+    const acara = daftarRiwayat.find(a => a.id === acaraId);
+    if (!acara) return;
+
+    const konfirmasi = window.confirm(
+      `Hapus Riwayat Kegiatan GPM:\n\nApakah Anda yakin ingin menghapus data riwayat "${acara.nama_acara}" beserta seluruh rekaman antrean warga terkait?\n\nTindakan ini tidak dapat dibatalkan.`
+    );
+    if (!konfirmasi) return;
+
+    try {
+      await gpmService.hapusAcara(acaraId);
+      setNotifSukses(`🗑️ Riwayat kegiatan "${acara.nama_acara}" berhasil dihapus.`);
+      await muatDataAwal();
+    } catch (err) {
+      alert('Gagal menghapus riwayat: ' + (err.message || 'Terjadi kesalahan'));
+    }
+  };
+
+  // Buka Modal Detail Rekap Antrean Riwayat
+  const handleBukaDetailRiwayat = async (acara) => {
+    setModalRiwayatDetail({ buka: true, acara, pendaftar: [], loading: true });
+    try {
+      const res = await gpmService.ambilPendaftarAcara(acara.id);
+      setModalRiwayatDetail({ buka: true, acara, pendaftar: res.data || [], loading: false });
+    } catch (err) {
+      setModalRiwayatDetail(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  // Ekspor Rekapitulasi Data Pendaftar ke CSV
+  const handleEksporLangsungRiwayat = async (acara) => {
+    try {
+      const res = await gpmService.ambilPendaftarAcara(acara.id);
+      gpmService.eksporKeCSV(acara, res.data || []);
+    } catch (err) {
+      alert('Gagal mengunduh file rekap CSV: ' + err.message);
     }
   };
 
@@ -406,6 +498,12 @@ export default function PetugasGPMManager({ token, pengguna }) {
         >
           ➕ Jadwalkan Acara & Titik Peta
         </button>
+        <button
+          className={`subnav-btn ${subTab === 'riwayat' ? 'active' : ''}`}
+          onClick={() => setSubTab('riwayat')}
+        >
+          📜 Riwayat GPM ({daftarRiwayat.length})
+        </button>
       </div>
 
       {/* ─────────────────────────────────────────────
@@ -600,38 +698,70 @@ export default function PetugasGPMManager({ token, pengguna }) {
           ───────────────────────────────────────────── */}
       {subTab === 'antrean' && (
         <div className="gpm-table-panel">
-          <div className="table-filter-bar">
-            <div>
-              <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#555', display: 'block', marginBottom: '4px' }}>
-                PILIH ACARA GPM:
-              </label>
-              <select
-                className="filter-select-event"
-                value={acaraTerpilihId}
-                onChange={(e) => {
-                  setAcaraTerpilihId(e.target.value);
-                  muatPendaftar(e.target.value);
-                }}
-              >
-                {daftarAcara.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nama_acara} ({a.lokasi})
-                  </option>
-                ))}
-              </select>
+          <div className="table-filter-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '14px' }}>
+            <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#555', display: 'block', marginBottom: '4px' }}>
+                  PILIH ACARA GPM AKTIF:
+                </label>
+                <select
+                  className="filter-select-event"
+                  value={acaraTerpilihId}
+                  onChange={(e) => {
+                    setAcaraTerpilihId(e.target.value);
+                    muatPendaftar(e.target.value);
+                  }}
+                >
+                  {daftarAcara.length === 0 ? (
+                    <option value="">(Tidak ada acara GPM aktif)</option>
+                  ) : (
+                    daftarAcara.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.nama_acara} ({a.lokasi})
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#555', display: 'block', marginBottom: '4px' }}>
+                  CARI PENDAFTAR / KODE QR:
+                </label>
+                <input
+                  type="text"
+                  placeholder="Cari nama, nomor telepon, kode QR..."
+                  className="filter-search-box"
+                  value={filterCariTabel}
+                  onChange={(e) => setFilterCariTabel(e.target.value)}
+                />
+              </div>
             </div>
 
-            <div>
-              <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#555', display: 'block', marginBottom: '4px' }}>
-                CARI PENDAFTAR / KODE QR:
-              </label>
-              <input
-                type="text"
-                placeholder="Cari nama, nomor telepon, kode QR..."
-                className="filter-search-box"
-                value={filterCariTabel}
-                onChange={(e) => setFilterCariTabel(e.target.value)}
-              />
+            {/* Tombol Aksi Acara: Unduh CSV & Selesaikan GPM (Khusus Kepala Bidang) */}
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              {daftarAcara.find(a => a.id === acaraTerpilihId) && (
+                <button
+                  type="button"
+                  onClick={() => gpmService.eksporKeCSV(daftarAcara.find(a => a.id === acaraTerpilihId), daftarPendaftar)}
+                  className="btn-export-csv"
+                  title="Unduh rekapitulasi data pendaftar & nomor antrean dalam format Excel/CSV"
+                >
+                  📥 Export Data (CSV)
+                </button>
+              )}
+
+              {daftarAcara.find(a => a.id === acaraTerpilihId) && isKabid && (
+                <button
+                  type="button"
+                  onClick={() => handleSelesaikanAcara(acaraTerpilihId)}
+                  disabled={sedangSelesaikanAcara}
+                  className="btn-selesaikan-gpm"
+                  title="Kunci kegiatan dan pindahkan ke Riwayat GPM (Khusus Kepala Bidang)"
+                >
+                  {sedangSelesaikanAcara ? 'Memproses...' : '🔒 Selesaikan Kegiatan GPM'}
+                </button>
+              )}
             </div>
           </div>
 
@@ -943,6 +1073,193 @@ export default function PetugasGPMManager({ token, pengguna }) {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────
+          6. VIEW SUBTAB 4: RIWAYAT GPM & REKAPITULASI DATA
+          ───────────────────────────────────────────── */}
+      {subTab === 'riwayat' && (
+        <div className="gpm-history-panel">
+          <div className="history-header-bar">
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>
+                📜 Riwayat Kegiatan Gerakan Pangan Murah (GPM)
+              </h2>
+              <p style={{ margin: 0, fontSize: '0.86rem', color: '#64748b' }}>
+                Arsip kegiatan GPM yang telah diselesaikan. {isKabid ? 'Kepala Bidang dapat mengunduh rekap dan menghapus arsip riwayat.' : 'Staf dapat melihat rekapitulasi dan mengunduh data.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={muatDataAwal}
+              style={{ padding: '8px 14px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+            >
+              🔄 Segarkan Riwayat
+            </button>
+          </div>
+
+          {daftarRiwayat.length === 0 ? (
+            <div className="empty-history-box">
+              <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '8px' }}>📭</span>
+              <h4 style={{ margin: '0 0 6px 0', color: '#1e293b' }}>Belum Ada Riwayat Kegiatan GPM</h4>
+              <p style={{ margin: 0, fontSize: '0.86rem', color: '#64748b' }}>
+                Kegiatan GPM yang telah diselesaikan oleh Kepala Bidang akan otomatis diarsipkan di sini.
+              </p>
+            </div>
+          ) : (
+            <div className="history-cards-grid">
+              {daftarRiwayat.map((acara) => (
+                <div key={acara.id} className="history-card-item">
+                  <div className="history-card-head">
+                    <div>
+                      <span className="badge-closed-tag">✓ Kegiatan Selesai</span>
+                      <h3 className="history-item-title">{acara.nama_acara}</h3>
+                      <p className="history-item-sub">📍 {acara.lokasi} (Kec. {acara.kecamatan})</p>
+                    </div>
+                  </div>
+
+                  <div className="history-card-meta">
+                    <div className="meta-col">
+                      <span className="meta-lbl">Pelaksanaan</span>
+                      <span className="meta-val">📅 {acara.tanggal} ({acara.jam_mulai} - {acara.jam_selesai} WITA)</span>
+                    </div>
+                    <div className="meta-col">
+                      <span className="meta-lbl">Komoditas Dijual</span>
+                      <span className="meta-val">{acara.komoditas_tersedia || 'Beras SPHP, Minyak, Gula'}</span>
+                    </div>
+                    <div className="meta-stats-row">
+                      <div className="stat-pill">
+                        <span className="stat-pill-num">{acara.kuota_maksimal || 250}</span>
+                        <span className="stat-pill-label">Total Kuota</span>
+                      </div>
+                      <div className="stat-pill">
+                        <span className="stat-pill-num">{acara.antrean_terisi || 0}</span>
+                        <span className="stat-pill-label">Warga Mendaftar</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="history-card-actions">
+                    <button
+                      type="button"
+                      className="btn-action-view"
+                      onClick={() => handleBukaDetailRiwayat(acara)}
+                    >
+                      👁️ Lihat Antrean
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-action-download"
+                      onClick={() => handleEksporLangsungRiwayat(acara)}
+                    >
+                      📥 Unduh Rekap (CSV)
+                    </button>
+                    {isKabid && (
+                      <button
+                        type="button"
+                        className="btn-action-delete"
+                        onClick={() => handleHapusRiwayat(acara.id)}
+                        title="Hapus riwayat kegiatan ini (Khusus Kepala Bidang)"
+                      >
+                        🗑️ Hapus
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MODAL LIHAT DETAIL & ANTREAN RIWAYAT GPM */}
+      {modalRiwayatDetail.buka && modalRiwayatDetail.acara && (
+        <div className="modal-overlay-backdrop" onClick={() => setModalRiwayatDetail({ buka: false, acara: null, pendaftar: [] })}>
+          <div className="modal-history-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-history-header">
+              <div>
+                <span className="badge-closed-tag" style={{ marginBottom: '4px' }}>Arsip Selesai</span>
+                <h3 style={{ margin: '4px 0', fontSize: '1.2rem', color: '#0f172a' }}>
+                  {modalRiwayatDetail.acara.nama_acara}
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b' }}>
+                  📍 {modalRiwayatDetail.acara.lokasi} · 📅 {modalRiwayatDetail.acara.tanggal}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-close-modal"
+                onClick={() => setModalRiwayatDetail({ buka: false, acara: null, pendaftar: [] })}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-history-body">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
+                  Daftar Pendaftar Warga ({modalRiwayatDetail.pendaftar.length} orang)
+                </span>
+                <button
+                  type="button"
+                  className="btn-export-csv"
+                  onClick={() => gpmService.eksporKeCSV(modalRiwayatDetail.acara, modalRiwayatDetail.pendaftar)}
+                >
+                  📥 Unduh File CSV / Excel
+                </button>
+              </div>
+
+              <div style={{ maxHeight: '360px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                <table className="pendaftar-data-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: '70px' }}>No.</th>
+                      <th>Nama Warga</th>
+                      <th>No. WhatsApp</th>
+                      <th>Kode Tiket</th>
+                      <th>Status Kehadiran</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {modalRiwayatDetail.pendaftar.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                          Tidak ada rekaman pendaftar pada acara ini.
+                        </td>
+                      </tr>
+                    ) : (
+                      modalRiwayatDetail.pendaftar.map((p, idx) => (
+                        <tr key={p.id || idx}>
+                          <td style={{ fontWeight: 700, color: '#8b1e1e' }}>
+                            #{String(p.nomor_antrean || idx + 1).padStart(3, '0')}
+                          </td>
+                          <td style={{ fontWeight: 600 }}>{p.nama_pendaftar}</td>
+                          <td>{p.nomor_telepon}</td>
+                          <td><code>{p.kode_barcode}</code></td>
+                          <td>
+                            <span className={`badge-status-attend ${p.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu'}`}>
+                              {p.status_kehadiran === 'Hadir' ? '✓ Hadir' : 'Menunggu'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="modal-history-footer">
+              <button
+                type="button"
+                className="btn-close-secondary"
+                onClick={() => setModalRiwayatDetail({ buka: false, acara: null, pendaftar: [] })}
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

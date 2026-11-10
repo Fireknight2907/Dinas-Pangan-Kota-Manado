@@ -225,14 +225,14 @@
               </div>
 
               <div class="s-button-stack">
-                <!-- Staf: 1 tombol langsung terbitkan ke publik (tanpa alur verifikasi draf) -->
+                <!-- Staf: 1 tombol harus verifikasi lewat Kepala Bidang (Ajukan Harga / Ajukan Perubahan Harga) -->
                 <button 
                   v-if="!isKabid" 
                   type="submit" 
                   class="btn-publish-action" 
                   style="background: #8b1e1e; color: #ffffff; width: 100%; justify-content: center; font-weight: 700; padding: 14px; border-radius: 8px; border: none; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;"
                 >
-                  <span>🚀</span> {{ idDiedit ? 'Perbarui & Terbitkan ke Publik' : 'Simpan & Terbitkan ke Publik' }}
+                  <span>📨</span> {{ idDiedit ? 'Ajukan Perubahan Harga' : 'Ajukan Harga' }}
                 </button>
                 <button 
                   v-if="!isKabid && idDiedit" 
@@ -372,19 +372,25 @@
               :class="['m-gpm-nav-btn', subMenuPetugasGPM === 'scan' ? 'active' : '']"
               @click="subMenuPetugasGPM = 'scan'"
             >
-              📷 Pindai Kode QR
+              📷 Pindai QR
             </button>
             <button 
               :class="['m-gpm-nav-btn', subMenuPetugasGPM === 'antrean' ? 'active' : '']"
               @click="subMenuPetugasGPM = 'antrean'"
             >
-              📋 Data Antrean
+              📋 Antrean ({{ pendaftarGPMList.length }})
             </button>
             <button 
               :class="['m-gpm-nav-btn', subMenuPetugasGPM === 'buat' ? 'active' : '']"
               @click="subMenuPetugasGPM = 'buat'"
             >
-              📍  Tambah GPM
+              📍 Tambah GPM
+            </button>
+            <button 
+              :class="['m-gpm-nav-btn', subMenuPetugasGPM === 'riwayat' ? 'active' : '']"
+              @click="subMenuPetugasGPM = 'riwayat'"
+            >
+              📜 Riwayat ({{ daftarRiwayatGPM.length }})
             </button>
           </div>
 
@@ -504,9 +510,32 @@
 
           <!-- TAB 2: DATA ANTREAN MASYARAKAT -->
           <div v-if="subMenuPetugasGPM === 'antrean'" class="staff-form-panel">
-            <div class="panel-title-row">
-              <span class="plus-icon-red">📋</span>
-              <h3>Daftar Orang yang Ambil Nomor ({{ pendaftarGPMList.length }})</h3>
+            <div class="panel-title-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="plus-icon-red">📋</span>
+                <h3 style="margin: 0;">Antrean: {{ acaraGPMDipilih?.nama_acara || 'GPM' }}</h3>
+              </div>
+              <span class="m-event-quota">Total: {{ pendaftarGPMList.length }} warga</span>
+            </div>
+
+            <!-- Tombol Aksi Mobile: Unduh CSV & Selesaikan GPM (Khusus Kepala Bidang) -->
+            <div class="m-antrean-action-bar">
+              <button 
+                type="button" 
+                class="btn-m-export-csv"
+                @click="unduhRekapAktifMobile"
+              >
+                📥 Unduh Rekap (CSV)
+              </button>
+              <button 
+                v-if="isKabid && acaraGPMDipilih"
+                type="button" 
+                class="btn-m-close-gpm"
+                :disabled="sedangSelesaikanAcaraMobile"
+                @click="selesaikanAcaraMobile"
+              >
+                {{ sedangSelesaikanAcaraMobile ? 'Memproses...' : '🔒 Selesaikan Kegiatan GPM' }}
+              </button>
             </div>
 
             <div v-if="pendaftarGPMList.length === 0" style="padding: 24px; text-align: center; color: #94a3b8; font-size: 0.88rem; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1; margin-top: 10px;">
@@ -580,6 +609,88 @@
                 <span>📍</span> {{ sedangSimpanGPMBaru ? 'Menyimpan...' : 'Terbitkan Acara ke Peta' }}
               </button>
             </form>
+          </div>
+
+          <!-- TAB 4: RIWAYAT GPM (VIEW STAF & KABID, HAPUS KHUSUS KABID) -->
+          <div v-if="subMenuPetugasGPM === 'riwayat'" class="staff-form-panel">
+            <div class="panel-title-row">
+              <span class="plus-icon-red">📜</span>
+              <h3>Riwayat Kegiatan GPM (Selesai)</h3>
+            </div>
+            <p style="font-size: 0.78rem; color: #64748b; margin: 0 0 12px 0;">
+              Arsip kegiatan GPM yang telah diselesaikan. {{ isKabid ? 'Kepala Bidang dapat mengunduh rekap dan menghapus arsip riwayat.' : 'Staf dapat melihat dan mengunduh rekapitulasi data.' }}
+            </p>
+
+            <div v-if="daftarRiwayatGPM.length === 0" style="padding: 24px; text-align: center; color: #94a3b8; font-size: 0.88rem; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1;">
+              Belum ada riwayat kegiatan GPM yang diselesaikan.
+            </div>
+
+            <div v-else class="m-history-cards-wrap">
+              <div v-for="acara in daftarRiwayatGPM" :key="acara.id" class="m-history-event-card">
+                <div class="m-history-card-top">
+                  <span class="m-history-tag-done">✓ Selesai</span>
+                  <strong class="m-history-card-title">{{ acara.nama_acara }}</strong>
+                  <span class="m-history-card-loc">📍 {{ acara.lokasi }} ({{ acara.kecamatan }})</span>
+                  <span class="m-history-card-date">📅 {{ acara.tanggal }} · {{ acara.jam_mulai }} - {{ acara.jam_selesai }} WITA</span>
+                </div>
+
+                <div class="m-history-card-stats">
+                  <div>
+                    <span class="lbl">Kuota</span>
+                    <strong>{{ acara.kuota_maksimal || 250 }}</strong>
+                  </div>
+                  <div>
+                    <span class="lbl">Mendaftar</span>
+                    <strong>{{ acara.antrean_terisi || 0 }}</strong>
+                  </div>
+                </div>
+
+                <div class="m-history-card-actions">
+                  <button 
+                    type="button" 
+                    class="btn-m-hist-csv"
+                    @click="unduhRekapRiwayatMobile(acara)"
+                  >
+                    📥 Unduh CSV
+                  </button>
+                  <button 
+                    type="button" 
+                    class="btn-m-hist-view"
+                    @click="toggleLihatRiwayatAntrean(acara)"
+                  >
+                    {{ riwayatTerbukaId === acara.id ? 'Tutup Antrean' : '👁️ Antrean' }}
+                  </button>
+                  <button 
+                    v-if="isKabid"
+                    type="button" 
+                    class="btn-m-hist-del"
+                    @click="hapusRiwayatMobile(acara)"
+                  >
+                    🗑️ Hapus
+                  </button>
+                </div>
+
+                <!-- Accordion Detail Antrean untuk Riwayat Ini -->
+                <div v-if="riwayatTerbukaId === acara.id" class="m-history-detail-accordion">
+                  <h4 style="font-size: 0.82rem; margin: 8px 0 6px 0; color: #334155;">Daftar Pendaftar Terarsip:</h4>
+                  <div v-if="!detailRiwayatPendaftar[acara.id] || detailRiwayatPendaftar[acara.id].length === 0" style="font-size: 0.78rem; color: #94a3b8; font-style: italic;">
+                    Tidak ada pendaftar tersimpan untuk kegiatan ini.
+                  </div>
+                  <div v-else class="m-history-queue-list">
+                    <div v-for="p in detailRiwayatPendaftar[acara.id]" :key="p.id" class="m-hist-queue-row">
+                      <span class="q-num">#{{ String(p.nomor_antrean).padStart(3, '0') }}</span>
+                      <div class="q-info">
+                        <strong>{{ p.nama_pendaftar }}</strong>
+                        <span>{{ p.nomor_telepon }} · <code>{{ p.kode_barcode }}</code></span>
+                      </div>
+                      <span :class="['m-status-tag', p.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu']">
+                        {{ p.status_kehadiran }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1218,7 +1329,11 @@ const pesanErrorGPM = ref('');
 const tiketGPMHasil = ref<HasilTiketGPM | null>(null);
 
 // State Petugas GPM
-const subMenuPetugasGPM = ref<'scan' | 'antrean' | 'buat'>('scan');
+const subMenuPetugasGPM = ref<'scan' | 'antrean' | 'buat' | 'riwayat'>('scan');
+const daftarRiwayatGPM = ref<ItemAcaraGPM[]>([]);
+const detailRiwayatPendaftar = ref<{ [key: string]: any[] }>({});
+const riwayatTerbukaId = ref<string | null>(null);
+const sedangSelesaikanAcaraMobile = ref(false);
 // ─── KAMERA SCANNER QR MOBILE (Capacitor Android & Safari iOS) ──────
 const kameraAktifMobile = ref(false);
 let html5QrMobileScanner: Html5Qrcode | null = null;
@@ -1391,20 +1506,108 @@ onMounted(async () => {
 // ===================== METHOD GPM MOBILE =====================
 const muatDataGPM = async () => {
   try {
-    const data = await gpmMobileService.ambilSemuaAcara('Aktif');
-    daftarAcaraGPM.value = data;
-    if (data.length > 0) {
-      if (!acaraGPMDipilih.value) {
-        acaraGPMDipilih.value = data[0];
+    const [dataAktif, dataRiwayat] = await Promise.all([
+      gpmMobileService.ambilSemuaAcara('Aktif'),
+      gpmMobileService.ambilRiwayatAcara()
+    ]);
+    daftarAcaraGPM.value = dataAktif;
+    daftarRiwayatGPM.value = dataRiwayat;
+
+    if (dataAktif.length > 0) {
+      if (!acaraGPMDipilih.value || !dataAktif.some(a => a.id === acaraGPMDipilih.value?.id)) {
+        acaraGPMDipilih.value = dataAktif[0];
       }
-      const targetId = acaraGPMDipilih.value ? acaraGPMDipilih.value.id : data[0].id;
+      const targetId = acaraGPMDipilih.value ? acaraGPMDipilih.value.id : dataAktif[0].id;
       const res = await gpmMobileService.ambilPendaftarAcara(targetId);
       pendaftarGPMList.value = res.data || [];
     } else {
+      acaraGPMDipilih.value = null;
       pendaftarGPMList.value = [];
     }
   } catch (err) {
     console.error('Error muat GPM:', err);
+  }
+};
+
+// Selesaikan Kegiatan GPM (Khusus Kepala Bidang & Admin)
+const selesaikanAcaraMobile = async () => {
+  if (!isKabid.value) {
+    alert('Hanya Kepala Bidang yang memiliki hak akses untuk menyelesaikan kegiatan GPM.');
+    return;
+  }
+  if (!acaraGPMDipilih.value) return;
+  const nama = acaraGPMDipilih.value.nama_acara;
+  const ok = confirm(
+    `Konfirmasi Selesaikan Kegiatan:\n\nApakah Anda yakin ingin menyelesaikan "${nama}"?\n\n- Kegiatan akan diarsipkan ke menu Riwayat GPM.\n- Pendaftaran daring masyarakat otomatis ditutup.`
+  );
+  if (!ok) return;
+
+  sedangSelesaikanAcaraMobile.value = true;
+  try {
+    await gpmMobileService.selesaikanAcara(acaraGPMDipilih.value.id);
+    alert(`✅ Kegiatan "${nama}" resmi diselesaikan dan diarsipkan ke menu Riwayat GPM.`);
+    await muatDataGPM();
+    subMenuPetugasGPM.value = 'riwayat';
+  } catch (err: any) {
+    alert('Gagal menyelesaikan kegiatan: ' + (err.message || 'Terjadi kesalahan'));
+  } finally {
+    sedangSelesaikanAcaraMobile.value = false;
+  }
+};
+
+// Hapus Riwayat GPM (Khusus Kepala Bidang & Admin)
+const hapusRiwayatMobile = async (acara: ItemAcaraGPM) => {
+  if (!isKabid.value) {
+    alert('Hanya Kepala Bidang yang berhak menghapus riwayat kegiatan GPM.');
+    return;
+  }
+  const ok = confirm(
+    `Hapus Riwayat Kegiatan GPM:\n\nApakah Anda yakin ingin menghapus data riwayat "${acara.nama_acara}" beserta seluruh antreannya?\n\nTindakan ini tidak dapat dibatalkan.`
+  );
+  if (!ok) return;
+
+  try {
+    await gpmMobileService.hapusAcara(acara.id);
+    alert(`🗑️ Riwayat kegiatan "${acara.nama_acara}" berhasil dihapus.`);
+    await muatDataGPM();
+  } catch (err: any) {
+    alert('Gagal menghapus riwayat: ' + (err.message || 'Terjadi kesalahan'));
+  }
+};
+
+// Unduh Rekap Data Kegiatan Aktif ke CSV
+const unduhRekapAktifMobile = () => {
+  if (!acaraGPMDipilih.value) return;
+  gpmMobileService.eksporKeCSV(acaraGPMDipilih.value, pendaftarGPMList.value);
+};
+
+// Unduh Rekap Data Kegiatan Riwayat ke CSV
+const unduhRekapRiwayatMobile = async (acara: ItemAcaraGPM) => {
+  try {
+    let pendaftar = detailRiwayatPendaftar.value[acara.id];
+    if (!pendaftar) {
+      const res = await gpmMobileService.ambilPendaftarAcara(acara.id);
+      pendaftar = res.data || [];
+      detailRiwayatPendaftar.value[acara.id] = pendaftar;
+    }
+    gpmMobileService.eksporKeCSV(acara, pendaftar);
+  } catch (err: any) {
+    alert('Gagal mengunduh file CSV: ' + err.message);
+  }
+};
+
+// Buka/Tutup Accordion Antrean Riwayat
+const toggleLihatRiwayatAntrean = async (acara: ItemAcaraGPM) => {
+  if (riwayatTerbukaId.value === acara.id) {
+    riwayatTerbukaId.value = null;
+    return;
+  }
+  riwayatTerbukaId.value = acara.id;
+  if (!detailRiwayatPendaftar.value[acara.id]) {
+    try {
+      const res = await gpmMobileService.ambilPendaftarAcara(acara.id);
+      detailRiwayatPendaftar.value[acara.id] = res.data || [];
+    } catch (e) {}
   }
 };
 
@@ -1665,11 +1868,14 @@ const hapusItem = async (item: ItemHargaPangan) => {
   }
 };
 
-const simpanHargaPetugas = async (status: 'Terbit' | 'Draft') => {
+const simpanHargaPetugas = async (statusOverride?: string) => {
   if (!formPenetapan.value.nama_komoditas || !formPenetapan.value.harga) {
-    alert('Nama komoditas dan harga wajib diisi!');
-  
+    alert('Nama komoditas dan besaran harga acuan wajib diisi!');
+    return;
   }
+
+  // Staf selalu menghasilkan status 'Draft' untuk verifikasi Kabid; Kabid dapat menentukan langsung 'Terbit' atau 'Draft'
+  const status = isKabid.value ? ((statusOverride as any) || 'Terbit') : 'Draft';
 
   try {
     if (idDiedit.value) {
@@ -1681,9 +1887,9 @@ const simpanHargaPetugas = async (status: 'Terbit' | 'Draft') => {
         status: status,
         tanggal_penetapan: '14 Oktober 2026'
       });
-      pesanSuksesMobile.value = status === 'Terbit' 
-        ? `✅ Perubahan "${formPenetapan.value.nama_komoditas}" berhasil diterbitkan ke masyarakat!` 
-        : `📝 Perubahan "${formPenetapan.value.nama_komoditas}" disimpan sebagai draf!`;
+      pesanSuksesMobile.value = isKabid.value
+        ? (status === 'Terbit' ? `✅ Perubahan "${formPenetapan.value.nama_komoditas}" berhasil diterbitkan ke masyarakat!` : `📝 Perubahan "${formPenetapan.value.nama_komoditas}" disimpan sebagai draf!`)
+        : `📨 Perubahan "${formPenetapan.value.nama_komoditas}" berhasil diajukan ke Kepala Bidang untuk diverifikasi!`;
       batalEditItem();
     } else {
       await hargaPanganMobileService.tambah({
@@ -1695,9 +1901,9 @@ const simpanHargaPetugas = async (status: 'Terbit' | 'Draft') => {
         tanggal_penetapan: '14 Oktober 2026',
         status: status
       });
-      pesanSuksesMobile.value = status === 'Terbit' 
-        ? '✅ Harga berhasil diterbitkan ke masyarakat!' 
-        : '📝 Harga disimpan sebagai draf!';
+      pesanSuksesMobile.value = isKabid.value
+        ? (status === 'Terbit' ? '✅ Harga berhasil diterbitkan ke masyarakat!' : '📝 Harga disimpan sebagai draf!')
+        : `📨 Pengajuan harga "${formPenetapan.value.nama_komoditas}" berhasil diajukan ke Kepala Bidang untuk diverifikasi!`;
       formPenetapan.value.nama_komoditas = '';
       formPenetapan.value.harga = '';
     }
@@ -3522,4 +3728,183 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
 .btn-preset-chip.is-cloud:hover {
   background: #dbeafe;
 }
+
+/* Action Bar & Riwayat GPM Mobile */
+.m-antrean-action-bar {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0 14px 0;
+  flex-wrap: wrap;
+}
+
+.btn-m-export-csv {
+  flex: 1;
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.btn-m-close-gpm {
+  flex: 1;
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.btn-m-close-gpm:disabled {
+  opacity: 0.6;
+}
+
+.m-history-cards-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.m-history-event-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.m-history-card-top {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.m-history-tag-done {
+  align-self: flex-start;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.m-history-card-title {
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.m-history-card-loc, .m-history-card-date {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.m-history-card-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.m-history-card-stats .lbl {
+  display: block;
+  font-size: 0.68rem;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.m-history-card-stats strong {
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.m-history-card-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.btn-m-hist-csv {
+  flex: 1;
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-m-hist-view {
+  flex: 1;
+  background: #f1f5f9;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-m-hist-del {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.m-history-detail-accordion {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.m-history-queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.m-hist-queue-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #ffffff;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  font-size: 0.76rem;
+}
+
+.m-hist-queue-row .q-num {
+  font-weight: 800;
+  color: #8b1e1e;
+}
+
+.m-hist-queue-row .q-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 </style>

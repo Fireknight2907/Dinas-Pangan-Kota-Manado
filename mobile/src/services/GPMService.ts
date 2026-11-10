@@ -585,6 +585,126 @@ class GPMMobileApiService {
         }
     }
 
+    // [Modul Layanan GPM Mobile] Selesaikan & Kunci Kegiatan GPM (Khusus Kepala Bidang)
+    async selesaikanAcara(id: string): Promise<boolean> {
+        let validId = id;
+        const MAP_FALLBACK: Record<string, string> = {
+            '1': '777e05ab-a8c0-4bdc-9999-a12e522786d6',
+            '2': 'f1da6320-1a2b-48f2-8d0d-c1cf28208808'
+        };
+        if (MAP_FALLBACK[String(id)]) {
+            validId = MAP_FALLBACK[String(id)];
+        }
+
+        try {
+            await supabaseClient.updateAcaraGPM(validId, { status: 'Selesai' });
+        } catch (e) {
+            console.warn('[GPMMobileService] Gagal update status di Supabase:', e);
+        }
+
+        try {
+            await fetch(`${this.baseUrl}/acara/${id}`, {
+                method: 'PATCH',
+                headers: this.ambilHeaderAuth(),
+                body: JSON.stringify({ status: 'Selesai' })
+            });
+        } catch (e) {}
+
+        const idx = this.fallbackAcara.findIndex(a => String(a.id) === String(id) || String(a.id) === String(validId));
+        if (idx !== -1) {
+            this.fallbackAcara[idx].status = 'Selesai';
+            this.simpanAcaraKeStorage();
+        }
+        return true;
+    }
+
+    // [Modul Layanan GPM Mobile] Hapus Acara GPM & Seluruh Riwayat Antrean (Khusus Kepala Bidang)
+    async hapusAcara(id: string): Promise<boolean> {
+        let validId = id;
+        const MAP_FALLBACK: Record<string, string> = {
+            '1': '777e05ab-a8c0-4bdc-9999-a12e522786d6',
+            '2': 'f1da6320-1a2b-48f2-8d0d-c1cf28208808'
+        };
+        if (MAP_FALLBACK[String(id)]) {
+            validId = MAP_FALLBACK[String(id)];
+        }
+
+        try {
+            await supabaseClient.hapusAcaraGPM(validId);
+        } catch (e) {
+            console.warn('[GPMMobileService] Gagal menghapus acara di Supabase:', e);
+        }
+
+        try {
+            await fetch(`${this.baseUrl}/acara/${id}`, {
+                method: 'DELETE',
+                headers: this.ambilHeaderAuth()
+            });
+        } catch (e) {}
+
+        this.fallbackAcara = this.fallbackAcara.filter(a => String(a.id) !== String(id) && String(a.id) !== String(validId));
+        this.fallbackPendaftar = this.fallbackPendaftar.filter(p => String(p.acara_id) !== String(id) && String(p.acara_id) !== String(validId));
+        this.simpanAcaraKeStorage();
+        this.simpanPendaftarKeStorage();
+        return true;
+    }
+
+    // [Modul Layanan GPM Mobile] Mengambil Riwayat Acara yang Sudah Selesai
+    async ambilRiwayatAcara(): Promise<ItemAcaraGPM[]> {
+        return this.ambilSemuaAcara('Selesai');
+    }
+
+    // [Modul Layanan GPM Mobile] Ekspor Rekapitulasi Data Pendaftar Acara ke File CSV
+    eksporKeCSV(acara: ItemAcaraGPM, daftarPendaftar: ItemPendaftarGPM[] | any[]): boolean {
+        if (!acara) return false;
+        const pendaftar = Array.isArray(daftarPendaftar) ? daftarPendaftar : [];
+        const totalPendaftar = pendaftar.length;
+        const totalHadir = pendaftar.filter(p => p.status_kehadiran === 'Hadir').length;
+        const totalMenunggu = totalPendaftar - totalHadir;
+
+        let csv = '\uFEFF';
+        csv += 'REKAPITULASI RESMI GERAKAN PANGAN MURAH (GPM)\n';
+        csv += 'DINAS PANGAN KOTA MANADO\n';
+        csv += '============================================================\n';
+        csv += `Nama Kegiatan,"${(acara.nama_acara || '').replace(/"/g, '""')}"\n`;
+        csv += `Lokasi Pelaksanaan,"${(acara.lokasi || '').replace(/"/g, '""')} (Kec. ${(acara.kecamatan || '').replace(/"/g, '""')})"\n`;
+        csv += `Tanggal Pelaksanaan,"${acara.tanggal || '-'} (${acara.jam_mulai || '08:00'} - ${acara.jam_selesai || '13:00'} WITA)"\n`;
+        csv += `Komoditas Pangan Tersedia,"${(acara.komoditas_tersedia || '').replace(/"/g, '""')}"\n`;
+        csv += `Status Acara,"${acara.status || 'Selesai'}"\n`;
+        csv += `Total Kuota Maksimal,${acara.kuota_maksimal || 250}\n`;
+        csv += `Total Warga Mendaftar,${totalPendaftar}\n`;
+        csv += `Total Warga Hadir (Terverifikasi),${totalHadir}\n`;
+        csv += `Total Belum Hadir / Menunggu,${totalMenunggu}\n`;
+        csv += `Waktu Unduh Rekapitulasi,"${new Date().toLocaleString('id-ID')}"\n`;
+        csv += '============================================================\n\n';
+
+        csv += 'No Urut,Nomor Antrean,Nama Lengkap Warga,Nomor Telepon/WA,Kode Barcode QR,Status Kehadiran,Waktu Pendaftaran,Waktu Hadir\n';
+
+        pendaftar.forEach((p, index) => {
+            const noUrut = index + 1;
+            const noAntrean = `"#${String(p.nomor_antrean || index + 1).padStart(3, '0')}"`;
+            const nama = `"${(p.nama_pendaftar || '').replace(/"/g, '""')}"`;
+            const telp = `"'${p.nomor_telepon || ''}"`;
+            const kode = `"${(p.kode_barcode || '').replace(/"/g, '""')}"`;
+            const status = `"${p.status_kehadiran || 'Menunggu'}"`;
+            const waktuDaftar = `"${p.waktu_mendaftar ? new Date(p.waktu_mendaftar).toLocaleString('id-ID') : '-'}"`;
+            const waktuHadir = `"${p.waktu_kehadiran ? new Date(p.waktu_kehadiran).toLocaleString('id-ID') : (p.status_kehadiran === 'Hadir' ? 'Hadir di Lokasi' : '-')}"`;
+            csv += `${noUrut},${noAntrean},${nama},${telp},${kode},${status},${waktuDaftar},${waktuHadir}\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const namaFileBersih = (acara.nama_acara || 'GPM').replace(/[^a-zA-Z0-9_-]/g, '_');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `Rekap_GPM_${namaFileBersih}_${acara.tanggal || 'arsip'}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return true;
+    }
+
     // [Modul Layanan GPM Mobile] 7. Mengambil Statistik Global GPM
     async ambilStatistik(): Promise<StatistikGPM> {
         try {
