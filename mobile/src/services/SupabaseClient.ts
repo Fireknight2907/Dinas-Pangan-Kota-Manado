@@ -1,9 +1,6 @@
-// ===================================================================================
-// KLIEN SUPABASE REST API (MOBILE & CLOUD SYNC)
-// Dinas Pangan Kota Manado - Sistem SIPATOKAAN
-// Menghubungkan langsung aplikasi Mobile dengan Cloud Database Supabase secara real-time
-// Tanpa memerlukan hosting backend terpisah.
-// ===================================================================================
+// Modul Klien Supabase - Akses Basis Data Cloud SIPATOKAAN
+// Dinas Pangan Kota Manado (Aplikasi Seluler)
+// Mengelola integrasi langsung dengan basis data Cloud Supabase REST API
 
 import { SUPABASE_CONFIG } from './ServerConfig';
 
@@ -153,6 +150,25 @@ export class SupabaseRestClient {
     };
     const res = await this.request<any[]>('pendaftar_gpm', 'POST', payload);
     return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async cariPendaftarByBarcode(kodeBarcode: string): Promise<any | null> {
+    const res = await this.request<any[]>(`pendaftar_gpm?kode_barcode=eq.${encodeURIComponent(kodeBarcode)}&limit=1`);
+    return Array.isArray(res) && res.length > 0 ? res[0] : null;
+  }
+
+  async verifikasiPendaftarGPM(kodeBarcode: string, status: string = 'Hadir'): Promise<any> {
+    const payload = {
+      status_kehadiran: status,
+      waktu_kehadiran: new Date().toISOString()
+    };
+    const res = await this.request<any[]>(`pendaftar_gpm?kode_barcode=eq.${encodeURIComponent(kodeBarcode)}`, 'PATCH', payload);
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async hapusPendaftarGPM(id: string): Promise<boolean> {
+    await this.request(`pendaftar_gpm?id=eq.${encodeURIComponent(id)}`, 'DELETE');
+    return true;
   }
 
   // --- LOGIN PENGGUNA ---

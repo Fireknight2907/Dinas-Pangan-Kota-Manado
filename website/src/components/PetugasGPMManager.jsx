@@ -8,7 +8,8 @@
 // 4. Pengelolaan Master Kecamatan (Khusus Kepala Bagian / Admin)
 // ===================================================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Html5Qrcode } from 'html5-qrcode';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -70,6 +71,8 @@ export default function PetugasGPMManager({ token, pengguna }) {
   const [pesanScanError, setPesanScanError] = useState('');
   const [hasilScanPendaftar, setHasilScanPendaftar] = useState(null);
   const [statusVerifikasiSukses, setStatusVerifikasiSukses] = useState(false);
+  const [kameraAktif, setKameraAktif] = useState(false);
+  const html5QrCodeRef = useRef(null);
 
   // Master Data Kecamatan
   const [daftarKecamatan, setDaftarKecamatan] = useState([]);
@@ -365,6 +368,70 @@ export default function PetugasGPMManager({ token, pengguna }) {
             <p className="scan-box-desc">
               Pindai kode QR tiket yang ditunjukkan oleh masyarakat atau masukan kode secara manual untuk memverifikasi kehadiran di lokasi GPM.
             </p>
+          </div>
+
+          {/* Tombol Pemindai Kamera Langsung (Responsif HP, iPhone & Laptop) */}
+          <div style={{ textAlign: 'center', marginBottom: '18px' }}>
+            {!kameraAktif ? (
+              <button
+                type="button"
+                onClick={handleMulaiScanKamera}
+                style={{
+                  background: '#8b1e1e',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '12px 26px',
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                  fontSize: '0.96rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 14px rgba(139, 30, 30, 0.28)',
+                  transition: 'transform 0.15s ease'
+                }}
+              >
+                📷 Buka Kamera Pemindai (Scan QR Langsung)
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleHentikanScanKamera}
+                style={{
+                  background: '#475569',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '10px 22px',
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                ✕ Tutup Kamera
+              </button>
+            )}
+          </div>
+
+          {/* Kotak Bidik Kamera Scanner */}
+          {kameraAktif && (
+            <div style={{ maxWidth: '380px', margin: '0 auto 22px auto', background: '#0f172a', borderRadius: '14px', overflow: 'hidden', padding: '10px', boxShadow: '0 6px 20px rgba(0,0,0,0.25)' }}>
+              <div id="webQrReader" style={{ width: '100%', borderRadius: '10px', overflow: 'hidden' }}></div>
+              <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem', margin: '8px 0 2px 0' }}>
+                Arahkan kamera ke layar ponsel warga atau lembar tiket antrean
+              </p>
+            </div>
+          )}
+
+          {/* Garis Pemisah Opsi Manual */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: '18px auto', maxWidth: '620px' }}>
+            <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }}></div>
+            <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Atau Masukkan Kode Tiket Manual (Laptop/PC)</span>
+            <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }}></div>
           </div>
 
           <form onSubmit={handleEksekusiScan} className="scan-input-row">

@@ -197,8 +197,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     });
   };
 
-  // Simpan harga komoditas (Staf wajib lewat verifikasi Kabid sebagai Draft)
-  const handleSimpanHarga = async (e, statusBaru = 'Draft') => {
+  // Simpan harga komoditas (Staf langsung terbit 1 tombol tanpa verifikasi)
+  const handleSimpanHarga = async (e, statusBaru = 'Terbit') => {
     if (e) e.preventDefault();
 
     if (!formHarga.nama_komoditas.trim() || !formHarga.harga) {
@@ -206,8 +206,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       return;
     }
 
-    // Staf tidak boleh menerbitkan langsung ke publik; semua harus Draft untuk verifikasi Kabid
-    const statusFinal = (peran === 'Staf') ? 'Draft' : statusBaru;
+    // Staf menggunakan 1 tombol langsung terbitkan ke publik. Kabid juga dapat menentukan status.
+    const statusFinal = (peran === 'Staf') ? 'Terbit' : statusBaru;
 
     setSedangMenyimpan(true);
     try {
@@ -220,15 +220,11 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
       if (idEditHarga) {
         await hargaPanganService.perbarui(idEditHarga, payload);
-        tampilkanPesan(statusFinal === 'Terbit'
-          ? `✅ Perubahan "${formHarga.nama_komoditas}" berhasil diperbarui dan terbit!`
-          : `📝 Perubahan "${formHarga.nama_komoditas}" disimpan dan diajukan ke Kepala Bidang untuk verifikasi.`);
+        tampilkanPesan(`✅ Perubahan data "${formHarga.nama_komoditas}" berhasil diperbarui dan langsung terbit ke publik!`);
         setIdEditHarga(null);
       } else {
         await hargaPanganService.tambah(payload);
-        tampilkanPesan(statusFinal === 'Terbit'
-          ? '✅ Harga komoditas berhasil diterbitkan ke halaman publik!'
-          : '📝 Usulan harga komoditas disimpan sebagai draf dan diajukan ke Kepala Bidang untuk verifikasi!');
+        tampilkanPesan(`✅ Komoditas "${formHarga.nama_komoditas}" berhasil disimpan dan langsung diterbitkan ke publik!`);
       }
 
       // Reset form
@@ -238,7 +234,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         satuan: 'kg',
         harga: '',
         nama_pasar: daftarPasar[0] || 'Pasar Bersehati Karombasan',
-        status: 'Draft'
+        status: 'Terbit'
       });
 
       await muatDataDashboard();
@@ -847,12 +843,14 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   </div>
 
                   <div className="form-actions-stack">
-                    <button type="submit" className="btn-simpan-draft" disabled={sedangMenyimpan}>
-                      <span>{sedangMenyimpan ? 'Menyimpan...' : 'Ajukan Verifikasi (Simpan Draf)'}</span>
+                    <button type="submit" className="btn-terbitkan-masyarakat" disabled={sedangMenyimpan}>
+                      {sedangMenyimpan ? 'Menyimpan...' : (idEditHarga ? '✓ Perbarui & Terbitkan ke Publik' : '🚀 Simpan & Terbitkan ke Publik')}
                     </button>
-                    <button type="button" className="btn-terbitkan-masyarakat" onClick={(e) => handleSimpanHarga(e, 'Terbit')} disabled={sedangMenyimpan}>
-                      Terbitkan Langsung ke Publik
-                    </button>
+                    {idEditHarga && (
+                      <button type="button" className="btn-simpan-draft" onClick={handleBatalEditStaf}>
+                        ✕ Batal Ubah
+                      </button>
+                    )}
                   </div>
                 </form>
               </div>
@@ -873,12 +871,48 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                         </div>
                       </div>
 
-                      <div className="price-item-value-col">
+                      <div className="price-item-value-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                         <div className="item-price-nominal">{formatRupiah(item.harga)}</div>
-                        <div className="item-status-wrapper">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span className={`badge-status-pill ${item.status === 'Draft' ? 'status-draft' : 'status-terbit'}`}>
                             {item.status === 'Draft' ? 'Draf' : (item.status || 'Terbit')}
                           </span>
+                          <button
+                            type="button"
+                            onClick={() => handleMulaiEditStaf(item)}
+                            title="Ubah data harga komoditas"
+                            style={{
+                              background: '#eff6ff',
+                              color: '#1d4ed8',
+                              border: '1px solid #bfdbfe',
+                              borderRadius: '4px',
+                              padding: '4px 8px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ✏️ Edit
+                          </button>
+                          {peran === 'Kabid' && (
+                            <button
+                              type="button"
+                              onClick={() => handleHapusHarga(item.id, item.nama_komoditas)}
+                              title="Hapus komoditas"
+                              style={{
+                                background: '#fee2e2',
+                                color: '#991b1b',
+                                border: '1px solid #fecaca',
+                                borderRadius: '4px',
+                                padding: '4px 8px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              🗑️ Hapus
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -994,6 +1028,15 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                         </span>
                       </td>
                       <td style={{ padding: '10px', textAlign: 'right' }}>
+                        <button
+                          onClick={() => {
+                            setMenuAktif('tetapkan-harga');
+                            handleMulaiEditStaf(h);
+                          }}
+                          style={{ background: 'none', border: 'none', color: '#1d4ed8', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, marginRight: '8px' }}
+                        >
+                          ✏️ Edit
+                        </button>
                         <button
                           onClick={() => handleVerifikasiHarga(h, 'Draft')}
                           style={{ background: 'none', border: 'none', color: '#d97706', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, marginRight: '8px' }}

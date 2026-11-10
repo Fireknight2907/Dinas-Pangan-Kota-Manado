@@ -1,8 +1,6 @@
-// ===================================================================================
-// SERVICE HARGA PANGAN (OOP)
-// Bidang: Cadangan dan Distribusi Pangan - Dinas Pangan Kota Manado
-// Berfungsi untuk mengelola komunikasi HTTP dengan Backend API / Supabase / Local Storage
-// ===================================================================================
+// Modul Layanan Harga Pangan - Dinas Pangan Kota Manado
+// Berfungsi untuk mengelola komunikasi data harga komoditas pasar dengan Cloud Supabase dan penyimpanan lokal
+// Penerapan Konsep Pemrograman Berorientasi Objek (OOP)
 
 import { supabaseClient } from './SupabaseClient.js';
 

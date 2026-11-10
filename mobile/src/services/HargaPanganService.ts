@@ -1,9 +1,6 @@
-// ===================================================================================
-// SERVICE HARGA PANGAN MOBILE (OOP - TYPESCRIPT)
-// Bidang: Cadangan dan Distribusi Pangan - Dinas Pangan Kota Manado
-// Berfungsi untuk mengelola komunikasi data harga pangan ke Backend / Website
-// Terintegrasi penuh dengan ServerConfig untuk sinkronisasi HP <-> Web
-// ===================================================================================
+// Modul Layanan Harga Pangan (Aplikasi Seluler) - Dinas Pangan Kota Manado
+// Berfungsi untuk mengelola komunikasi data harga pangan ke Cloud Supabase dan sinkronisasi dengan website
+// Penerapan Konsep Pemrograman Berorientasi Objek (OOP - TypeScript)
 
 import { getApiRoot, onServerUrlChanged, ujiKoneksiBackend } from './ServerConfig';
 import { supabaseClient } from './SupabaseClient';

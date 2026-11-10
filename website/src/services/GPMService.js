@@ -1,9 +1,13 @@
+// Modul Layanan Gerakan Pangan Murah (GPM) dan Antrean Barcode
+// Dinas Pangan Kota Manado
+// Mengelola jadwal acara pasar murah, kuota antrean, pendaftaran tiket warga, dan verifikasi barcode
+
 import { supabaseClient } from './SupabaseClient.js';
-// ===================================================================================
-// SERVICE GPM (GERAKAN PANGAN MURAH) - OOP (WEBSITE)
-// Bidang: Cadangan dan Distribusi Pangan - Dinas Pangan Kota Manado
-// Modul: Komunikasi HTTP Frontend Web dengan Endpoint API GPM & Antrean Barcode
-// ===================================================================================
+
+const MAP_FALLBACK_ACARA_ID = {
+    'gpm-001-sparta-tikala': '777e05ab-a8c0-4bdc-9999-a12e522786d6',
+    'gpm-002-pasar-bersehati': 'f1da6320-1a2b-48f2-8d0d-c1cf28208808'
+};
 
 class GPMApiService {
     constructor() {
@@ -191,121 +195,243 @@ class GPMApiService {
         }
     }
 
-    // [Modul Service] 3. Masyarakat Mendaftar Antrean (Tanpa Login)
+    // [Modul Layanan GPM] 3. Masyarakat Mendaftar Antrean & Mendapatkan Kode QR / Barcode
     async ambilNomorAntrean(acara_id, nama_lengkap, nomor_telepon) {
+        // Normalisasi ID Acara jika format fallback lama
+        let validAcaraId = acara_id;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(validAcaraId)) {
+            validAcaraId = MAP_FALLBACK_ACARA_ID[validAcaraId] || '777e05ab-a8c0-4bdc-9999-a12e522786d6';
+        }
+
+        let acara = this.fallbackAcara.find(a => a.id === validAcaraId || a.id === acara_id);
+        if (!acara && this.fallbackAcara.length > 0) acara = this.fallbackAcara[0];
+
+        // 1. Simpan langsung ke Supabase Cloud
+        try {
+            const pendaftarEksis = await supabaseClient.getPendaftarGPM(validAcaraId);
+            const nomorBaru = (Array.isArray(pendaftarEksis) ? pendaftarEksis.length : 0) + 1;
+            const kodeBarcode = `GPM-MND-${String(nomorBaru).padStart(3, '0')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+            const payload = {
+                acara_id: validAcaraId,
+                nama_pendaftar: (nama_lengkap || '').trim(),
+                nomor_telepon: (nomor_telepon || '').trim(),
+                nomor_antrean: nomorBaru,
+                kode_barcode: kodeBarcode,
+                status_kehadiran: 'Menunggu'
+            };
+
+            const dataMasuk = await supabaseClient.daftarAntreanGPM(payload);
+            const tiketHasil = dataMasuk && dataMasuk.id ? dataMasuk : {
+                ...payload,
+                id: 'antrean-' + Date.now(),
+                waktu_mendaftar: new Date().toISOString()
+            };
+
+            this.fallbackPendaftar.unshift(tiketHasil);
+            if (acara) {
+                acara.antrean_terisi = (acara.antrean_terisi || 0) + 1;
+                acara.sisa_kuota = Math.max(0, (acara.kuota_maksimal || 250) - acara.antrean_terisi);
+            }
+
+            return {
+                tiket: tiketHasil,
+                acara: {
+                    nama_acara: acara ? acara.nama_acara : 'Gerakan Pangan Murah Manado',
+                    lokasi: acara ? acara.lokasi : 'Kota Manado',
+                    kecamatan: acara ? acara.kecamatan : 'Wenang',
+                    tanggal: acara ? acara.tanggal : new Date().toISOString().split('T')[0],
+                    jam: acara ? `${acara.jam_mulai} - ${acara.jam_selesai} WITA` : '08:00 - 13:00 WITA'
+                }
+            };
+        } catch (errorCloud) {
+            console.warn('[GPMService] Supabase pendaftar_gpm offline, beralih ke backend/lokal:', errorCloud);
+        }
+
+        // 2. Coba API server jika ada
         try {
             const respon = await fetch(`${this.baseUrl}/antrian`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ acara_id, nama_lengkap, nomor_telepon })
+                body: JSON.stringify({ acara_id: validAcaraId, nama_lengkap, nomor_telepon })
             });
             const hasil = await respon.json();
-            if (!respon.ok) throw new Error(hasil.pesan || 'Gagal mengambil nomor antrean');
-            return hasil.data;
-        } catch (error) {
-            console.warn('[GPMService] Backend offline, memproses tiket antrean fallback:', error);
-            const acara = this.fallbackAcara.find(a => a.id === acara_id) || this.fallbackAcara[0];
-            const pendaftarAcara = this.fallbackPendaftar.filter(p => p.acara_id === acara_id);
-            const nomorBaru = pendaftarAcara.length + 1;
-            const kodeBarcode = `GPM-MND-${String(nomorBaru).padStart(3, '0')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+            if (respon.ok && hasil.data) return hasil.data;
+        } catch (error) {}
 
-            const tiketBaru = {
-                id: 'antrean-' + Date.now(),
-                acara_id,
-                nama_pendaftar: nama_lengkap,
-                nomor_telepon,
-                nomor_antrean: nomorBaru,
-                kode_barcode: kodeBarcode,
-                status_kehadiran: 'Menunggu',
-                waktu_kehadiran: null,
-                waktu_mendaftar: new Date().toISOString()
-            };
+        // 3. Cadangan lokal jika offline total
+        const pendaftarAcara = this.fallbackPendaftar.filter(p => p.acara_id === validAcaraId || p.acara_id === acara_id);
+        const nomorBaru = pendaftarAcara.length + 1;
+        const kodeBarcode = `GPM-MND-${String(nomorBaru).padStart(3, '0')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
-            this.fallbackPendaftar.push(tiketBaru);
+        const tiketBaru = {
+            id: 'antrean-' + Date.now(),
+            acara_id: validAcaraId,
+            nama_pendaftar: nama_lengkap,
+            nomor_telepon,
+            nomor_antrean: nomorBaru,
+            kode_barcode: kodeBarcode,
+            status_kehadiran: 'Menunggu',
+            waktu_kehadiran: null,
+            waktu_mendaftar: new Date().toISOString()
+        };
+
+        this.fallbackPendaftar.push(tiketBaru);
+        if (acara) {
             acara.antrean_terisi = (acara.antrean_terisi || 0) + 1;
             acara.sisa_kuota = Math.max(0, (acara.kuota_maksimal || 200) - acara.antrean_terisi);
-
-            return {
-                tiket: tiketBaru,
-                acara: {
-                    nama_acara: acara.nama_acara,
-                    lokasi: acara.lokasi,
-                    kecamatan: acara.kecamatan,
-                    tanggal: acara.tanggal,
-                    jam: `${acara.jam_mulai} - ${acara.jam_selesai} WITA`
-                }
-            };
         }
+
+        return {
+            tiket: tiketBaru,
+            acara: {
+                nama_acara: acara ? acara.nama_acara : 'Gerakan Pangan Murah Manado',
+                lokasi: acara ? acara.lokasi : 'Kota Manado',
+                kecamatan: acara ? acara.kecamatan : 'Tikala',
+                tanggal: acara ? acara.tanggal : '2026-11-01',
+                jam: acara ? `${acara.jam_mulai} - ${acara.jam_selesai} WITA` : '08:00 - 13:00 WITA'
+            }
+        };
     }
 
-    // [Modul Service] 4. Petugas Mengambil Daftar Pendaftar untuk Suatu Acara
-    async ambilPendaftarAcara(acara_id) {
+    // [Modul Layanan GPM] 4. Petugas Mengambil Daftar Pendaftar untuk Suatu Acara
+    async ambilPendaftarAcara(acara_id = null) {
+        let validAcaraId = acara_id;
+        if (validAcaraId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(validAcaraId)) {
+            validAcaraId = MAP_FALLBACK_ACARA_ID[validAcaraId] || null;
+        }
+
+        // 1. Ambil langsung dari Supabase Cloud
+        try {
+            const dataCloud = await supabaseClient.getPendaftarGPM(validAcaraId);
+            if (Array.isArray(dataCloud)) {
+                const hadir = dataCloud.filter(p => p.status_kehadiran === 'Hadir').length;
+                this.fallbackPendaftar = dataCloud;
+                return {
+                    sukses: true,
+                    total: dataCloud.length,
+                    statistik: {
+                        total_antrean: dataCloud.length,
+                        total_hadir: hadir,
+                        total_menunggu: dataCloud.length - hadir
+                    },
+                    data: dataCloud
+                };
+            }
+        } catch (err) {
+            console.warn('[GPMService] Supabase getPendaftarGPM offline, mencoba backend/lokal:', err);
+        }
+
+        // 2. Coba API server jika ada
         try {
             const respon = await fetch(`${this.baseUrl}/acara/${acara_id}/pendaftar`, {
                 headers: this.ambilHeaderAuth()
             });
-            if (!respon.ok) throw new Error('Gagal mengambil data pendaftar');
-            const hasil = await respon.json();
-            return hasil;
-        } catch (error) {
-            const daftar = this.fallbackPendaftar.filter(p => !acara_id || p.acara_id === acara_id);
-            const hadir = daftar.filter(p => p.status_kehadiran === 'Hadir').length;
-            return {
-                sukses: true,
-                total: daftar.length,
-                statistik: {
-                    total_antrean: daftar.length,
-                    total_hadir: hadir,
-                    total_menunggu: daftar.length - hadir
-                },
-                data: daftar
-            };
-        }
+            if (respon.ok) {
+                const hasil = await respon.json();
+                return hasil;
+            }
+        } catch (error) {}
+
+        // 3. Cadangan lokal
+        const daftar = this.fallbackPendaftar.filter(p => !validAcaraId || p.acara_id === validAcaraId || p.acara_id === acara_id);
+        const hadir = daftar.filter(p => p.status_kehadiran === 'Hadir').length;
+        return {
+            sukses: true,
+            total: daftar.length,
+            statistik: {
+                total_antrean: daftar.length,
+                total_hadir: hadir,
+                total_menunggu: daftar.length - hadir
+            },
+            data: daftar
+        };
     }
 
-    // [Modul Service] 5. Petugas Scan Barcode
+    // [Modul Layanan GPM] 5. Petugas Scan Barcode / QR Code
     async scanBarcode(kodeBarcode) {
+        const kode = (kodeBarcode || '').trim().toUpperCase();
+        if (!kode) throw new Error('Kode barcode tiket tidak boleh kosong!');
+
+        // 1. Cari langsung di Supabase Cloud
         try {
-            const respon = await fetch(`${this.baseUrl}/scan/${encodeURIComponent(kodeBarcode)}`, {
+            const pendaftarCloud = await supabaseClient.cariPendaftarByBarcode(kode);
+            if (pendaftarCloud) {
+                let acara = this.fallbackAcara.find(a => a.id === pendaftarCloud.acara_id);
+                if (!acara && this.fallbackAcara.length > 0) acara = this.fallbackAcara[0];
+                return {
+                    ...pendaftarCloud,
+                    acara: acara ? {
+                        nama_acara: acara.nama_acara,
+                        lokasi: acara.lokasi,
+                        tanggal: acara.tanggal
+                    } : null
+                };
+            }
+        } catch (err) {
+            console.warn('[GPMService] Supabase cariPendaftarByBarcode error:', err);
+        }
+
+        // 2. Coba API server jika ada
+        try {
+            const respon = await fetch(`${this.baseUrl}/scan/${encodeURIComponent(kode)}`, {
                 headers: this.ambilHeaderAuth()
             });
             const hasil = await respon.json();
-            if (!respon.ok) throw new Error(hasil.pesan || 'Data barcode tidak ditemukan');
-            return hasil.data;
-        } catch (error) {
-            const kode = kodeBarcode.trim().toUpperCase();
-            const pendaftar = this.fallbackPendaftar.find(p => p.kode_barcode.toUpperCase() === kode);
-            if (!pendaftar) throw new Error(`Barcode "${kodeBarcode}" tidak ditemukan di sistem.`);
-            const acara = this.fallbackAcara.find(a => a.id === pendaftar.acara_id);
-            return {
-                ...pendaftar,
-                acara: acara ? {
-                    nama_acara: acara.nama_acara,
-                    lokasi: acara.lokasi,
-                    tanggal: acara.tanggal
-                } : null
-            };
-        }
+            if (respon.ok && hasil.data) return hasil.data;
+        } catch (error) {}
+
+        // 3. Cadangan lokal
+        const pendaftar = this.fallbackPendaftar.find(p => (p.kode_barcode || '').toUpperCase() === kode);
+        if (!pendaftar) throw new Error(`Barcode "${kodeBarcode}" tidak ditemukan di sistem.`);
+        const acara = this.fallbackAcara.find(a => a.id === pendaftar.acara_id) || this.fallbackAcara[0];
+        return {
+            ...pendaftar,
+            acara: acara ? {
+                nama_acara: acara.nama_acara,
+                lokasi: acara.lokasi,
+                tanggal: acara.tanggal
+            } : null
+        };
     }
 
-    // [Modul Service] 6. Petugas Verifikasi Kehadiran
+    // [Modul Layanan GPM] 6. Petugas Verifikasi Kehadiran
     async verifikasiKehadiran(kodeBarcode) {
+        const kode = (kodeBarcode || '').trim().toUpperCase();
+        if (!kode) throw new Error('Kode barcode tiket tidak boleh kosong!');
+
+        // 1. Simpan verifikasi ke Supabase Cloud
         try {
-            const respon = await fetch(`${this.baseUrl}/verifikasi/${encodeURIComponent(kodeBarcode)}`, {
+            const resCloud = await supabaseClient.verifikasiPendaftarGPM(kode, 'Hadir');
+            if (resCloud) {
+                const idx = this.fallbackPendaftar.findIndex(p => (p.kode_barcode || '').toUpperCase() === kode);
+                if (idx !== -1) {
+                    this.fallbackPendaftar[idx].status_kehadiran = 'Hadir';
+                    this.fallbackPendaftar[idx].waktu_kehadiran = new Date().toISOString();
+                }
+                return Array.isArray(resCloud) ? resCloud[0] : resCloud;
+            }
+        } catch (err) {
+            console.warn('[GPMService] Supabase verifikasiKehadiran error:', err);
+        }
+
+        // 2. Coba API server jika ada
+        try {
+            const respon = await fetch(`${this.baseUrl}/verifikasi/${encodeURIComponent(kode)}`, {
                 method: 'POST',
                 headers: this.ambilHeaderAuth()
             });
             const hasil = await respon.json();
-            if (!respon.ok) throw new Error(hasil.pesan || 'Gagal verifikasi');
-            return hasil.data;
-        } catch (error) {
-            const kode = kodeBarcode.trim().toUpperCase();
-            const idx = this.fallbackPendaftar.findIndex(p => p.kode_barcode.toUpperCase() === kode);
-            if (idx === -1) throw new Error(`Data barcode "${kodeBarcode}" tidak ditemukan.`);
-            this.fallbackPendaftar[idx].status_kehadiran = 'Hadir';
-            this.fallbackPendaftar[idx].waktu_kehadiran = new Date().toISOString();
-            return this.fallbackPendaftar[idx];
-        }
+            if (respon.ok && hasil.data) return hasil.data;
+        } catch (error) {}
+
+        // 3. Cadangan lokal
+        const idx = this.fallbackPendaftar.findIndex(p => (p.kode_barcode || '').toUpperCase() === kode);
+        if (idx === -1) throw new Error(`Data barcode "${kodeBarcode}" tidak ditemukan.`);
+        this.fallbackPendaftar[idx].status_kehadiran = 'Hadir';
+        this.fallbackPendaftar[idx].waktu_kehadiran = new Date().toISOString();
+        return this.fallbackPendaftar[idx];
     }
 
     // [Modul Service] 7. Petugas Tambah Acara GPM Baru
@@ -361,15 +487,23 @@ class GPMApiService {
         return true;
     }
 
-    // [Modul Service] 9. Mengambil Statistik Keseluruhan
+    // [Modul Layanan GPM] 9. Mengambil Data Statistik Acara & Antrean
     async ambilStatistik() {
         try {
-            const respon = await fetch(`${this.baseUrl}/statistik`, {
-                headers: this.ambilHeaderAuth()
-            });
-            if (!respon.ok) throw new Error('Gagal mengambil statistik');
-            const hasil = await respon.json();
-            return hasil.data;
+            const pendaftar = await supabaseClient.getPendaftarGPM();
+            const acara = await supabaseClient.getAcaraGPM();
+            const totalAntrean = Array.isArray(pendaftar) ? pendaftar.length : 0;
+            const totalHadir = Array.isArray(pendaftar) ? pendaftar.filter(p => p.status_kehadiran === 'Hadir').length : 0;
+            const daftarAcara = Array.isArray(acara) && acara.length > 0 ? acara : this.fallbackAcara;
+
+            return {
+                total_gpm: daftarAcara.length,
+                gpm_aktif: daftarAcara.filter(a => a.status === 'Aktif').length,
+                gpm_selesai: daftarAcara.filter(a => a.status === 'Selesai').length,
+                total_antrean: totalAntrean,
+                total_hadir: totalHadir,
+                total_menunggu: totalAntrean - totalHadir
+            };
         } catch (e) {
             const totalAntrean = this.fallbackPendaftar.length;
             const totalHadir = this.fallbackPendaftar.filter(p => p.status_kehadiran === 'Hadir').length;

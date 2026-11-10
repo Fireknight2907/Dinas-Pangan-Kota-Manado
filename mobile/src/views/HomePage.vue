@@ -15,7 +15,7 @@
     <div v-if="tampilanMode === 'login'" class="mobile-login-screen">
       <!-- Tombol Kembali -->
       <button class="btn-back-to-public" @click="tampilanMode = 'publik'">
-        â† Kembali ke Beranda
+        ← Kembali ke Beranda
       </button>
 
       <div class="mobile-login-card">
@@ -35,7 +35,7 @@
           <h3>Selamat Datang</h3>
           <p>Masuk ke akun Anda untuk melanjutkan</p>
           <div class="m-login-hint-badge">
-            ðŸ’¡ Contoh akun: <strong>effrend</strong> / Sandi: <strong>12345678</strong>
+            💡 Contoh akun: <strong>effrend</strong> / Sandi: <strong>12345678</strong>
           </div>
         </div>
 
@@ -44,7 +44,7 @@
           <div class="m-input-group">
             <label>NAMA PENGGUNA / EMAIL</label>
             <div class="m-input-icon-box">
-              <span class="m-icon">ðŸ‘¤</span>
+              <span class="m-icon">👤</span>
               <input 
                 type="text" 
                 v-model="loginInput.email" 
@@ -57,7 +57,7 @@
           <div class="m-input-group">
             <label>KATA SANDI</label>
             <div class="m-input-icon-box">
-              <span class="m-icon">ðŸ”’</span>
+              <span class="m-icon">🔒</span>
               <input 
                 :type="lihatPassword ? 'text' : 'password'" 
                 v-model="loginInput.password" 
@@ -65,7 +65,7 @@
                 placeholder="Masukan kata sandi"
               />
               <button type="button" class="btn-eye" @click="lihatPassword = !lihatPassword">
-                {{ lihatPassword ? 'ðŸ‘ï¸' : 'ðŸ‘ï¸â€ðŸ—¨ï¸' }}
+                {{ lihatPassword ? '👁️' : '🙈' }}
               </button>
             </div>
           </div>
@@ -117,7 +117,7 @@
             </button>
 
             <div class="notif-bell-icon">
-              ðŸ””
+              🔔
               <span class="red-dot"></span>
             </div>
             <div class="staff-avatar-mini" title="Roni Tilaar">
@@ -173,10 +173,10 @@
           <!-- FORMULIR PENETAPAN HARGA -->
           <div class="staff-form-panel" id="formPenetapanPanel">
             <div class="panel-title-row">
-              <span class="plus-icon-red">{{ idDiedit ? 'âœï¸' : '+' }}</span>
+              <span class="plus-icon-red">{{ idDiedit ? '✏️' : '+' }}</span>
               <h3>{{ idDiedit ? 'Ubah Penetapan Harga' : 'Formulir Penetapan Harga' }}</h3>
               <button v-if="idDiedit" type="button" class="btn-cancel-edit-pill" @click="batalEditItem">
-                âœ• Batal
+                ✕ Batal
               </button>
             </div>
 
@@ -225,14 +225,14 @@
               </div>
 
               <div class="s-button-stack">
-                <!-- Staf: HANYA BISA mengajukan draf verifikasi ke Kepala Bidang -->
+                <!-- Staf: 1 tombol langsung terbitkan ke publik (tanpa alur verifikasi draf) -->
                 <button 
                   v-if="!isKabid" 
                   type="submit" 
-                  class="btn-draft-action" 
+                  class="btn-publish-action" 
                   style="background: #8b1e1e; color: #ffffff; width: 100%; justify-content: center; font-weight: 700; padding: 14px; border-radius: 8px; border: none; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;"
                 >
-                  <span>📝</span> {{ idDiedit ? 'Simpan Perubahan & Ajukan Verifikasi' : 'Ajukan Verifikasi ke Kepala Bidang (Draf)' }}
+                  <span>🚀</span> {{ idDiedit ? 'Perbarui & Terbitkan ke Publik' : 'Simpan & Terbitkan ke Publik' }}
                 </button>
                 <button 
                   v-if="!isKabid && idDiedit" 
@@ -241,7 +241,7 @@
                   @click="batalEditItem" 
                   style="background: #f1f5f9; color: #475569; width: 100%; justify-content: center; font-weight: 600; padding: 10px; margin-top: 6px; border-radius: 8px; border: 1px solid #cbd5e1;"
                 >
-                  Batal Ubah
+                  ✕ Batal Ubah
                 </button>
 
                 <!-- Kabid / Admin: Memiliki tombol Terbitkan langsung dan Simpan Draf -->
@@ -259,7 +259,7 @@
                     @click="batalEditItem" 
                     style="background: #f1f5f9; color: #475569; width: 100%; justify-content: center; font-weight: 600; padding: 10px; margin-top: 6px; border-radius: 8px; border: 1px solid #cbd5e1;"
                   >
-                    Batal Ubah
+                    ✕ Batal Ubah
                   </button>
                 </template>
               </div>
@@ -372,31 +372,66 @@
               :class="['m-gpm-nav-btn', subMenuPetugasGPM === 'scan' ? 'active' : '']"
               @click="subMenuPetugasGPM = 'scan'"
             >
-              ðŸ“· Pindai Kode QR
+              📷 Pindai Kode QR
             </button>
             <button 
               :class="['m-gpm-nav-btn', subMenuPetugasGPM === 'antrean' ? 'active' : '']"
               @click="subMenuPetugasGPM = 'antrean'"
             >
-              ðŸ“‹ Data Antrean
+              📋 Data Antrean
             </button>
             <button 
               :class="['m-gpm-nav-btn', subMenuPetugasGPM === 'buat' ? 'active' : '']"
               @click="subMenuPetugasGPM = 'buat'"
             >
-              ðŸ“ Tambah GPM
+              📍  Tambah GPM
             </button>
           </div>
 
           <!-- TAB 1: SCAN QR CODE MOBILE -->
           <div v-if="subMenuPetugasGPM === 'scan'" class="staff-form-panel">
             <div class="panel-title-row">
-              <span class="plus-icon-red">ðŸ“·</span>
+              <span class="plus-icon-red">📷</span>
               <h3>Pindai Kode QR Antrean Tiket</h3>
             </div>
             <p style="font-size: 0.82rem; color: #64748b; margin: 4px 0 12px 0;">
               Masukan kode QR tiket masyarakat untuk memverifikasi kehadiran:
             </p>
+
+            <!-- Tombol Buka / Tutup Kamera Pemindai Mobile -->
+            <div style="margin-bottom: 14px;">
+              <button 
+                v-if="!kameraAktifMobile" 
+                type="button" 
+                @click="mulaiScanKameraMobile"
+                style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px; font-size: 0.95rem; font-weight: 700; background: #8b1e1e; color: #ffffff; border-radius: 8px; border: none; box-shadow: 0 4px 12px rgba(139,30,30,0.25); cursor: pointer;"
+              >
+                📷 Buka Kamera Pemindai (Scan QR Langsung)
+              </button>
+              <button 
+                v-else 
+                type="button" 
+                @click="hentikanScanKameraMobile"
+                style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px; font-weight: 700; background: #475569; color: #ffffff; border-radius: 8px; border: none; cursor: pointer;"
+              >
+                ✕ Tutup Kamera
+              </button>
+            </div>
+
+            <!-- Viewfinder Kamera Scanner Mobile -->
+            <div v-if="kameraAktifMobile" style="margin-bottom: 16px; background: #0f172a; border-radius: 12px; overflow: hidden; padding: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.3);">
+              <div id="mobileQrReader" style="width: 100%; border-radius: 8px; overflow: hidden;"></div>
+              <p style="text-align: center; color: #cbd5e1; font-size: 0.74rem; margin: 6px 0 2px 0;">
+                Arahkan kamera ke layar HP warga atau tiket fisik antrean
+              </p>
+            </div>
+
+            <!-- Pemisah Pilihan Manual -->
+            <div style="display: flex; align-items: center; gap: 8px; margin: 12px 0;">
+              <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+              <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 600;">Atau Ketik Kode Manual</span>
+              <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+            </div>
 
             <form @submit.prevent="pindaiBarcodeMobile()" class="m-scan-input-wrap">
               <input 
@@ -426,7 +461,7 @@
             <div v-if="hasilScanPetugas" class="m-scan-profile-result">
               <div class="m-profile-header">
                 <span style="font-size: 0.8rem; font-weight: 700; color: #2e7d32;">
-                  âœ“ DATA PENDAFTAR DITEMUKAN
+                  ✓ DATA PENDAFTAR DITEMUKAN
                 </span>
                 <span class="m-badge-queue">
                   #{{ String(hasilScanPetugas.nomor_antrean).padStart(3, '0') }}
@@ -449,7 +484,7 @@
                 <div style="grid-column: 1 / -1;">
                   <span class="m-info-lbl">Status Kehadiran</span>
                   <span :class="['m-status-tag', hasilScanPetugas.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu']">
-                    {{ hasilScanPetugas.status_kehadiran === 'Hadir' ? 'âœ“ Hadir / Terverifikasi' : 'â³ Menunggu Verifikasi' }}
+                    {{ hasilScanPetugas.status_kehadiran === 'Hadir' ? '✓ Hadir / Terverifikasi' : '⏳ Menunggu Verifikasi' }}
                   </span>
                 </div>
               </div>
@@ -470,7 +505,7 @@
           <!-- TAB 2: DATA ANTREAN MASYARAKAT -->
           <div v-if="subMenuPetugasGPM === 'antrean'" class="staff-form-panel">
             <div class="panel-title-row">
-              <span class="plus-icon-red">ðŸ“‹</span>
+              <span class="plus-icon-red">📋</span>
               <h3>Daftar Orang yang Ambil Nomor ({{ pendaftarGPMList.length }})</h3>
             </div>
 
@@ -497,7 +532,7 @@
           <!-- TAB 3: TAMBAH TITIK LOKASI GPM BARU -->
           <div v-if="subMenuPetugasGPM === 'buat'" class="staff-form-panel">
             <div class="panel-title-row">
-              <span class="plus-icon-red">ðŸ“</span>
+              <span class="plus-icon-red">📍</span>
               <h3>Jadwalkan Lokasi GPM Baru</h3>
             </div>
 
@@ -539,7 +574,7 @@
                 <input type="text" v-model="formGPMBaru.komoditas_tersedia" placeholder="Beras SPHP, Minyakita, Gula Pasir" />
               </div>
               <button type="submit" class="btn-publish-action" :disabled="sedangSimpanGPMBaru">
-                <span>ðŸ“</span> {{ sedangSimpanGPMBaru ? 'Menyimpan...' : 'Terbitkan Acara ke Peta' }}
+                <span>📍</span> {{ sedangSimpanGPMBaru ? 'Menyimpan...' : 'Terbitkan Acara ke Peta' }}
               </button>
             </form>
           </div>
@@ -663,7 +698,7 @@
                 placeholder="Cari komoditas: beras, cabai, daging, ikan..."
                 class="mobile-search-input"
               />
-              <button v-if="kataKunciPencarian" class="btn-clear-mobile" @click="resetPencarian">âœ•</button>
+              <button v-if="kataKunciPencarian" class="btn-clear-mobile" @click="resetPencarian">✕</button>
             </div>
 
             <div class="mobile-select-box">
@@ -722,7 +757,7 @@
               Daftarkan diri Anda untuk mendapatkan nomor antrean dan kode QR resmi kegiatan Gerakan Pangan Murah di Kota Manad✅ <strong>Tanpa masuk akun.</strong>
             </p>
             <div class="hero-update-date">
-              <span>ðŸ“ {{ daftarAcaraGPM.length }} Lokasi Pelaksanaan Tersedia</span>
+              <span>📍  {{ daftarAcaraGPM.length }} Lokasi Pelaksanaan Tersedia</span>
             </div>
           </div>
 
@@ -738,7 +773,7 @@
                 <div class="m-ticket-queue-num">
                   #{{ String(tiketGPMHasil.tiket.nomor_antrean).padStart(3, '0') }}
                 </div>
-                <span class="m-ticket-badge-wait">â³ Menunggu Verifikasi di Lokasi</span>
+                <span class="m-ticket-badge-wait">⏳ Menunggu Verifikasi di Lokasi</span>
               </div>
 
               <!-- Barcode Generator Mobile -->
@@ -757,7 +792,7 @@
               </div>
 
               <button class="btn-m-take-new" @click="tiketGPMHasil = null">
-                âž• Ambil Antrean Lain
+                ➕ Ambil Antrean Lain
               </button>
             </div>
           </div>
@@ -798,7 +833,7 @@
                 <span class="m-event-quota">Sisa {{ acaraGPMDipilih.sisa_kuota ?? 247 }} kuota</span>
               </div>
               <div class="m-event-info">
-                <p>ðŸ“ {{ acaraGPMDipilih.lokasi }} (Kec. {{ acaraGPMDipilih.kecamatan }})</p>
+                <p>📍  {{ acaraGPMDipilih.lokasi }} (Kec. {{ acaraGPMDipilih.kecamatan }})</p>
                 <p>📅 {{ acaraGPMDipilih.tanggal }} · ⏰ {{ acaraGPMDipilih.jam_mulai }} - {{ acaraGPMDipilih.jam_selesai }} WITA</p>
               </div>
               <div class="m-event-commodities">
@@ -809,7 +844,7 @@
               <!-- Form Ambil Antrean (Tanpa Login) -->
               <form @submit.prevent="ambilNomorAntreanMobile" class="m-queue-form">
                 <h4 class="m-form-heading">🎟️ï¸ Formulir Ambil Nomor Antrean</h4>
-                <p class="m-form-subheading">Masyarakat tidak perlu masuk akun, cukup isi nama dan n✅ HP:</p>
+                <p class="m-form-subheading">Masyarakat tidak perlu masuk akun, cukup isi nama dan nomor HP:</p>
 
                 <div v-if="pesanErrorGPM" class="m-error-alert">
                   ⚠️ï¸ {{ pesanErrorGPM }}
@@ -861,20 +896,20 @@
       <div class="server-config-modal-card">
         <div class="server-modal-header">
           <div class="server-modal-title-wrap">
-            <span class="server-icon-pulse">ðŸŒ</span>
+            <span class="server-icon-pulse">🌐</span>
             <div>
               <h3 class="server-m-title">Koneksi Server & Web</h3>
               <p class="server-m-sub">Sinkronisasi data HP dan Website Dinas Pangan</p>
             </div>
           </div>
-          <button type="button" class="btn-close-server-modal" @click="tampilkanModalServer = false">âœ•</button>
+          <button type="button" class="btn-close-server-modal" @click="tampilkanModalServer = false">✕</button>
         </div>
 
         <div class="server-modal-body">
           <!-- Status Banner -->
           <div :class="['server-status-banner', statusKoneksi.online ? 'is-online' : 'is-offline']">
             <div class="server-status-icon">
-              {{ statusKoneksi.online ? 'ðŸŸ¢' : 'ðŸ”´' }}
+              {{ statusKoneksi.online ? '🟢' : '🔴' }}
             </div>
             <div class="server-status-details">
               <strong>{{ statusKoneksi.online ? 'Terhubung ke Website & Backend' : 'Server Belum Terhubung' }}</strong>
@@ -887,7 +922,7 @@
 
           <!-- Petunjuk Cepat -->
           <div class="server-hint-box">
-            ðŸ’¡ <strong>Panduan:</strong> Pastikan backend server <code>node backend/server.js</code> sedang menyala di laptop/PC dan HP terhubung ke Wi-Fi yang sama.
+            💡 <strong>Panduan:</strong> Pastikan backend server <code>node backend/server.js</code> sedang menyala di laptop/PC dan HP terhubung ke Wi-Fi yang sama.
           </div>
 
           <!-- Form Input Alamat IP Server -->
@@ -941,7 +976,7 @@
                 class="btn-preset-chip" 
                 @click="pilihPreset('http://localhost:3000')"
               >
-                ðŸŒ Localhost (localhost:3000)
+                🌐  Localhost (localhost:3000)
               </button>
             </div>
           </div>
@@ -968,6 +1003,7 @@
 
 import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import L from 'leaflet';
+import { Html5Qrcode } from 'html5-qrcode';
 import { IonPage, IonHeader, IonContent, IonRefresher, IonRefresherContent } from '@ionic/vue';
 import { 
   getServerBaseUrl, 
@@ -1044,8 +1080,12 @@ const inisialisasiPetaGpm = () => {
   });
 };
 
-const pilihAcaraGpm = (acara: ItemAcaraGPM) => {
+const pilihAcaraGpm = async (acara: ItemAcaraGPM) => {
   acaraGPMDipilih.value = acara;
+  try {
+    const res = await gpmMobileService.ambilPendaftarAcara(acara.id);
+    pendaftarGPMList.value = res.data || [];
+  } catch (e) {}
   if (mapInstance) {
     const lat = acara.latitude || (acara.nama_acara.includes('Tikala') ? 1.4878 : 1.4647);
     const lng = acara.longitude || (acara.nama_acara.includes('Tikala') ? 124.8427 : 124.8415);
@@ -1153,6 +1193,49 @@ const tiketGPMHasil = ref<HasilTiketGPM | null>(null);
 
 // State Petugas GPM
 const subMenuPetugasGPM = ref<'scan' | 'antrean' | 'buat'>('scan');
+// ─── KAMERA SCANNER QR MOBILE (Capacitor Android & Safari iOS) ──────
+const kameraAktifMobile = ref(false);
+let html5QrMobileScanner: Html5Qrcode | null = null;
+
+const mulaiScanKameraMobile = async () => {
+  kameraAktifMobile.value = true;
+  pesanScanErrorPetugas.value = '';
+  setTimeout(async () => {
+    try {
+      const el = document.getElementById('mobileQrReader');
+      if (!el) return;
+      html5QrMobileScanner = new Html5Qrcode("mobileQrReader");
+      await html5QrMobileScanner.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 220, height: 220 }
+        },
+        (decodedText: string) => {
+          hentikanScanKameraMobile();
+          inputBarcodePetugas.value = decodedText;
+          pindaiBarcodeMobile(decodedText);
+        },
+        () => {}
+      );
+    } catch (err: any) {
+      pesanScanErrorPetugas.value = "Gagal mengakses kamera: " + (err.message || 'Pastikan izin akses kamera diberikan.');
+      kameraAktifMobile.value = false;
+    }
+  }, 300);
+};
+
+const hentikanScanKameraMobile = async () => {
+  if (html5QrMobileScanner) {
+    try {
+      await html5QrMobileScanner.stop();
+      html5QrMobileScanner.clear();
+    } catch (e) {}
+    html5QrMobileScanner = null;
+  }
+  kameraAktifMobile.value = false;
+};
+
 const inputBarcodePetugas = ref('');
 const sedangScanBarcode = ref(false);
 const hasilScanPetugas = ref<ItemPendaftarGPM | null>(null);
@@ -1233,8 +1316,8 @@ const daftarKategoriList = [
   { key: 'Semua', label: 'Semua', icon: '' },
   { key: 'Bahan Pokok', label: 'Bahan Pokok', icon: '' },
   { key: 'Hewani', label: 'Hewani', icon: '' },
-  { key: 'Sayuran', label: 'Sayuran', icon: 'ðŸ¥¬' },
-  { key: 'Buah', label: 'Buah', icon: 'ðŸŠ' },
+  { key: 'Sayuran', label: 'Sayuran', icon: '🥬' },
+  { key: 'Buah', label: 'Buah', icon: '🍊' },
   { key: 'Lainnya', label: 'Lainnya', icon: '' }
 ];
 
@@ -1280,15 +1363,29 @@ const muatDataGPM = async () => {
   try {
     const data = await gpmMobileService.ambilSemuaAcara('Aktif');
     daftarAcaraGPM.value = data;
-    if (data.length > 0 && !acaraGPMDipilih.value) {
-      acaraGPMDipilih.value = data[0];
-      const res = await gpmMobileService.ambilPendaftarAcara(data[0].id);
+    if (data.length > 0) {
+      if (!acaraGPMDipilih.value) {
+        acaraGPMDipilih.value = data[0];
+      }
+      const targetId = acaraGPMDipilih.value ? acaraGPMDipilih.value.id : data[0].id;
+      const res = await gpmMobileService.ambilPendaftarAcara(targetId);
       pendaftarGPMList.value = res.data || [];
+    } else {
+      pendaftarGPMList.value = [];
     }
   } catch (err) {
     console.error('Error muat GPM:', err);
   }
 };
+
+watch(subMenuPetugasGPM, async (baru) => {
+  if (baru !== 'scan' && kameraAktifMobile.value) {
+    await hentikanScanKameraMobile();
+  }
+  if (baru === 'antrean') {
+    await muatDataGPM();
+  }
+});
 
 const ambilNomorAntreanMobile = async () => {
   if (!acaraGPMDipilih.value) return;
@@ -1445,9 +1542,9 @@ const formatRupiah = (nominal: number) => {
   }).format(nominal).replace('IDR', 'Rp');
 };
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -------------------------------------------------------------
 // OPERASI LOGIN & LOGOUT MOBILE
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -------------------------------------------------------------
 const bukaLoginMobile = () => {
   if (userAktif.value) {
     tampilanMode.value = 'petugas';
@@ -1481,9 +1578,9 @@ const alertLupaPassword = () => {
   alert('Silakan hubungi administrator Dinas Pangan Kota Manad✅');
 };
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -------------------------------------------------------------
 // OPERASI PETUGAS MOBILE (TETAPKAN HARGA)
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -------------------------------------------------------------
 const mulaiEditItem = (item: ItemHargaPangan) => {
   idDiedit.value = item.id || null;
   formPenetapan.value = {
@@ -1511,6 +1608,10 @@ const batalEditItem = () => {
 };
 
 const hapusItem = async (item: ItemHargaPangan) => {
+  if (!isKabid.value) {
+    alert('Akses Ditolak: Hanya Kepala Bidang yang memiliki kewenangan untuk menghapus komoditas pangan.');
+    return;
+  }
   if (!item.id) return;
   if (!confirm(`Hapus data harga untuk "${item.nama_komoditas}"?`)) return;
   try {
@@ -1545,7 +1646,7 @@ const simpanHargaPetugas = async (status: 'Terbit' | 'Draft') => {
       });
       pesanSuksesMobile.value = status === 'Terbit' 
         ? `✅ Perubahan "${formPenetapan.value.nama_komoditas}" berhasil diterbitkan ke masyarakat!` 
-        : `ðŸ“ Perubahan "${formPenetapan.value.nama_komoditas}" disimpan sebagai draf!`;
+        : `📝 Perubahan "${formPenetapan.value.nama_komoditas}" disimpan sebagai draf!`;
       batalEditItem();
     } else {
       await hargaPanganMobileService.tambah({
@@ -1559,7 +1660,7 @@ const simpanHargaPetugas = async (status: 'Terbit' | 'Draft') => {
       });
       pesanSuksesMobile.value = status === 'Terbit' 
         ? '✅ Harga berhasil diterbitkan ke masyarakat!' 
-        : 'ðŸ“ Harga disimpan sebagai draf!';
+        : '📝 Harga disimpan sebagai draf!';
       formPenetapan.value.nama_komoditas = '';
       formPenetapan.value.harga = '';
     }
@@ -1579,7 +1680,7 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
     await hargaPanganMobileService.perbarui(item.id, { status: statusBaru });
     pesanSuksesMobile.value = statusBaru === 'Terbit'
       ? `✅ "${item.nama_komoditas}" diterbitkan ke halaman masyarakat!`
-      : `ðŸ“ "${item.nama_komoditas}" diubah menjadi draf.`;
+      : `📝 "${item.nama_komoditas}" diubah menjadi draf.`;
     setTimeout(() => pesanSuksesMobile.value = '', 3000);
     await muatData();
     await muatStatsDashboard();
@@ -2815,6 +2916,17 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   font-weight: 700;
   font-size: 0.85rem;
   color: #334155;
+}
+
+.m-leaflet-map-box {
+  width: 100%;
+  height: 220px;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  border: 1px solid #e2e8f0;
+  z-index: 1;
+  background: #f1f5f9;
 }
 
 .m-map-visual-card {
