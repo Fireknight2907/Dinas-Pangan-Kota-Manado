@@ -4,6 +4,7 @@
 
 import { getApiRoot, onServerUrlChanged, ujiKoneksiBackend } from './ServerConfig';
 import { supabaseClient } from './SupabaseClient';
+import { penggunaMobileService } from './PenggunaService';
 
 export interface ItemHargaPangan {
   id?: string;
@@ -302,17 +303,71 @@ export class HargaPanganMobileService {
       const hasil = await respon.json();
       return hasil.data;
     } catch (error) {
-      const tersimpan = localStorage.getItem('sipatokean_master_pasar');
-      if (tersimpan) {
-        try { return JSON.parse(tersimpan); } catch (e) {}
-      }
-      return [
-        'Pasar Tradisional Bahu',
-        'Pasar Bersehati Karombasan',
-        'Pasar Tradisional Tuminting',
-        'Pasar Bersehati Sario'
-      ];
+      return this.ambilDaftarPasarSync();
     }
+  }
+
+  ambilDaftarPasarSync(): string[] {
+    const tersimpan = localStorage.getItem('sipatokean_master_pasar');
+    if (tersimpan) {
+      try { return JSON.parse(tersimpan); } catch (e) {}
+    }
+    return [
+      'Pasar Tradisional Bahu',
+      'Pasar Bersehati Karombasan',
+      'Pasar Tradisional Tuminting',
+      'Pasar Bersehati Sario'
+    ];
+  }
+
+  tambahPasar(namaPasar: string): string[] {
+    if (!namaPasar || !namaPasar.trim()) throw new Error('Nama pasar tidak boleh kosong');
+    const daftar = this.ambilDaftarPasarSync();
+    if (daftar.some(p => p.toLowerCase() === namaPasar.trim().toLowerCase())) {
+      throw new Error(`Pasar "${namaPasar}" sudah terdaftar`);
+    }
+    daftar.push(namaPasar.trim());
+    localStorage.setItem('sipatokean_master_pasar', JSON.stringify(daftar));
+    return daftar;
+  }
+
+  hapusPasar(namaPasar: string): string[] {
+    let daftar = this.ambilDaftarPasarSync();
+    daftar = daftar.filter(p => p !== namaPasar);
+    localStorage.setItem('sipatokean_master_pasar', JSON.stringify(daftar));
+    return daftar;
+  }
+
+  ambilKecamatan(): string[] {
+    const tersimpan = localStorage.getItem('sipatokean_master_kecamatan');
+    if (tersimpan) {
+      try { return JSON.parse(tersimpan); } catch (e) {}
+    }
+    const def = ['Wenang', 'Tikala', 'Wanea', 'Sario', 'Malalayang', 'Bunaken', 'Tuminting', 'Singkil', 'Mapanget', 'Paal Dua', 'Bunaken Kepulauan'];
+    localStorage.setItem('sipatokean_master_kecamatan', JSON.stringify(def));
+    return def;
+  }
+
+  tambahKecamatan(namaKecamatan: string): string[] {
+    if (!namaKecamatan || !namaKecamatan.trim()) throw new Error('Nama kecamatan tidak boleh kosong');
+    const daftar = this.ambilKecamatan();
+    if (daftar.some(k => k.toLowerCase() === namaKecamatan.trim().toLowerCase())) {
+      throw new Error(`Kecamatan "${namaKecamatan}" sudah ada di sistem.`);
+    }
+    daftar.push(namaKecamatan.trim());
+    localStorage.setItem('sipatokean_master_kecamatan', JSON.stringify(daftar));
+    return daftar;
+  }
+
+  hapusKecamatan(namaKecamatan: string): string[] {
+    let daftar = this.ambilKecamatan();
+    daftar = daftar.filter(k => k !== namaKecamatan);
+    localStorage.setItem('sipatokean_master_kecamatan', JSON.stringify(daftar));
+    return daftar;
+  }
+
+  async verifikasiHarga(id: string, statusBaru: 'Terbit' | 'Draft'): Promise<ItemHargaPangan> {
+    return this.perbarui(id, { status: statusBaru });
   }
 
   // 4. Tambah data komoditas pangan baru oleh staf via mobile (Langsung ke Supabase Cloud / Server)
@@ -498,37 +553,40 @@ export class HargaPanganMobileService {
       }
     } catch (e) {}
 
-    // 3. Local Fallback dari sipatokean_master_users
-    const usersRaw = localStorage.getItem('sipatokean_master_users');
-    const users = usersRaw ? JSON.parse(usersRaw) : [];
-    const userCocok = users.find((u: any) => 
-      (u.username && u.username.toLowerCase() === input) ||
-      (u.email && u.email.toLowerCase() === input)
-    );
+    // 3. Local fallback via PenggunaMobileService (sipatokean_master_users)
+    try {
+      const auth = await penggunaMobileService.login(input, kata_sandi);
+      this.simpanSesi(auth.token, auth.pengguna);
+      return auth;
+    } catch (errFallback: any) {
+      // Jika belum terdaftar tetapi ada input nama darurat
+      const usersRaw = localStorage.getItem('sipatokean_master_users');
+      const users = usersRaw ? JSON.parse(usersRaw) : [];
+      const userCocok = users.find((u: any) => 
+        (u.username && u.username.toLowerCase() === input) ||
+        (u.email && u.email.toLowerCase() === input)
+      );
 
-    if (userCocok) {
-      if (userCocok.kata_sandi && userCocok.kata_sandi !== kata_sandi && kata_sandi !== '12345678') {
-        throw new Error('Kata sandi yang Anda masukkan salah!');
+      if (userCocok) {
+        throw new Error(errFallback.message || 'Kata sandi salah!');
       }
-      const safeUser = { ...userCocok };
-      delete safeUser.kata_sandi;
-      const mockToken = `mock-token-${safeUser.id}-${Date.now()}`;
-      this.simpanSesi(mockToken, safeUser);
-      return { token: mockToken, pengguna: safeUser };
-    }
 
-    // Default jika akun belum spesifik
-    const namaUser = input.split('@')[0];
-    const mockPengguna = {
-      id: 'usr-' + Date.now(),
-      nama: namaUser ? namaUser.charAt(0).toUpperCase() + namaUser.slice(1) : 'Petugas Dinas Pangan',
-      email: emailOrUsername || 'petugas@manado.go.id',
-      peran: 'Petugas',
-      bidang: 'Bidang Cadangan dan Distribusi Pangan'
-    };
-    const mockToken = 'mock-jwt-token-mobile-' + Date.now();
-    this.simpanSesi(mockToken, mockPengguna);
-    return { token: mockToken, pengguna: mockPengguna };
+      // Default darurat
+      const namaUser = input.split('@')[0];
+      const mockPengguna = {
+        id: 'usr-' + Date.now(),
+        nama: namaUser ? namaUser.charAt(0).toUpperCase() + namaUser.slice(1) : 'Petugas Dinas Pangan',
+        username: input,
+        email: emailOrUsername.includes('@') ? emailOrUsername : `${input}@manado.go.id`,
+        kata_sandi: kata_sandi,
+        peran: 'Staf' as const,
+        bidang: 'Bidang Cadangan dan Distribusi Pangan',
+        foto_profil: ''
+      };
+      const mockToken = 'mock-jwt-token-mobile-' + Date.now();
+      this.simpanSesi(mockToken, mockPengguna);
+      return { token: mockToken, pengguna: mockPengguna };
+    }
   }
 
   simpanSesi(token: string, user: any) {

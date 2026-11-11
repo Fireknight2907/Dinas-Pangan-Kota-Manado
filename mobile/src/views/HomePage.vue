@@ -98,8 +98,13 @@
               <img src="/logodinaspangan.png" alt="LogoSIPATOKAAN" class="staff-logo-img" />
             </div>
             <div>
-              <h2 class="staff-header-name">Bidang Distribusi & Cadangan</h2>
-              <p class="staff-header-sub">Penetapan Harga Pangan</p>
+              <h2 class="staff-header-name">{{ userAktif?.bidang || 'Dinas Pangan Kota Manado' }}</h2>
+              <div class="staff-header-sub-row">
+                <span class="user-role-badge" :class="'role-' + peranAktif.toLowerCase()">
+                  {{ formatPeranLengkap(peranAktif) }}
+                </span>
+                <span class="user-greeting-name">{{ userAktif?.nama || 'Petugas' }}</span>
+              </div>
             </div>
           </div>
 
@@ -113,41 +118,31 @@
               title="Koneksi Website & Backend"
             >
               <span class="status-pulse-dot"></span>
-              <span class="status-label-short">{{ statusKoneksi.online ? 'Web Online' : 'Offline' }}</span>
+              <span class="status-label-short">{{ statusKoneksi.online ? 'Online' : 'Offline' }}</span>
             </button>
 
-            <div class="notif-bell-icon">
-              🔔
-              <span class="red-dot"></span>
+            <!-- Profil User Button -->
+            <div class="staff-avatar-mini" @click="bukaModalProfil" :title="'Profil ' + (userAktif?.nama || 'Petugas')">
+              <img v-if="userAktif?.foto_profil" :src="userAktif.foto_profil" class="avatar-img-fit" alt="Avatar" />
+              <span v-else>{{ (userAktif?.nama ? userAktif.nama.charAt(0) : 'P').toUpperCase() }}</span>
             </div>
-            <div class="staff-avatar-mini" title="Roni Tilaar">
-              {{ (userAktif?.nama ? userAktif.nama.charAt(0) : 'R').toUpperCase() }}
-            </div>
+
             <button class="btn-logout-mini" @click="eksekusiLogout" title="Keluar">
               Keluar
             </button>
           </div>
         </div>
 
-        <!-- Tab Toggle Modul Petugas -->
+        <!-- Dynamic Role-Based Segmented Bar -->
         <div class="staff-segmented-bar">
           <button 
-            :class="['staff-segment-btn', menuPetugas === 'tetapkan' ? 'active' : '']"
-            @click="menuPetugas = 'tetapkan'"
+            v-for="menu in daftarMenuTersedia"
+            :key="menu.id"
+            :class="['staff-segment-btn', menuPetugas === menu.id ? 'active' : '']"
+            @click="gantiMenuPetugas(menu.id)"
           >
-            Tetapkan Harga
-          </button>
-          <button 
-            :class="['staff-segment-btn', menuPetugas === 'gpm' ? 'active' : '']"
-            @click="menuPetugas = 'gpm'"
-          >
-            Kelola GPM & Pindai
-          </button>
-          <button 
-            :class="['staff-segment-btn', menuPetugas === 'dashboard' ? 'active' : '']"
-            @click="menuPetugas = 'dashboard'"
-          >
-            Beranda
+            <span class="segment-icon">{{ menu.icon }}</span>
+            <span class="segment-text">{{ menu.label }}</span>
           </button>
         </div>
       </ion-header>
@@ -156,8 +151,8 @@
         <ion-refresher slot="fixed" @ionRefresh="handleRefresh($event)">
           <ion-refresher-content pulling-text="Tarik ke bawah untuk memperbarui..." refreshing-spinner="crescent" refreshing-text="Menyinkronkan data dari web..."></ion-refresher-content>
         </ion-refresher>
-        <!-- SUB-VIEW A: FORMULIR PENETAPAN HARGA & DAFTAR (GAMBAR 3 RESPONSIVE) -->
-        <div v-if="menuPetugas === 'tetapkan'" class="staff-view-container">
+        <!-- SUB-VIEW A: FORMULIR PENETAPAN HARGA & DAFTAR (KHUSUS STAF / PENETAPAN) -->
+        <div v-if="menuPetugas === 'input-harga' || menuPetugas === 'tetapkan'" class="staff-view-container">
           <div class="staff-heading-area">
             <h1 class="staff-view-title">Penetapan Harga Pangan</h1>
             <p class="staff-view-desc">
@@ -354,23 +349,31 @@
 
         </div>
 
-        <!-- SUB-VIEW B: DASHBOARD STATS PETUGAS -->
+        <!-- SUB-VIEW B: DASHBOARD STATS & BERANDA PERAN RESMI -->
         <div v-if="menuPetugas === 'dashboard'" class="staff-view-container">
-          <div class="staff-heading-area">
-            <h1 class="staff-view-title">Beranda Petugas</h1>
-            <p class="staff-view-desc">Ringkasan status komoditas & Gerakan Pangan Murah</p>
+          <!-- Role Welcome Hero Banner -->
+          <div class="m-role-banner" :class="'banner-' + peranAktif.toLowerCase()">
+            <div class="m-role-banner-avatar">
+              <img v-if="userAktif?.foto_profil" :src="userAktif.foto_profil" alt="Avatar" class="avatar-fit-circle" />
+              <span v-else>{{ (userAktif?.nama ? userAktif.nama.charAt(0) : 'P').toUpperCase() }}</span>
+            </div>
+            <div class="m-role-banner-info">
+              <span class="m-role-chip">{{ formatPeranLengkap(peranAktif) }}</span>
+              <h2 class="m-role-banner-title">Selamat Datang, {{ userAktif?.nama || 'Petugas' }}</h2>
+              <p class="m-role-banner-bidang">{{ userAktif?.bidang || 'Dinas Pangan Kota Manado' }}</p>
+            </div>
           </div>
 
           <div class="staff-stats-grid">
             <div class="stat-box-card">
               <div class="stat-val">{{ statsDashboard.harga_ditetapkan }}</div>
-              <div class="stat-lbl">Harga Ditetapkan</div>
-              <div class="stat-sub">terbit ke publik</div>
+              <div class="stat-lbl">Harga Terbit</div>
+              <div class="stat-sub">aktif di website</div>
             </div>
             <div class="stat-box-card">
               <div class="stat-val">{{ statsDashboard.draft_harga }}</div>
               <div class="stat-lbl">Draf Harga</div>
-              <div class="stat-sub">belum terbit</div>
+              <div class="stat-sub">menunggu persetujuan</div>
             </div>
             <div class="stat-box-card">
               <div class="stat-val">{{ statsDashboard.gpm_terjadwal }}</div>
@@ -380,13 +383,105 @@
             <div class="stat-box-card">
               <div class="stat-val">{{ statsDashboard.gpm_selesai }}</div>
               <div class="stat-lbl">GPM Selesai</div>
-              <div class="stat-sub">bulan ini</div>
+              <div class="stat-sub">terarsip resmi</div>
+            </div>
+          </div>
+
+          <!-- Modul Menu Cepat Sesuai Hak Akses Peran Pengguna -->
+          <div class="m-qa-panel">
+            <h3 class="m-qa-title">Akses Cepat Modul Kedinasan:</h3>
+            <div class="m-qa-grid">
+              <!-- Menu Cepat Khusus Staf -->
+              <template v-if="isStaf">
+                <button type="button" class="m-qa-card" @click="menuPetugas = 'input-harga'">
+                  <span class="m-qa-icon">📝</span>
+                  <div class="m-qa-detail">
+                    <strong>Masukan Data Pangan</strong>
+                    <small>Input harga komoditas pangan</small>
+                  </div>
+                </button>
+                <button type="button" class="m-qa-card" @click="menuPetugas = 'kelola-gpm'; subMenuPetugasGPM = 'scan'">
+                  <span class="m-qa-icon">📷</span>
+                  <div class="m-qa-detail">
+                    <strong>Pindai QR Tiket GPM</strong>
+                    <small>Verifikasi kehadiran antrean</small>
+                  </div>
+                </button>
+              </template>
+
+              <!-- Menu Cepat Khusus Kabid -->
+              <template v-if="isKabid">
+                <button type="button" class="m-qa-card m-qa-primary" @click="menuPetugas = 'verif-harga'">
+                  <span class="m-qa-icon">✅</span>
+                  <div class="m-qa-detail">
+                    <strong>Verifikasi Harga Pangan</strong>
+                    <small>{{ statsDashboard.draft_harga }} draf perlu verifikasi</small>
+                  </div>
+                </button>
+                <button type="button" class="m-qa-card" @click="menuPetugas = 'laporan'">
+                  <span class="m-qa-icon">📑</span>
+                  <div class="m-qa-detail">
+                    <strong>Laporan Bidang Pangan</strong>
+                    <small>Rekap harga & unduh CSV</small>
+                  </div>
+                </button>
+                <button type="button" class="m-qa-card" @click="menuPetugas = 'kelola-gpm'">
+                  <span class="m-qa-icon">🎟️</span>
+                  <div class="m-qa-detail">
+                    <strong>Kelola Acara GPM</strong>
+                    <small>Selesaikan & arsipkan acara</small>
+                  </div>
+                </button>
+              </template>
+
+              <!-- Menu Cepat Khusus Admin -->
+              <template v-if="isAdmin">
+                <button type="button" class="m-qa-card m-qa-primary" @click="menuPetugas = 'kelola-user'">
+                  <span class="m-qa-icon">👥</span>
+                  <div class="m-qa-detail">
+                    <strong>Kelola Pengguna Sistem</strong>
+                    <small>Atur peran & reset kata sandi</small>
+                  </div>
+                </button>
+                <button type="button" class="m-qa-card" @click="menuPetugas = 'master-data'">
+                  <span class="m-qa-icon">🏛️</span>
+                  <div class="m-qa-detail">
+                    <strong>Master Pasar & Wilayah</strong>
+                    <small>Kelola pasar dan kecamatan</small>
+                  </div>
+                </button>
+                <button type="button" class="m-qa-card" @click="menuPetugas = 'cek-gpm'">
+                  <span class="m-qa-icon">🔍</span>
+                  <div class="m-qa-detail">
+                    <strong>Supervisi Menu Cek GPM</strong>
+                    <small>Pantau kuota & pendaftar</small>
+                  </div>
+                </button>
+              </template>
+
+              <!-- Menu Cepat Khusus Kadis -->
+              <template v-if="isKadis">
+                <button type="button" class="m-qa-card m-qa-primary" @click="menuPetugas = 'grafik-pangan'">
+                  <span class="m-qa-icon">📈</span>
+                  <div class="m-qa-detail">
+                    <strong>Grafik Tren Fluktuasi</strong>
+                    <small>Analisis pergerakan komoditas</small>
+                  </div>
+                </button>
+                <button type="button" class="m-qa-card" @click="menuPetugas = 'laporan-gpm'">
+                  <span class="m-qa-icon">📋</span>
+                  <div class="m-qa-detail">
+                    <strong>Laporan Eksekutif GPM</strong>
+                    <small>Evaluasi ketercapaian kuota</small>
+                  </div>
+                </button>
+              </template>
             </div>
           </div>
         </div>
 
         <!-- SUB-VIEW C: PENGELOLAAN GPM & SCAN QR CODE OLEH PETUGAS -->
-        <div v-if="menuPetugas === 'gpm'" class="staff-view-container">
+        <div v-if="menuPetugas === 'gpm' || menuPetugas === 'kelola-gpm'" class="staff-view-container">
           <div class="staff-heading-area">
             <h1 class="staff-view-title">Pengelolaan GPM & Pindai Kode QR</h1>
             <p class="staff-view-desc">
@@ -777,6 +872,465 @@
                       </span>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-VIEW D: VERIFIKASI HARGA PANGAN (KHUSUS KABID) -->
+        <div v-if="menuPetugas === 'verif-harga'" class="staff-view-container">
+          <div class="staff-heading-area">
+            <h1 class="staff-view-title">Verifikasi Penetapan Harga Pangan</h1>
+            <p class="staff-view-desc">Tinjau usulan harga dari staf, terbitkan ke publik atau lakukan penyesuaian</p>
+          </div>
+
+          <!-- Alert jika berhasil simpan/verif -->
+          <div v-if="pesanSuksesMobile" class="staff-success-banner">
+            {{ pesanSuksesMobile }}
+          </div>
+
+          <!-- Filter Status Tab -->
+          <div class="m-verif-tabs">
+            <button :class="['m-verif-tab', filterStatusVerif === 'Semua' ? 'active' : '']" @click="filterStatusVerif = 'Semua'">
+              Semua ({{ semuaKomoditas.length }})
+            </button>
+            <button :class="['m-verif-tab', filterStatusVerif === 'Draft' ? 'active' : '']" @click="filterStatusVerif = 'Draft'">
+              ⏳ Menunggu ({{ komoditasDraft.length }})
+            </button>
+            <button :class="['m-verif-tab', filterStatusVerif === 'Terbit' ? 'active' : '']" @click="filterStatusVerif = 'Terbit'">
+              ✓ Terbit ({{ komoditasTerbit.length }})
+            </button>
+          </div>
+
+          <!-- Daftar Kartu Komoditas Verifikasi -->
+          <div v-if="komoditasVerifTampil.length === 0" class="m-empty-box">
+            Tidak ada komoditas dengan status {{ filterStatusVerif }}.
+          </div>
+
+          <div v-else class="m-verif-cards-list">
+            <div 
+              v-for="item in komoditasVerifTampil" 
+              :key="item.id" 
+              class="m-verif-card" 
+              :class="'border-' + (item.status === 'Draft' ? 'draft' : 'terbit')"
+            >
+              <div class="m-verif-top">
+                <span :class="['m-badge-status', item.status === 'Draft' ? 'badge-draft' : 'badge-terbit']">
+                  {{ item.status === 'Draft' ? '⏳ Menunggu Verifikasi' : '✓ Diterbitkan ke Publik' }}
+                </span>
+                <span class="m-verif-date">📅 {{ item.tanggal_penetapan || 'Hari ini' }}</span>
+              </div>
+
+              <div class="m-verif-main">
+                <h4 class="m-verif-name">{{ item.nama_komoditas }}</h4>
+                <div class="m-verif-detail-row">
+                  <span>📦 {{ item.kategori || 'Bahan Pokok' }}</span>
+                  <span>📍 {{ item.nama_pasar }}</span>
+                  <span>⚖️ {{ formatSatuanTampil(item.satuan) }}</span>
+                </div>
+                <div class="m-verif-price">
+                  {{ formatRupiah(item.harga) }} <small>/ {{ formatSatuanTampil(item.satuan) }}</small>
+                </div>
+              </div>
+
+              <div class="m-verif-actions">
+                <button 
+                  v-if="item.status === 'Draft'" 
+                  class="btn-m-approve" 
+                  @click="eksekusiVerifikasiHarga(item.id!, 'Terbit')"
+                >
+                  ✓ Setujui & Terbitkan
+                </button>
+                <button 
+                  v-else 
+                  class="btn-m-unpublish" 
+                  @click="eksekusiVerifikasiHarga(item.id!, 'Draft')"
+                >
+                  ↺ Tarik ke Draf
+                </button>
+                <button class="btn-m-edit" @click="bukaModalEditKabid(item)">
+                  ✏️ Edit
+                </button>
+                <button class="btn-m-del" @click="hapusItem(item)">
+                  🗑️ Hapus
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-VIEW E: LAPORAN RESMI BIDANG PANGAN (KHUSUS KABID) -->
+        <div v-if="menuPetugas === 'laporan'" class="staff-view-container">
+          <div class="staff-heading-area">
+            <h1 class="staff-view-title">Laporan Bidang Pangan</h1>
+            <p class="staff-view-desc">Rekapitulasi penetapan komoditas dan stabilitas harga pasar Kota Manado</p>
+          </div>
+
+          <!-- Summary Metrics -->
+          <div class="staff-stats-grid">
+            <div class="stat-box-card">
+              <div class="stat-val">{{ semuaKomoditas.length }}</div>
+              <div class="stat-lbl">Komoditas Terdata</div>
+              <div class="stat-sub">seluruh pasar</div>
+            </div>
+            <div class="stat-box-card">
+              <div class="stat-val">{{ daftarPasar.length }}</div>
+              <div class="stat-lbl">Pasar Tradisional</div>
+              <div class="stat-sub">lokasi verifikasi</div>
+            </div>
+          </div>
+
+          <!-- Tombol Unduh Laporan CSV -->
+          <div class="m-export-box">
+            <button class="btn-m-export-csv" @click="unduhLaporanPanganKabid">
+              📥 Unduh Laporan Resmi (CSV / Excel)
+            </button>
+            <p class="export-hint">File CSV terformat rapi sesuai standar dinas, kompatibel langsung dengan Microsoft Excel.</p>
+          </div>
+
+          <!-- Tabel Rekap Data Komoditas -->
+          <div class="m-report-table-card">
+            <h3 style="font-size: 0.92rem; margin: 0 0 10px 0; color: #1e293b;">Daftar Rekapitulasi Komoditas:</h3>
+            <div class="m-report-rows">
+              <div v-for="(item, idx) in semuaKomoditas" :key="item.id || idx" class="m-report-row">
+                <div class="m-rep-num">{{ idx + 1 }}</div>
+                <div class="m-rep-info">
+                  <strong>{{ item.nama_komoditas }}</strong>
+                  <span>{{ item.nama_pasar }} · {{ item.kategori }}</span>
+                  <span class="m-rep-badge" :class="item.status === 'Draft' ? 'draft' : 'terbit'">{{ item.status || 'Terbit' }}</span>
+                </div>
+                <div class="m-rep-price">
+                  <strong>{{ formatRupiah(item.harga) }}</strong>
+                  <span>/ {{ formatSatuanTampil(item.satuan) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-VIEW F: SUPERVISI MENU CEK GPM (KHUSUS ADMIN) -->
+        <div v-if="menuPetugas === 'cek-gpm'" class="staff-view-container">
+          <div class="staff-heading-area">
+            <h1 class="staff-view-title">Supervisi Gerakan Pangan Murah (GPM)</h1>
+            <p class="staff-view-desc">Pemantauan kuota, pendaftaran antrean masyarakat, dan pengawasan lokasi</p>
+          </div>
+
+          <div v-if="daftarAcaraGPM.length === 0" class="m-empty-box">
+            Tidak ada kegiatan GPM aktif saat ini.
+          </div>
+
+          <div v-else class="m-supervisi-cards">
+            <div v-for="acara in daftarAcaraGPM" :key="acara.id" class="m-supervisi-card">
+              <div class="m-super-header">
+                <span class="m-super-badge">📍 {{ acara.kecamatan }}</span>
+                <h3>{{ acara.nama_acara }}</h3>
+                <p class="m-super-loc">🏢 {{ acara.lokasi }}</p>
+                <p class="m-super-time">📅 {{ acara.tanggal }} · {{ acara.jam_mulai }} - {{ acara.jam_selesai }} WITA</p>
+              </div>
+
+              <div class="m-super-quota-section">
+                <div class="quota-progress-labels">
+                  <span>Keterisian Kuota: <strong>{{ acara.antrean_terisi || pendaftarGPMList.length }} / {{ acara.kuota_maksimal || 250 }}</strong></span>
+                  <span>{{ Math.round(((acara.antrean_terisi || pendaftarGPMList.length) / (acara.kuota_maksimal || 250)) * 100) }}%</span>
+                </div>
+                <div class="quota-progress-bar">
+                  <div class="quota-progress-fill" :style="{ width: Math.min(100, Math.round(((acara.antrean_terisi || pendaftarGPMList.length) / (acara.kuota_maksimal || 250)) * 100)) + '%' }"></div>
+                </div>
+              </div>
+
+              <div class="m-super-stats-row">
+                <div class="super-stat-col">
+                  <span class="lbl">Total Kuota</span>
+                  <strong>{{ acara.kuota_maksimal || 250 }}</strong>
+                </div>
+                <div class="super-stat-col">
+                  <span class="lbl">Terdaftar</span>
+                  <strong>{{ acara.antrean_terisi || pendaftarGPMList.length }}</strong>
+                </div>
+                <div class="super-stat-col">
+                  <span class="lbl">Sisa Kuota</span>
+                  <strong>{{ Math.max(0, (acara.kuota_maksimal || 250) - (acara.antrean_terisi || pendaftarGPMList.length)) }}</strong>
+                </div>
+              </div>
+
+              <div class="m-super-actions">
+                <button class="btn-m-super-csv" @click="unduhRekapAktifMobile">
+                  📥 Unduh Rekap Antrean (CSV)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-VIEW G: MASTER PASAR & WILAYAH (KHUSUS ADMIN) -->
+        <div v-if="menuPetugas === 'master-data'" class="staff-view-container">
+          <div class="staff-heading-area">
+            <h1 class="staff-view-title">Master Pasar & Wilayah</h1>
+            <p class="staff-view-desc">Pengelolaan daftar pasar tradisional dan kecamatan se-Kota Manado</p>
+          </div>
+
+          <!-- Master Pasar Tradisional -->
+          <div class="staff-form-panel">
+            <div class="panel-title-row">
+              <span class="plus-icon-red">🏪</span>
+              <h3>Master Pasar Tradisional ({{ daftarPasar.length }})</h3>
+            </div>
+            <div class="m-inline-add-row">
+              <input type="text" v-model="inputPasarBaru" placeholder="Nama pasar tradisional baru..." @keyup.enter="tambahPasarBaru" />
+              <button type="button" class="btn-m-add" @click="tambahPasarBaru">+ Tambah</button>
+            </div>
+            <div class="m-master-list">
+              <div v-for="pasar in daftarPasar" :key="pasar" class="m-master-chip">
+                <span>📍 {{ pasar }}</span>
+                <button type="button" class="btn-m-chip-del" @click="hapusPasar(pasar)">✕</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Master Kecamatan -->
+          <div class="staff-form-panel" style="margin-top: 16px;">
+            <div class="panel-title-row">
+              <span class="plus-icon-red">🗺️</span>
+              <h3>Master Kecamatan Kota Manado ({{ daftarKecamatan.length }})</h3>
+            </div>
+            <div class="m-inline-add-row">
+              <input type="text" v-model="inputKecamatanBaru" placeholder="Nama kecamatan baru..." @keyup.enter="tambahKecamatanBaru" />
+              <button type="button" class="btn-m-add" @click="tambahKecamatanBaru">+ Tambah</button>
+            </div>
+            <div class="m-master-list">
+              <div v-for="kec in daftarKecamatan" :key="kec" class="m-master-chip chip-kecamatan">
+                <span>🏛️ {{ kec }}</span>
+                <button type="button" class="btn-m-chip-del" @click="hapusKecamatan(kec)">✕</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-VIEW H: KELOLA PENGGUNA SISTEM (KHUSUS ADMIN) -->
+        <div v-if="menuPetugas === 'kelola-user'" class="staff-view-container">
+          <div class="staff-heading-area">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+              <div>
+                <h1 class="staff-view-title">Kelola Pengguna</h1>
+                <p class="staff-view-desc">Manajemen akun staf, kabid, kadis, dan hak akses sistem</p>
+              </div>
+              <button type="button" class="btn-m-add-user" @click="modalTambahUserBuka = true">
+                + Tambah
+              </button>
+            </div>
+          </div>
+
+          <div class="m-user-cards-list">
+            <div v-for="user in daftarSemuaPengguna" :key="user.id" class="m-user-card">
+              <div class="m-user-card-head">
+                <div class="m-user-avatar">
+                  <img v-if="user.foto_profil" :src="user.foto_profil" alt="Avatar" class="avatar-fit-circle" />
+                  <span v-else>{{ (user.nama ? user.nama.charAt(0) : 'U').toUpperCase() }}</span>
+                </div>
+                <div class="m-user-head-info">
+                  <div class="m-user-title-row">
+                    <h4>{{ user.nama }}</h4>
+                    <span class="user-role-badge" :class="'role-' + (user.peran || 'Staf').toLowerCase()">
+                      {{ formatPeranLengkap(user.peran) }}
+                    </span>
+                  </div>
+                  <span class="m-user-sub">@{{ user.username }} · {{ user.email }}</span>
+                  <span class="m-user-bidang">{{ user.bidang || 'Dinas Pangan Kota Manado' }}</span>
+                </div>
+              </div>
+
+              <div class="m-user-role-selector-row">
+                <label>Ubah Peran Akses:</label>
+                <select :value="user.peran" @change="eksekusiUbahPeran(user, ($event.target as any).value)" class="m-role-select">
+                  <option value="Admin">Admin (Superadmin)</option>
+                  <option value="Kabid">Kabid (Kepala Bidang)</option>
+                  <option value="Staf">Staf (Petugas Pangan)</option>
+                  <option value="Kadis">Kadis (Kepala Dinas)</option>
+                </select>
+              </div>
+
+              <div class="m-user-card-actions">
+                <button type="button" class="btn-m-u-pwd" @click="bukaModalResetSandi(user)">
+                  🔑 Reset Sandi
+                </button>
+                <button type="button" class="btn-m-u-edit" @click="bukaModalUbahUsername(user)">
+                  ✏️ Username
+                </button>
+                <button 
+                  v-if="userAktif?.id !== user.id" 
+                  type="button" 
+                  class="btn-m-u-del" 
+                  @click="eksekusiHapusUser(user)"
+                >
+                  🗑️ Hapus
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-VIEW I: GRAFIK TREN PANGAN (KHUSUS KADIS) -->
+        <div v-if="menuPetugas === 'grafik-pangan'" class="staff-view-container">
+          <div class="staff-heading-area">
+            <h1 class="staff-view-title">Grafik Tren Fluktuasi Harga</h1>
+            <p class="staff-view-desc">Monitoring visual pergerakan dan stabilitas harga komoditas pangan Kota Manado</p>
+          </div>
+
+          <!-- Filter Selector Kadis -->
+          <div class="staff-form-panel">
+            <div class="m-kadis-filter-grid">
+              <div class="s-field">
+                <label>Komoditas Pangan</label>
+                <select v-model="komoditasTren" @change="muatTrenKadis">
+                  <option value="Beras Medium">Beras Medium</option>
+                  <option value="Beras Premium">Beras Premium</option>
+                  <option value="Minyak Goreng Kemasan">Minyak Goreng Kemasan</option>
+                  <option value="Gula Pasir">Gula Pasir</option>
+                  <option value="Telur Ayam">Telur Ayam</option>
+                  <option value="Daging Ayam">Daging Ayam</option>
+                  <option value="Daging Sapi">Daging Sapi</option>
+                  <option value="Bawang Merah">Bawang Merah</option>
+                  <option value="Bawang Putih">Bawang Putih</option>
+                  <option value="Cabai Rawit">Cabai Rawit</option>
+                </select>
+              </div>
+
+              <div class="s-field">
+                <label>Rentang Periode</label>
+                <select v-model="periodeTren" @change="muatTrenKadis">
+                  <option value="7hari">7 Hari Terakhir</option>
+                  <option value="30hari">30 Hari Terakhir</option>
+                  <option value="3bulan">3 Bulan Terakhir</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Metric Cards -->
+          <div v-if="dataTren" class="staff-stats-grid" style="margin-top: 14px;">
+            <div class="stat-box-card">
+              <div class="stat-val" style="font-size: 1.15rem;">{{ formatRupiah(dataTren.hargaTerkini) }}</div>
+              <div class="stat-lbl">Harga Terkini</div>
+              <div class="stat-sub">
+                <span :class="['m-trend-tag', 'trend-' + dataTren.statusTren.toLowerCase()]">
+                  {{ dataTren.statusTren === 'Naik' ? '▲' : dataTren.statusTren === 'Turun' ? '▼' : '●' }} {{ dataTren.persentase }}% ({{ dataTren.statusTren }})
+                </span>
+              </div>
+            </div>
+            <div class="stat-box-card">
+              <div class="stat-val" style="font-size: 1.15rem;">{{ formatRupiah(dataTren.rataRata) }}</div>
+              <div class="stat-lbl">Rata-Rata Periode</div>
+              <div class="stat-sub">stabilitas harga</div>
+            </div>
+            <div class="stat-box-card">
+              <div class="stat-val" style="font-size: 1.15rem;">{{ formatRupiah(dataTren.hargaTertinggi) }}</div>
+              <div class="stat-lbl">Harga Tertinggi</div>
+              <div class="stat-sub">puncak fluktuasi</div>
+            </div>
+            <div class="stat-box-card">
+              <div class="stat-val" style="font-size: 1.15rem;">{{ formatRupiah(dataTren.hargaTerendah) }}</div>
+              <div class="stat-lbl">Harga Terendah</div>
+              <div class="stat-sub">titik minimum</div>
+            </div>
+          </div>
+
+          <!-- SVG Interactive Line & Point Chart -->
+          <div v-if="dataTren" class="staff-form-panel" style="margin-top: 14px;">
+            <div class="panel-title-row">
+              <span class="plus-icon-red">📈</span>
+              <h3>Pergerakan Harga {{ dataTren.namaKomoditas }}</h3>
+            </div>
+            <div class="m-svg-chart-container">
+              <svg viewBox="0 0 500 220" class="m-svg-chart">
+                <line x1="40" y1="30" x2="480" y2="30" stroke="#f1f5f9" stroke-width="1" />
+                <line x1="40" y1="80" x2="480" y2="80" stroke="#f1f5f9" stroke-width="1" />
+                <line x1="40" y1="130" x2="480" y2="130" stroke="#f1f5f9" stroke-width="1" />
+                <line x1="40" y1="180" x2="480" y2="180" stroke="#e2e8f0" stroke-width="1" />
+
+                <polyline
+                  fill="none"
+                  stroke="#8b1e1e"
+                  stroke-width="3.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  :points="hitungTitikSVG(dataTren.titikData)"
+                />
+
+                <g v-for="(titik, idx) in hitungKoordinatTitik(dataTren.titikData)" :key="idx">
+                  <circle :cx="titik.x" :cy="titik.y" r="5" fill="#8b1e1e" stroke="#ffffff" stroke-width="2" />
+                  <text :x="titik.x" :y="titik.y - 10" text-anchor="middle" font-size="10" font-weight="700" fill="#1e293b">
+                    {{ (titik.harga / 1000).toFixed(1) }}k
+                  </text>
+                  <text :x="titik.x" y="200" text-anchor="middle" font-size="10" fill="#64748b">
+                    {{ titik.tanggal }}
+                  </text>
+                </g>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-VIEW J: LAPORAN EKSEKUTIF GPM (KHUSUS KADIS) -->
+        <div v-if="menuPetugas === 'laporan-gpm'" class="staff-view-container">
+          <div class="staff-heading-area">
+            <h1 class="staff-view-title">Laporan Eksekutif GPM</h1>
+            <p class="staff-view-desc">Rekapitulasi pencapaian stabilisasi pasokan dan serapan kuota masyarakat</p>
+          </div>
+
+          <div class="staff-stats-grid">
+            <div class="stat-box-card">
+              <div class="stat-val">3</div>
+              <div class="stat-lbl">Kegiatan Terlaksana</div>
+              <div class="stat-sub">evaluasi berkala</div>
+            </div>
+            <div class="stat-box-card">
+              <div class="stat-val">750</div>
+              <div class="stat-lbl">Target Kuota</div>
+              <div class="stat-sub">paket pangan murah</div>
+            </div>
+            <div class="stat-box-card">
+              <div class="stat-val">646</div>
+              <div class="stat-lbl">Warga Terlayani</div>
+              <div class="stat-sub">penerima manfaat</div>
+            </div>
+            <div class="stat-box-card">
+              <div class="stat-val" style="color: #16a34a;">86.1%</div>
+              <div class="stat-lbl">Tingkat Penyerapan</div>
+              <div class="stat-sub">sangat optimal</div>
+            </div>
+          </div>
+
+          <div class="m-supervisi-cards" style="margin-top: 14px;">
+            <div v-for="rekap in daftarRekapGPMKadis" :key="rekap.id" class="m-supervisi-card">
+              <div class="m-super-header">
+                <span class="m-super-badge">📍 {{ rekap.kecamatan }}</span>
+                <h3>{{ rekap.nama_acara }}</h3>
+                <p class="m-super-loc">🏢 {{ rekap.lokasi }}</p>
+                <p class="m-super-time">📅 {{ rekap.tanggal }} · Status: <strong>{{ rekap.status }}</strong></p>
+              </div>
+
+              <div class="m-super-stats-row" style="margin-top: 10px;">
+                <div class="super-stat-col">
+                  <span class="lbl">Target Kuota</span>
+                  <strong>{{ rekap.target_kuota }}</strong>
+                </div>
+                <div class="super-stat-col">
+                  <span class="lbl">Terdaftar</span>
+                  <strong>{{ rekap.terdaftar }}</strong>
+                </div>
+                <div class="super-stat-col">
+                  <span class="lbl">Terlayani</span>
+                  <strong style="color: #16a34a;">{{ rekap.terlayani }}</strong>
+                </div>
+              </div>
+
+              <div style="margin-top: 12px; background: #f8fafc; padding: 10px; border-radius: 6px;">
+                <span style="font-size: 0.78rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Komoditas Tersalurkan:</span>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                  <span v-for="kom in rekap.komoditas_tersalurkan" :key="kom.nama" style="font-size: 0.74rem; background: #ffffff; border: 1px solid #cbd5e1; padding: 3px 8px; border-radius: 12px; color: #334155;">
+                    🌾 {{ kom.nama }}: <strong>{{ kom.jumlah }}</strong>
+                  </span>
                 </div>
               </div>
             </div>
@@ -1196,6 +1750,264 @@
       </div>
     </div>
 
+    <!-- ===============================================================================
+         MODAL 1: PROFIL PETUGAS & GANTI KATA SANDI MANDIRI (SEMUA ROLE)
+         =============================================================================== -->
+    <div v-if="modalProfilBuka" class="server-config-modal-overlay" @click.self="modalProfilBuka = false">
+      <div class="server-config-modal-card">
+        <div class="server-modal-header">
+          <div class="server-modal-title-wrap">
+            <span class="server-icon-pulse">👤</span>
+            <div>
+              <h3 class="server-m-title">Profil Pengguna</h3>
+              <p class="server-m-sub">{{ userAktif?.nama }} · {{ formatPeranLengkap(peranAktif) }}</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal-icon" @click="modalProfilBuka = false">✕</button>
+        </div>
+
+        <div class="server-modal-body">
+          <div class="m-profile-info-box">
+            <div class="m-profile-avatar-large">
+              <img v-if="userAktif?.foto_profil" :src="userAktif.foto_profil" alt="Avatar" class="avatar-fit-circle" />
+              <span v-else>{{ (userAktif?.nama ? userAktif.nama.charAt(0) : 'P').toUpperCase() }}</span>
+            </div>
+            <div>
+              <h4 style="margin: 0; font-size: 1rem; color: #1e293b;">{{ userAktif?.nama }}</h4>
+              <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: #64748b;">@{{ userAktif?.username }} · {{ userAktif?.email }}</p>
+              <span class="user-role-badge" :class="'role-' + peranAktif.toLowerCase()" style="margin-top: 4px; display: inline-block;">
+                {{ formatPeranLengkap(peranAktif) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="s-field" style="margin-top: 14px;">
+            <label>URL Foto Profil (Opsional):</label>
+            <div style="display: flex; gap: 6px;">
+              <input type="text" v-model="inputFotoProfilUrl" placeholder="https://example.com/foto.jpg" style="flex: 1;" />
+              <button type="button" class="btn-m-add" @click="eksekusiGantiFotoProfil">Perbarui</button>
+            </div>
+          </div>
+
+          <div style="margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 14px;">
+            <h4 style="margin: 0 0 10px 0; font-size: 0.88rem; color: #1e293b;">🔑 Ganti Kata Sandi Pribadi</h4>
+            <div class="s-field" style="margin-bottom: 8px;">
+              <label>Kata Sandi Lama</label>
+              <input type="password" v-model="formSandiMandiri.sandiLama" placeholder="Masukan kata sandi saat ini" />
+            </div>
+            <div class="s-field" style="margin-bottom: 8px;">
+              <label>Kata Sandi Baru (Minimal 8 Karakter)</label>
+              <input type="password" v-model="formSandiMandiri.sandiBaru" placeholder="Minimal 8 karakter" />
+            </div>
+            <div class="s-field">
+              <label>Konfirmasi Kata Sandi Baru</label>
+              <input type="password" v-model="formSandiMandiri.konfirmasi" placeholder="Ulangi kata sandi baru" />
+            </div>
+          </div>
+        </div>
+
+        <div class="server-modal-footer">
+          <button type="button" class="btn-cancel-server" @click="modalProfilBuka = false">Batal</button>
+          <button type="button" class="btn-save-server" @click="eksekusiGantiSandiMandiri">
+            💾 Simpan Sandi Baru
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===============================================================================
+         MODAL 2: TAMBAH PENGGUNA BARU (KHUSUS ADMIN)
+         =============================================================================== -->
+    <div v-if="modalTambahUserBuka" class="server-config-modal-overlay" @click.self="modalTambahUserBuka = false">
+      <div class="server-config-modal-card">
+        <div class="server-modal-header">
+          <div class="server-modal-title-wrap">
+            <span class="server-icon-pulse">➕</span>
+            <div>
+              <h3 class="server-m-title">Tambah Pengguna Baru</h3>
+              <p class="server-m-sub">Daftarkan akun staf, kabid, kadis, atau admin baru</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal-icon" @click="modalTambahUserBuka = false">✕</button>
+        </div>
+
+        <div class="server-modal-body">
+          <div class="s-field" style="margin-bottom: 8px;">
+            <label>Nama Lengkap</label>
+            <input type="text" v-model="formPenggunaBaru.nama" placeholder="Contoh: Budi Santoso" />
+          </div>
+          <div class="s-field" style="margin-bottom: 8px;">
+            <label>Nama Pengguna (Username)</label>
+            <input type="text" v-model="formPenggunaBaru.username" placeholder="Contoh: budi" />
+          </div>
+          <div class="s-field" style="margin-bottom: 8px;">
+            <label>Peran Hak Akses</label>
+            <select v-model="formPenggunaBaru.peran" class="m-role-select" style="width: 100%;">
+              <option value="Admin">Admin (Superadmin)</option>
+              <option value="Kabid">Kabid (Kepala Bidang)</option>
+              <option value="Staf">Staf (Petugas Pangan)</option>
+              <option value="Kadis">Kadis (Kepala Dinas)</option>
+            </select>
+          </div>
+          <div class="s-field" style="margin-bottom: 8px;">
+            <label>Bidang / Bagian Kedinasan</label>
+            <input type="text" v-model="formPenggunaBaru.bidang" placeholder="Contoh: Bidang Distribusi & Cadangan" />
+          </div>
+          <div class="s-field">
+            <label>Kata Sandi Awal (Minimal 8 Karakter)</label>
+            <input type="password" v-model="formPenggunaBaru.kata_sandi" placeholder="Minimal 8 karakter" />
+          </div>
+        </div>
+
+        <div class="server-modal-footer">
+          <button type="button" class="btn-cancel-server" @click="modalTambahUserBuka = false">Batal</button>
+          <button type="button" class="btn-save-server" @click="tambahPenggunaBaru">
+            ✓ Daftarkan Pengguna
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===============================================================================
+         MODAL 3: HARD RESET SANDI OLEH ADMIN (KHUSUS ADMIN)
+         =============================================================================== -->
+    <div v-if="modalResetSandiBuka" class="server-config-modal-overlay" @click.self="modalResetSandiBuka = false">
+      <div class="server-config-modal-card">
+        <div class="server-modal-header">
+          <div class="server-modal-title-wrap">
+            <span class="server-icon-pulse">🔑</span>
+            <div>
+              <h3 class="server-m-title">Reset Kata Sandi Pengguna</h3>
+              <p class="server-m-sub">Target: {{ targetResetUser?.nama }} (@{{ targetResetUser?.username }})</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal-icon" @click="modalResetSandiBuka = false">✕</button>
+        </div>
+
+        <div class="server-modal-body">
+          <p style="font-size: 0.8rem; color: #64748b; margin: 0 0 10px 0;">
+            Sebagai Administrator, Anda dapat mengatur ulang kata sandi pengguna tanpa perlu mengetahui kata sandi lama mereka.
+          </p>
+          <div class="s-field" style="margin-bottom: 8px;">
+            <label>Kata Sandi Baru (Minimal 8 Karakter)</label>
+            <input type="password" v-model="inputSandiResetBaru" placeholder="Minimal 8 karakter baru" />
+          </div>
+          <div class="s-field">
+            <label>Konfirmasi Kata Sandi Baru</label>
+            <input type="password" v-model="konfirmasiSandiResetBaru" placeholder="Ulangi kata sandi baru" />
+          </div>
+        </div>
+
+        <div class="server-modal-footer">
+          <button type="button" class="btn-cancel-server" @click="modalResetSandiBuka = false">Batal</button>
+          <button type="button" class="btn-save-server" @click="eksekusiResetSandi">
+            🔑 Simpan Reset Sandi
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===============================================================================
+         MODAL 4: UBAH USERNAME OLEH ADMIN (KHUSUS ADMIN)
+         =============================================================================== -->
+    <div v-if="modalUbahUsernameBuka" class="server-config-modal-overlay" @click.self="modalUbahUsernameBuka = false">
+      <div class="server-config-modal-card">
+        <div class="server-modal-header">
+          <div class="server-modal-title-wrap">
+            <span class="server-icon-pulse">✏️</span>
+            <div>
+              <h3 class="server-m-title">Ubah Username Pengguna</h3>
+              <p class="server-m-sub">Target: {{ targetUbahUsername?.nama }}</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal-icon" @click="modalUbahUsernameBuka = false">✕</button>
+        </div>
+
+        <div class="server-modal-body">
+          <div class="s-field">
+            <label>Username Baru</label>
+            <input type="text" v-model="inputUsernameBaru" placeholder="Masukan username baru (huruf kecil)" />
+          </div>
+        </div>
+
+        <div class="server-modal-footer">
+          <button type="button" class="btn-cancel-server" @click="modalUbahUsernameBuka = false">Batal</button>
+          <button type="button" class="btn-save-server" @click="eksekusiUbahUsername">
+            ✓ Simpan Username
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===============================================================================
+         MODAL 5: EDIT HARGA OLEH KABID (KHUSUS KABID)
+         =============================================================================== -->
+    <div v-if="modalEditKabidBuka" class="server-config-modal-overlay" @click.self="modalEditKabidBuka = false">
+      <div class="server-config-modal-card">
+        <div class="server-modal-header">
+          <div class="server-modal-title-wrap">
+            <span class="server-icon-pulse">✏️</span>
+            <div>
+              <h3 class="server-m-title">Penyesuaian Harga oleh Kabid</h3>
+              <p class="server-m-sub">Ubah besaran harga atau komoditas sebelum diterbitkan</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal-icon" @click="modalEditKabidBuka = false">✕</button>
+        </div>
+
+        <div class="server-modal-body">
+          <div class="s-field" style="margin-bottom: 8px;">
+            <label>Nama Komoditas</label>
+            <input type="text" v-model="formEditKabid.nama_komoditas" />
+          </div>
+          <div class="s-field" style="margin-bottom: 8px;">
+            <label>Kategori</label>
+            <select v-model="formEditKabid.kategori" class="m-role-select" style="width: 100%;">
+              <option value="Bahan Pokok">Bahan Pokok</option>
+              <option value="Hewani">Hewani</option>
+              <option value="Sayuran">Sayuran</option>
+              <option value="Buah">Buah</option>
+              <option value="Lainnya">Lainnya</option>
+            </select>
+          </div>
+          <div class="s-field" style="margin-bottom: 8px;">
+            <label>Satuan Kuantitas & Unit</label>
+            <div style="display: flex; gap: 6px;">
+              <input type="text" v-model="formEditKabid.satuanJumlah" style="width: 70px;" @keypress="hanyaBolehAngka" />
+              <select v-model="formEditKabid.satuanUnit" class="m-role-select" style="flex: 1;">
+                <option value="KG">KG (Kilogram)</option>
+                <option value="Gram">Gram</option>
+              </select>
+            </div>
+          </div>
+          <div class="s-field" style="margin-bottom: 8px;">
+            <label>Harga Acuan (Rp)</label>
+            <input type="text" v-model="formEditKabid.harga" @keypress="hanyaBolehAngka" />
+          </div>
+          <div class="s-field" style="margin-bottom: 8px;">
+            <label>Pasar Tradisional</label>
+            <select v-model="formEditKabid.nama_pasar" class="m-role-select" style="width: 100%;">
+              <option v-for="p in daftarPasar" :key="p" :value="p">{{ p }}</option>
+            </select>
+          </div>
+          <div class="s-field">
+            <label>Status Publikasi</label>
+            <select v-model="formEditKabid.status" class="m-role-select" style="width: 100%;">
+              <option value="Terbit">Terbitkan Langsung ke Publik</option>
+              <option value="Draft">Simpan Sebagai Draf</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="server-modal-footer">
+          <button type="button" class="btn-cancel-server" @click="modalEditKabidBuka = false">Batal</button>
+          <button type="button" class="btn-save-server" @click="simpanEditKabid">
+            💾 Simpan Penyesuaian
+          </button>
+        </div>
+      </div>
+    </div>
+
   </ion-page>
 </template>
 
@@ -1230,6 +2042,17 @@ import {
   HasilTiketGPM,
   StatistikGPM
 } from '../services/GPMService';
+import { 
+  penggunaMobileService, 
+  PeranPengguna, 
+  AkunPengguna, 
+  MenuItemResmi 
+} from '../services/PenggunaService';
+import { 
+  laporanMobileService, 
+  DataTrenKomoditas, 
+  ItemRekapGPM 
+} from '../services/LaporanService';
 
 
 // ─── LEAFLET MAP MOBILE GPM ───────────────────────────────
@@ -1321,7 +2144,7 @@ const pilihAcaraGpm = async (acara: ItemAcaraGPM) => {
 
 // Mode Tampilan Mobile: 'publik', 'login', 'petugas'
 const tampilanMode = ref<'publik' | 'login' | 'petugas'>('publik');
-const userAktif = ref(hargaPanganMobileService.ambilUser());
+const userAktif = ref<AkunPengguna | null>(penggunaMobileService.ambilUserSesi() || (hargaPanganMobileService.ambilUser() as any));
 
 // Tab Navigasi Publik ('harga' | 'gpm')
 const tabAktif = ref('harga');
@@ -1533,8 +2356,44 @@ const statistik = ref<StatistikKategori>({
   Lainnya: 0
 });
 
-// State Dashboard Petugas Mobile
-const menuPetugas = ref<'tetapkan' | 'dashboard' | 'gpm'>('tetapkan');
+// ─── ROLE-BASED ACCESS CONTROL (RBAC) & MULTI-USER STATE MOBILE ───
+const peranAktif = computed<PeranPengguna>(() => {
+  return penggunaMobileService.normalisasiPeran(userAktif.value?.peran);
+});
+
+const isAdmin = computed(() => peranAktif.value === 'Admin');
+const isKabid = computed(() => peranAktif.value === 'Kabid');
+const isStaf = computed(() => peranAktif.value === 'Staf');
+const isKadis = computed(() => peranAktif.value === 'Kadis');
+
+const formatPeranLengkap = (peran?: string | null) => {
+  const p = penggunaMobileService.normalisasiPeran(peran);
+  if (p === 'Admin') return 'Administrator';
+  if (p === 'Kabid') return 'Kepala Bidang';
+  if (p === 'Kadis') return 'Kepala Dinas';
+  return 'Staf Pangan';
+};
+
+const daftarMenuTersedia = computed<MenuItemResmi[]>(() => {
+  return penggunaMobileService.ambilDaftarMenu(peranAktif.value);
+});
+
+// Menu Petugas yang sedang aktif (default: 'dashboard')
+const menuPetugas = ref<string>('dashboard');
+
+const gantiMenuPetugas = (idMenu: string) => {
+  menuPetugas.value = idMenu;
+  if (idMenu === 'kelola-user' || idMenu === 'master-data') {
+    muatSemuaPengguna();
+  }
+  if (idMenu === 'grafik-pangan') {
+    muatTrenKadis();
+  }
+  if (idMenu === 'laporan-gpm') {
+    muatRekapGPMKadis();
+  }
+};
+
 const statsDashboard = ref<StatistikDashboardMobile>({
   harga_ditetapkan: 2,
   draft_harga: 1,
@@ -1556,15 +2415,60 @@ const formPenetapan = ref({
   status: 'Terbit'
 });
 
-// Hak Akses Kedinasan Mobile (Staf vs Kepala Bidang)
-const isKabid = computed(() => {
-  const p = (userAktif.value?.peran || '').toLowerCase();
-  return p === 'kabid' || p === 'kepala bidang' || p === 'admin';
+// ─── ADMIN: KELOLA PENGGUNA & MASTER DATA ──────────────────────────
+const daftarSemuaPengguna = ref<AkunPengguna[]>([]);
+const modalTambahUserBuka = ref(false);
+const formPenggunaBaru = ref({
+  nama: '',
+  username: '',
+  email: '',
+  kata_sandi: '',
+  peran: 'Staf' as PeranPengguna,
+  bidang: 'Bidang Cadangan dan Distribusi Pangan'
 });
-const isStaf = computed(() => {
-  const p = (userAktif.value?.peran || '').toLowerCase();
-  return p === 'staf' || p === 'petugas';
+
+const modalResetSandiBuka = ref(false);
+const targetResetUser = ref<AkunPengguna | null>(null);
+const inputSandiResetBaru = ref('');
+const konfirmasiSandiResetBaru = ref('');
+
+const modalUbahUsernameBuka = ref(false);
+const targetUbahUsername = ref<AkunPengguna | null>(null);
+const inputUsernameBaru = ref('');
+
+const inputPasarBaru = ref('');
+const inputKecamatanBaru = ref('');
+const daftarKecamatan = ref<string[]>([]);
+
+// ─── KABID: VERIFIKASI HARGA & LAPORAN ────────────────────────────
+const filterStatusVerif = ref<'Semua' | 'Draft' | 'Terbit'>('Semua');
+const modalEditKabidBuka = ref(false);
+const formEditKabid = ref({
+  id: '',
+  nama_komoditas: '',
+  kategori: 'Bahan Pokok',
+  satuanJumlah: '1',
+  satuanUnit: 'KG',
+  harga: '',
+  nama_pasar: 'Pasar Tradisional Bahu',
+  status: 'Terbit'
 });
+
+// ─── KADIS: GRAFIK PANGAN & LAPORAN EKSEKUTIF GPM ─────────────────
+const komoditasTren = ref('Beras Medium');
+const periodeTren = ref('7hari');
+const pasarTren = ref('Semua');
+const dataTren = ref<DataTrenKomoditas | null>(null);
+const daftarRekapGPMKadis = ref<ItemRekapGPM[]>([]);
+
+// ─── PROFIL MANDIRI & GANTI KATA SANDI PRIBADI (SEMUA ROLE) ────────
+const modalProfilBuka = ref(false);
+const formSandiMandiri = ref({
+  sandiLama: '',
+  sandiBaru: '',
+  konfirmasi: ''
+});
+const inputFotoProfilUrl = ref('');
 
 // State Login Mobile (Gambar 4)
 const loginInput = ref({
@@ -1604,6 +2508,16 @@ onMounted(async () => {
   await muatData();
   await muatStatsDashboard();
   await muatDataGPM();
+
+  if (userAktif.value) {
+    const menus = penggunaMobileService.ambilDaftarMenu(userAktif.value.peran);
+    if (!menus.some(m => m.id === menuPetugas.value)) {
+      menuPetugas.value = menus[0]?.id || 'dashboard';
+    }
+    muatSemuaPengguna();
+    muatTrenKadis();
+    muatRekapGPMKadis();
+  }
 
   if (tabAktif.value === 'gpm') {
     setTimeout(inisialisasiPetaGpm, 300);
@@ -1921,11 +2835,19 @@ const eksekusiLogin = async () => {
     const hasil = await hargaPanganMobileService.login(loginInput.value.email, loginInput.value.password);
     userAktif.value = hasil.pengguna;
     tampilanMode.value = 'petugas';
+
+    // Arahkan ke menu default pertama sesuai hak akses peran pengguna
+    const menus = penggunaMobileService.ambilDaftarMenu(hasil.pengguna?.peran);
+    menuPetugas.value = menus[0]?.id || 'dashboard';
+
     await muatData();
     await muatStatsDashboard();
     await muatDataGPM();
+    muatSemuaPengguna();
+    muatTrenKadis();
+    muatRekapGPMKadis();
   } catch (err: any) {
-    alert('Gagal masuk: ' + err.message);
+    alert('Gagal masuk: ' + (err.message || 'Terjadi kesalahan saat masuk'));
   } finally {
     sedangLogin.value = false;
   }
@@ -1933,6 +2855,7 @@ const eksekusiLogin = async () => {
 
 const eksekusiLogout = () => {
   hargaPanganMobileService.keluar();
+  penggunaMobileService.logout();
   userAktif.value = null;
   tampilanMode.value = 'publik';
 };
@@ -2113,6 +3036,333 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
     await muatData();
     await muatStatsDashboard();
   }
+};
+
+// ─────────────────────────────────────────────────────────────
+// METODE KABID: VERIFIKASI HARGA & LAPORAN BIDANG
+// ─────────────────────────────────────────────────────────────
+const komoditasDraft = computed(() => semuaKomoditas.value.filter(k => k.status === 'Draft'));
+const komoditasTerbit = computed(() => semuaKomoditas.value.filter(k => (k.status || 'Terbit') === 'Terbit'));
+const komoditasVerifTampil = computed(() => {
+  if (filterStatusVerif.value === 'Draft') return komoditasDraft.value;
+  if (filterStatusVerif.value === 'Terbit') return komoditasTerbit.value;
+  return semuaKomoditas.value;
+});
+
+const eksekusiVerifikasiHarga = async (id: string, statusBaru: 'Terbit' | 'Draft') => {
+  try {
+    await hargaPanganMobileService.verifikasiHarga(id, statusBaru);
+    pesanSuksesMobile.value = statusBaru === 'Terbit'
+      ? '✅ Harga berhasil disetujui & diterbitkan ke masyarakat!'
+      : '↺ Harga berhasil ditarik kembali ke draf verifikasi.';
+    setTimeout(() => pesanSuksesMobile.value = '', 3500);
+    await muatData();
+    await muatStatsDashboard();
+  } catch (err: any) {
+    alert('Gagal memperbarui status verifikasi: ' + (err.message || 'Terjadi kesalahan'));
+  }
+};
+
+const bukaModalEditKabid = (item: ItemHargaPangan) => {
+  const parsed = uraiSatuan(item.satuan);
+  formEditKabid.value = {
+    id: item.id || '',
+    nama_komoditas: item.nama_komoditas,
+    kategori: item.kategori || 'Bahan Pokok',
+    satuanJumlah: parsed.jumlah,
+    satuanUnit: parsed.unit,
+    harga: String(item.harga ? Math.round(item.harga) : '').replace(/[^0-9]/g, ''),
+    nama_pasar: item.nama_pasar,
+    status: (item.status as any) || 'Terbit'
+  };
+  modalEditKabidBuka.value = true;
+};
+
+const simpanEditKabid = async () => {
+  if (!formEditKabid.value.nama_komoditas.trim()) {
+    alert('Nama komoditas wajib diisi!');
+    return;
+  }
+  const hargaAngka = parseInt(String(formEditKabid.value.harga).replace(/[^0-9]/g, ''), 10);
+  if (!hargaAngka || hargaAngka <= 0) {
+    alert('Besaran harga wajib berupa angka lebih dari 0!');
+    return;
+  }
+  const kuantitas = parseInt(String(formEditKabid.value.satuanJumlah).replace(/[^0-9]/g, ''), 10) || 1;
+  const unit = formEditKabid.value.satuanUnit === 'Gram' ? 'Gram' : 'KG';
+  const satuan = `${kuantitas} ${unit}`;
+
+  try {
+    await hargaPanganMobileService.perbarui(formEditKabid.value.id, {
+      nama_komoditas: formEditKabid.value.nama_komoditas.trim(),
+      kategori: formEditKabid.value.kategori,
+      satuan: satuan,
+      harga: hargaAngka,
+      nama_pasar: formEditKabid.value.nama_pasar,
+      status: formEditKabid.value.status
+    });
+    modalEditKabidBuka.value = false;
+    alert('✅ Perubahan harga pangan berhasil disimpan oleh Kepala Bidang!');
+    await muatData();
+    await muatStatsDashboard();
+  } catch (err: any) {
+    alert('Gagal menyimpan: ' + err.message);
+  }
+};
+
+const unduhLaporanPanganKabid = () => {
+  laporanMobileService.eksporLaporanHargaCSV(semuaKomoditas.value);
+};
+
+// ─────────────────────────────────────────────────────────────
+// METODE ADMIN: KELOLA PENGGUNA & MASTER PASAR / WILAYAH
+// ─────────────────────────────────────────────────────────────
+const muatSemuaPengguna = () => {
+  daftarSemuaPengguna.value = penggunaMobileService.ambilSemuaPengguna();
+  daftarKecamatan.value = hargaPanganMobileService.ambilKecamatan();
+};
+
+const tambahPenggunaBaru = () => {
+  if (!formPenggunaBaru.value.nama.trim() || !formPenggunaBaru.value.username.trim() || !formPenggunaBaru.value.kata_sandi) {
+    alert('Nama lengkap, username, dan kata sandi wajib diisi!');
+    return;
+  }
+  if (formPenggunaBaru.value.kata_sandi.length < 8) {
+    alert('Kata sandi awal pengguna minimal 8 karakter demi keamanan!');
+    return;
+  }
+  try {
+    penggunaMobileService.adminTambahPengguna(userAktif.value?.id || 'usr-admin', formPenggunaBaru.value);
+    modalTambahUserBuka.value = false;
+    formPenggunaBaru.value = {
+      nama: '',
+      username: '',
+      email: '',
+      kata_sandi: '',
+      peran: 'Staf',
+      bidang: 'Bidang Cadangan dan Distribusi Pangan'
+    };
+    muatSemuaPengguna();
+    alert('✅ Pengguna baru resmi ditambahkan ke sistem!');
+  } catch (e: any) {
+    alert('Gagal menambah pengguna: ' + e.message);
+  }
+};
+
+const bukaModalResetSandi = (user: AkunPengguna) => {
+  targetResetUser.value = user;
+  inputSandiResetBaru.value = '';
+  konfirmasiSandiResetBaru.value = '';
+  modalResetSandiBuka.value = true;
+};
+
+const eksekusiResetSandi = () => {
+  if (!targetResetUser.value) return;
+  if (!inputSandiResetBaru.value || inputSandiResetBaru.value.length < 8) {
+    alert('Kata sandi baru minimal 8 karakter!');
+    return;
+  }
+  if (inputSandiResetBaru.value !== konfirmasiSandiResetBaru.value) {
+    alert('Konfirmasi kata sandi tidak cocok!');
+    return;
+  }
+  try {
+    penggunaMobileService.adminResetPassword(
+      userAktif.value?.id || 'usr-admin',
+      targetResetUser.value.id,
+      inputSandiResetBaru.value
+    );
+    modalResetSandiBuka.value = false;
+    alert(`✅ Kata sandi untuk "${targetResetUser.value.nama}" berhasil diperbarui!`);
+  } catch (e: any) {
+    alert('Gagal mereset kata sandi: ' + e.message);
+  }
+};
+
+const bukaModalUbahUsername = (user: AkunPengguna) => {
+  targetUbahUsername.value = user;
+  inputUsernameBaru.value = user.username;
+  modalUbahUsernameBuka.value = true;
+};
+
+const eksekusiUbahUsername = () => {
+  if (!targetUbahUsername.value) return;
+  const baru = inputUsernameBaru.value.trim().toLowerCase();
+  if (!baru) {
+    alert('Username baru tidak boleh kosong!');
+    return;
+  }
+  try {
+    penggunaMobileService.adminUbahUsername(
+      userAktif.value?.id || 'usr-admin',
+      targetUbahUsername.value.id,
+      baru
+    );
+    modalUbahUsernameBuka.value = false;
+    muatSemuaPengguna();
+    alert(`✅ Username berhasil diperbarui menjadi "@${baru}"!`);
+  } catch (e: any) {
+    alert('Gagal mengubah username: ' + e.message);
+  }
+};
+
+const eksekusiUbahPeran = (user: AkunPengguna, peranBaru: string) => {
+  const ok = confirm(`Ubah peran hak akses "${user.nama}" menjadi "${peranBaru}"?`);
+  if (!ok) return;
+  try {
+    penggunaMobileService.adminUbahPeran(
+      userAktif.value?.id || 'usr-admin',
+      user.id,
+      peranBaru
+    );
+    muatSemuaPengguna();
+    alert(`✅ Hak akses ${user.nama} berhasil diubah menjadi ${peranBaru}.`);
+  } catch (e: any) {
+    alert('Gagal mengubah peran: ' + e.message);
+  }
+};
+
+const eksekusiHapusUser = (user: AkunPengguna) => {
+  if (userAktif.value?.id === user.id) {
+    alert('Akses Ditolak: Anda tidak dapat menghapus akun Anda sendiri.');
+    return;
+  }
+  const ok = confirm(`Apakah Anda yakin ingin menghapus akun "${user.nama}" (@${user.username})?\nTindakan ini tidak dapat dibatalkan.`);
+  if (!ok) return;
+  try {
+    penggunaMobileService.adminHapusPengguna(
+      userAktif.value?.id || 'usr-admin',
+      user.id
+    );
+    muatSemuaPengguna();
+    alert(`🗑️ Akun "${user.nama}" berhasil dihapus.`);
+  } catch (e: any) {
+    alert('Gagal menghapus akun: ' + e.message);
+  }
+};
+
+const tambahPasarBaru = () => {
+  if (!inputPasarBaru.value.trim()) return;
+  daftarPasar.value = hargaPanganMobileService.tambahPasar(inputPasarBaru.value.trim());
+  inputPasarBaru.value = '';
+  alert('✅ Pasar tradisional baru berhasil ditambahkan!');
+};
+
+const hapusPasar = (nama: string) => {
+  if (daftarPasar.value.length <= 1) {
+    alert('Minimal harus tersisa 1 pasar.');
+    return;
+  }
+  const ok = confirm(`Hapus pasar "${nama}" dari daftar master?`);
+  if (!ok) return;
+  daftarPasar.value = hargaPanganMobileService.hapusPasar(nama);
+};
+
+const tambahKecamatanBaru = () => {
+  if (!inputKecamatanBaru.value.trim()) return;
+  daftarKecamatan.value = hargaPanganMobileService.tambahKecamatan(inputKecamatanBaru.value.trim());
+  inputKecamatanBaru.value = '';
+  alert('✅ Kecamatan baru berhasil ditambahkan!');
+};
+
+const hapusKecamatan = (nama: string) => {
+  if (daftarKecamatan.value.length <= 1) {
+    alert('Minimal harus tersisa 1 kecamatan.');
+    return;
+  }
+  const ok = confirm(`Hapus kecamatan "${nama}"?`);
+  if (!ok) return;
+  daftarKecamatan.value = hargaPanganMobileService.hapusKecamatan(nama);
+};
+
+// ─────────────────────────────────────────────────────────────
+// METODE KADIS: GRAFIK PANGAN & REKAPITULASI EKSEKUTIF GPM
+// ─────────────────────────────────────────────────────────────
+const muatTrenKadis = () => {
+  dataTren.value = laporanMobileService.ambilDataTrenKomoditas(
+    komoditasTren.value,
+    periodeTren.value,
+    pasarTren.value
+  );
+};
+
+const muatRekapGPMKadis = () => {
+  daftarRekapGPMKadis.value = laporanMobileService.ambilRekapitulasiGPM();
+};
+
+const hitungKoordinatTitik = (titikData: any[]) => {
+  if (!titikData || titikData.length === 0) return [];
+  const hargaList = titikData.map(d => d.harga);
+  const min = Math.min(...hargaList);
+  const max = Math.max(...hargaList);
+  const range = max === min ? 1 : max - min;
+  const count = titikData.length;
+  const stepX = (450 - 50) / (count - 1 || 1);
+
+  return titikData.map((d, i) => {
+    const x = Math.round(50 + i * stepX);
+    const y = Math.round(160 - ((d.harga - min) / range) * 110);
+    return {
+      x,
+      y,
+      harga: d.harga,
+      tanggal: d.tanggal,
+      pasar: d.pasar
+    };
+  });
+};
+
+const hitungTitikSVG = (titikData: any[]) => {
+  const coords = hitungKoordinatTitik(titikData);
+  return coords.map(c => `${c.x},${c.y}`).join(' ');
+};
+
+// ─────────────────────────────────────────────────────────────
+// METODE PROFIL PRIBADI & GANTI KATA SANDI MANDIRI
+// ─────────────────────────────────────────────────────────────
+const bukaModalProfil = () => {
+  formSandiMandiri.value = { sandiLama: '', sandiBaru: '', konfirmasi: '' };
+  inputFotoProfilUrl.value = userAktif.value?.foto_profil || '';
+  modalProfilBuka.value = true;
+};
+
+const eksekusiGantiSandiMandiri = () => {
+  if (!userAktif.value) return;
+  if (!formSandiMandiri.value.sandiLama) {
+    alert('Kata sandi lama wajib diisi!');
+    return;
+  }
+  if (formSandiMandiri.value.sandiBaru.length < 8) {
+    alert('Kata sandi baru minimal 8 karakter!');
+    return;
+  }
+  if (formSandiMandiri.value.sandiBaru !== formSandiMandiri.value.konfirmasi) {
+    alert('Konfirmasi kata sandi tidak cocok!');
+    return;
+  }
+  try {
+    penggunaMobileService.ubahKataSandiPribadi(
+      userAktif.value.id,
+      formSandiMandiri.value.sandiLama,
+      formSandiMandiri.value.sandiBaru
+    );
+    formSandiMandiri.value = { sandiLama: '', sandiBaru: '', konfirmasi: '' };
+    modalProfilBuka.value = false;
+    alert('✅ Kata sandi pribadi Anda berhasil diperbarui!');
+  } catch (e: any) {
+    alert('Gagal mengganti kata sandi: ' + e.message);
+  }
+};
+
+const eksekusiGantiFotoProfil = () => {
+  if (!userAktif.value) return;
+  if (!inputFotoProfilUrl.value.trim()) {
+    alert('URL foto profil tidak boleh kosong!');
+    return;
+  }
+  penggunaMobileService.ubahFotoProfil(userAktif.value.id, inputFotoProfilUrl.value.trim());
+  userAktif.value.foto_profil = inputFotoProfilUrl.value.trim();
+  alert('✅ Foto profil berhasil diperbarui!');
 };
 </script>
 
@@ -4096,6 +5346,918 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+/* ==========================================================================
+   ROLE-BASED ACCESS CONTROL (RBAC) STYLING - SIPATOKAAN MOBILE
+   ========================================================================== */
+.staff-header-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.user-role-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 12px;
+  letter-spacing: 0.03em;
+  display: inline-block;
+}
+
+.role-admin {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.role-kabid {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.role-staf, .role-petugas {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.role-kadis {
+  background: #f3e8ff;
+  color: #7e22ce;
+  border: 1px solid #e9d5ff;
+}
+
+.user-greeting-name {
+  font-size: 0.76rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.avatar-fit-circle {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.avatar-img-fit {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Scrollable Segmented Bar for Mobile */
+.staff-segmented-bar {
+  display: flex;
+  overflow-x: auto;
+  gap: 6px;
+  padding: 6px 12px 10px 12px;
+  scrollbar-width: none;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.staff-segmented-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.staff-segment-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.staff-segment-btn.active {
+  background: #8b1e1e;
+  color: #ffffff;
+  border-color: #8b1e1e;
+  box-shadow: 0 2px 8px rgba(139, 30, 30, 0.25);
+}
+
+.segment-icon {
+  font-size: 0.92rem;
+}
+
+/* Role Welcome Hero Banner */
+.m-role-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.banner-admin {
+  background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%);
+  border-left: 4px solid #dc2626;
+}
+
+.banner-kabid {
+  background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+  border-left: 4px solid #0284c7;
+}
+
+.banner-staf {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  border-left: 4px solid #16a34a;
+}
+
+.banner-kadis {
+  background: linear-gradient(135deg, #faf5ff 0%, #ffffff 100%);
+  border-left: 4px solid #9333ea;
+}
+
+.m-role-banner-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #8b1e1e;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: 800;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+}
+
+.m-role-banner-info {
+  flex: 1;
+}
+
+.m-role-chip {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #8b1e1e;
+  letter-spacing: 0.04em;
+}
+
+.m-role-banner-title {
+  margin: 2px 0 0 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.m-role-banner-bidang {
+  margin: 1px 0 0 0;
+  font-size: 0.74rem;
+  color: #64748b;
+}
+
+/* Quick Actions Panel */
+.m-qa-panel {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 14px;
+  margin-top: 14px;
+  border: 1px solid #e2e8f0;
+}
+
+.m-qa-title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 10px 0;
+}
+
+.m-qa-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.m-qa-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.m-qa-card:active {
+  transform: scale(0.98);
+}
+
+.m-qa-primary {
+  background: #fff8f8;
+  border-color: #fecaca;
+}
+
+.m-qa-icon {
+  font-size: 1.35rem;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.m-qa-detail strong {
+  display: block;
+  font-size: 0.86rem;
+  color: #1e293b;
+}
+
+.m-qa-detail small {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+/* Verifikasi Tabs & Cards (Kabid) */
+.m-verif-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+}
+
+.m-verif-tab {
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  color: #475569;
+  cursor: pointer;
+}
+
+.m-verif-tab.active {
+  background: #8b1e1e;
+  color: #ffffff;
+  border-color: #8b1e1e;
+}
+
+.m-verif-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.m-verif-card {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.m-verif-card.border-draft {
+  border-left: 4px solid #f59e0b;
+}
+
+.m-verif-card.border-terbit {
+  border-left: 4px solid #16a34a;
+}
+
+.m-verif-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.m-badge-status {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.badge-draft {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.badge-terbit {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.m-verif-date {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.m-verif-name {
+  margin: 0 0 4px 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.m-verif-detail-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.74rem;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.m-verif-price {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #8b1e1e;
+  margin-bottom: 10px;
+}
+
+.m-verif-price small {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.m-verif-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.btn-m-approve {
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-m-unpublish {
+  background: #f59e0b;
+  color: #ffffff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-m-edit {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-m-del {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Laporan Resmi Bidang & Export CSV */
+.m-export-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.btn-m-export-csv {
+  width: 100%;
+  background: #8b1e1e;
+  color: #ffffff;
+  border: none;
+  padding: 11px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  box-shadow: 0 3px 8px rgba(139, 30, 30, 0.2);
+  cursor: pointer;
+}
+
+.export-hint {
+  margin: 6px 0 0 0;
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.m-report-table-card {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.m-report-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.m-report-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #f1f5f9;
+}
+
+.m-rep-num {
+  font-weight: 800;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  width: 20px;
+}
+
+.m-rep-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.m-rep-info strong {
+  font-size: 0.84rem;
+  color: #1e293b;
+}
+
+.m-rep-info span {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.m-rep-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 8px;
+  width: fit-content;
+  margin-top: 2px;
+}
+
+.m-rep-badge.draft {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.m-rep-badge.terbit {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.m-rep-price {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+}
+
+.m-rep-price strong {
+  font-size: 0.88rem;
+  color: #8b1e1e;
+}
+
+.m-rep-price span {
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+/* Supervisi GPM & Cek GPM (Admin) */
+.m-supervisi-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.m-supervisi-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.m-super-header h3 {
+  margin: 6px 0 2px 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.m-super-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: #e2e8f0;
+  color: #334155;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.m-super-loc, .m-super-time {
+  margin: 2px 0 0 0;
+  font-size: 0.76rem;
+  color: #64748b;
+}
+
+.m-super-quota-section {
+  margin: 12px 0 8px 0;
+}
+
+.quota-progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.76rem;
+  color: #475569;
+  margin-bottom: 4px;
+}
+
+.quota-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #f1f5f9;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.quota-progress-fill {
+  height: 100%;
+  background: #8b1e1e;
+  border-radius: 6px;
+  transition: width 0.3s ease;
+}
+
+.m-super-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  background: #f8fafc;
+  padding: 8px;
+  border-radius: 8px;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.super-stat-col .lbl {
+  display: block;
+  font-size: 0.68rem;
+  color: #64748b;
+}
+
+.super-stat-col strong {
+  font-size: 0.95rem;
+  color: #1e293b;
+}
+
+.m-super-actions {
+  margin-top: 10px;
+}
+
+.btn-m-super-csv {
+  width: 100%;
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Master Data Chips */
+.m-inline-add-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.m-inline-add-row input {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+
+.btn-m-add {
+  background: #8b1e1e;
+  color: #ffffff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.m-master-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.m-master-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.chip-kecamatan {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #3730a3;
+}
+
+.btn-m-chip-del {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.btn-m-chip-del:hover {
+  color: #ef4444;
+}
+
+/* Kelola Pengguna (Admin) */
+.btn-m-add-user {
+  background: #8b1e1e;
+  color: #ffffff;
+  border: none;
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.m-user-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.m-user-card {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.m-user-card-head {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.m-user-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #8b1e1e;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.m-user-head-info {
+  flex: 1;
+}
+
+.m-user-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.m-user-title-row h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.m-user-sub {
+  display: block;
+  font-size: 0.74rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.m-user-bidang {
+  display: block;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  margin-top: 1px;
+}
+
+.m-user-role-selector-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 6px 8px;
+  background: #f8fafc;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  color: #475569;
+}
+
+.m-role-select {
+  padding: 4px 8px;
+  font-size: 0.76rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.m-user-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.btn-m-u-pwd {
+  flex: 1;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  padding: 6px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-m-u-edit {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-m-u-del {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Grafik Kadis */
+.m-kadis-filter-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.m-trend-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.trend-naik {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.trend-turun {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.trend-stabil {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.m-svg-chart-container {
+  width: 100%;
+  overflow-x: auto;
+  padding: 4px 0;
+}
+
+.m-svg-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Modal Profil & Close Icon */
+.btn-close-modal-icon {
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.m-profile-info-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.m-profile-avatar-large {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #8b1e1e;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  font-weight: 800;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.m-empty-box {
+  padding: 24px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.88rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px dashed #cbd5e1;
 }
 
 </style>
