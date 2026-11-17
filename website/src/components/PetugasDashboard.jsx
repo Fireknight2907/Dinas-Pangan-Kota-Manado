@@ -247,7 +247,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           judul: '🌾 Realisasi Gerakan Pangan Murah',
           pesan: `Kegiatan "${gpmSelesai[0].nama_acara}" telah selesai dan terarsip dalam riwayat.`,
           waktu: 'Hari ini',
-          target: 'gpm-petugas'
+          target: 'kelola-gpm'
         });
       }
     }
@@ -289,7 +289,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           judul: '🎫 Pelaksanaan GPM Terjadwal',
           pesan: `${gpmAktif.nama_acara} di ${gpmAktif.lokasi} siap melayani registrasi tiket warga.`,
           waktu: 'Hari ini',
-          target: 'gpm-petugas'
+          target: 'kelola-gpm'
         });
       }
     }
@@ -889,7 +889,13 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                       <div 
                         key={n.id} 
                         onClick={() => {
-                          if (n.target) setMenuAktif(n.target);
+                          if (n.target) {
+                            let targetTujuan = n.target;
+                            if (targetTujuan === 'gpm-petugas') {
+                              targetTujuan = (isKabid || isStaf) ? 'kelola-gpm' : 'cek-gpm';
+                            }
+                            setMenuAktif(targetTujuan);
+                          }
                           setTampilkanNotifDropdown(false);
                         }}
                         style={{ 
@@ -2742,7 +2748,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               const pendaftarTersaring = pendaftarAcara.filter(p => {
                 if (!modalDetailWarga.pencarian) return true;
                 const cari = modalDetailWarga.pencarian.toLowerCase();
-                const nama = (p.nama_lengkap || p.nama || '').toLowerCase();
+                const nama = (p.nama_pendaftar || p.nama_lengkap || p.nama_bersih || p.nama || '').toLowerCase();
                 const nik = (p.nik || '').toLowerCase();
                 const telp = (p.nomor_telepon || '').toLowerCase();
                 return nama.includes(cari) || nik.includes(cari) || telp.includes(cari);
@@ -2857,7 +2863,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                                 {w.nik || '-'}
                               </td>
                               <td style={{ padding: '8px 10px', fontWeight: 700 }}>
-                                {w.nama_lengkap || w.nama}
+                                {w.nama_pendaftar || w.nama_lengkap || w.nama_bersih || w.nama || '-'}
                               </td>
                               <td style={{ padding: '8px 10px' }}>
                                 <span style={{
@@ -3186,7 +3192,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                     <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{idx + 1}</td>
                     <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center', fontWeight: 700 }}>#{String(w.nomor_antrean || idx + 1).padStart(3, '0')}</td>
                     <td style={{ padding: '5px', border: '1px solid #333', fontFamily: 'monospace' }}>{w.nik || '-'}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333', fontWeight: 700 }}>{w.nama_lengkap || w.nama}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333', fontWeight: 700 }}>{w.nama_pendaftar || w.nama_lengkap || w.nama_bersih || w.nama || '-'}</td>
                     <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{w.jalur_pendaftaran || 'Daring'}</td>
                     <td style={{ padding: '5px', border: '1px solid #333' }}>{w.nomor_telepon || '-'}</td>
                     <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center', fontWeight: 700 }}>{w.status_kehadiran || 'Menunggu'}</td>

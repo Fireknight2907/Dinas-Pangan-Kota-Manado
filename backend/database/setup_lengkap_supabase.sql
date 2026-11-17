@@ -47,7 +47,9 @@ CREATE TABLE pendaftar_gpm (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     acara_id UUID NOT NULL REFERENCES acara_gpm(id) ON DELETE CASCADE,
     nama_pendaftar VARCHAR(150) NOT NULL,
-    nomor_telepon VARCHAR(30) NOT NULL,
+    nomor_telepon VARCHAR(30) DEFAULT '-',
+    nik VARCHAR(16),
+    jalur_pendaftaran VARCHAR(20) DEFAULT 'Daring',
     nomor_antrean INT NOT NULL,
     kode_barcode VARCHAR(100) UNIQUE NOT NULL,
     status_kehadiran VARCHAR(30) NOT NULL DEFAULT 'Menunggu',
@@ -101,14 +103,16 @@ BEGIN
     END IF;
 END $$;
 
--- 7. Data Master Akun Petugas & Pimpinan
+-- 7. Data Master Akun Petugas & Pimpinan (Kata Sandi Terenkripsi SHA-256 + Salt)
+-- Hash untuk kata sandi default '12345678': eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481
 INSERT INTO pengguna (nama, username, email, kata_sandi, peran, bidang) VALUES
-('Effrend', 'effrend', 'effrend@manado.go.id', '12345678', 'Staf', 'Bidang Cadangan dan Distribusi Pangan'),
-('Regina', 'regina', 'regina@manado.go.id', '12345678', 'Admin', 'Administrator Sistem (Superadmin)'),
-('Mareta', 'mareta', 'mareta@manado.go.id', '12345678', 'Kabid', 'Kepala Bidang Cadangan & Distribusi Pangan'),
-('Edrick', 'edrick', 'edrick@manado.go.id', '12345678', 'Admin', 'Administrator Sistem (Superadmin)'),
-('Roni Tilaar', 'roni', 'roni@manado.go.id', '12345678', 'Petugas', 'Bidang Cadangan dan Distribusi Pangan'),
-('Kepala Dinas Pangan', 'kadis', 'kadis@manado.go.id', '12345678', 'Kadis', 'Pimpinan Dinas Pangan Kota Manado');
+('Super Administrator', 'superadmin', 'superadmin@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Superadmin', 'Akses Penuh Seluruh Modul (Superadmin)'),
+('Effrend', 'effrend', 'effrend@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Staf', 'Bidang Cadangan dan Distribusi Pangan'),
+('Regina', 'regina', 'regina@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Admin', 'Administrator Sistem (Superadmin)'),
+('Mareta', 'mareta', 'mareta@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Kabid', 'Kepala Bidang Cadangan & Distribusi Pangan'),
+('Edrick', 'edrick', 'edrick@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Admin', 'Administrator Sistem (Superadmin)'),
+('Roni Tilaar', 'roni', 'roni@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Petugas', 'Bidang Cadangan dan Distribusi Pangan'),
+('Kepala Dinas Pangan', 'kadis', 'kadis@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Kadis', 'Pimpinan Dinas Pangan Kota Manado');
 
 -- 8. Data Awal Komoditas Harga Pangan
 INSERT INTO harga_pangan (nama_komoditas, kategori, satuan, harga, nama_pasar, tanggal_penetapan, status) VALUES

@@ -148,7 +148,7 @@ export class SupabaseRestClient {
   }
 
   async daftarAntreanGPM(data: any): Promise<any> {
-    const payload = {
+    const payload: any = {
       acara_id: data.acara_id,
       nama_pendaftar: data.nama_pendaftar,
       nomor_telepon: data.nomor_telepon,
@@ -156,6 +156,8 @@ export class SupabaseRestClient {
       kode_barcode: data.kode_barcode,
       status_kehadiran: data.status_kehadiran || 'Menunggu'
     };
+    if (data.nik) payload.nik = data.nik;
+    if (data.jalur_pendaftaran) payload.jalur_pendaftaran = data.jalur_pendaftaran;
     const res = await this.request<any[]>('pendaftar_gpm', 'POST', payload);
     return Array.isArray(res) && res.length > 0 ? res[0] : res;
   }

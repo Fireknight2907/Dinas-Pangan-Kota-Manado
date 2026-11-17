@@ -388,10 +388,12 @@ class GPMMobileApiService {
             const prefixKode = jalur_pendaftaran === 'Langsung' ? 'GPM-DIR' : 'GPM-MOB';
             const kodeBarcode = `${prefixKode}-${String(nomorBaru).padStart(3, '0')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
-            const namaFormat = `${(nama_lengkap || '').trim()} [NIK:${nikBersih}] [${jalur_pendaftaran}]`;
+            const namaBersih = (nama_lengkap || '').trim();
             const payload = {
                 acara_id: validAcaraId,
-                nama_pendaftar: namaFormat,
+                nama_pendaftar: namaBersih,
+                nik: nikBersih,
+                jalur_pendaftaran,
                 nomor_telepon: (nomor_telepon || '-').trim(),
                 nomor_antrean: nomorBaru,
                 kode_barcode: kodeBarcode,
@@ -444,13 +446,13 @@ class GPMMobileApiService {
         const nomorBaru = pendaftarAcara.length + 1;
         const prefixKode = jalur_pendaftaran === 'Langsung' ? 'GPM-DIR' : 'GPM-MOB';
         const kodeBarcode = `${prefixKode}-${String(nomorBaru).padStart(3, '0')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-        const namaFormat = `${(nama_lengkap || '').trim()} [NIK:${nikBersih}] [${jalur_pendaftaran}]`;
+        const namaBersih = (nama_lengkap || '').trim();
 
         const tiketBaru: ItemPendaftarGPM = {
             id: 'antrean-' + Date.now(),
             acara_id: acara.id,
-            nama_pendaftar: namaFormat,
-            nama_bersih: (nama_lengkap || '').trim(),
+            nama_pendaftar: namaBersih,
+            nama_bersih: namaBersih,
             nik: nikBersih,
             jalur_pendaftaran,
             nomor_telepon: (nomor_telepon || '-').trim(),

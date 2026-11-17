@@ -74,7 +74,7 @@ class GPMApiService {
         try {
             const raw = localStorage.getItem('sipatokean_pendaftar_gpm_cache');
             if (raw) savedPendaftar = JSON.parse(raw);
-        } catch (_) {}
+        } catch (_) { }
 
         this.fallbackPendaftar = Array.isArray(savedPendaftar) && savedPendaftar.length > 0 ? savedPendaftar : [
             {
@@ -216,7 +216,7 @@ class GPMApiService {
                 const hasil = await respon.json();
                 if (hasil.data) return hasil.data;
             }
-        } catch (error) {}
+        } catch (error) { }
 
         // 3. Fallback lokal
         const listPendaftar = this.fallbackPendaftar;
@@ -299,7 +299,7 @@ class GPMApiService {
         // 1. Simpan langsung ke Supabase Cloud
         try {
             const pendaftarEksis = await supabaseClient.getPendaftarGPM(validAcaraId);
-            
+
             // Pengecekan Keamanan: Cegah pendaftaran ganda dengan NIK yang sama pada kegiatan GPM di lokasi ini
             const daftarParsed = (Array.isArray(pendaftarEksis) ? pendaftarEksis : []).map(p => this.parseDataPendaftar(p));
             const sudahAdaNIK = daftarParsed.some(p => p.nik === nikBersih);
@@ -311,10 +311,12 @@ class GPMApiService {
             const prefixKode = jalur_pendaftaran === 'Langsung' ? 'GPM-OFF' : 'GPM-MND';
             const kodeBarcode = `${prefixKode}-${String(nomorBaru).padStart(3, '0')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
-            const namaFormat = `${(nama_lengkap || '').trim()} [NIK:${nikBersih}] [${jalur_pendaftaran}]`;
+            const namaBersih = (nama_lengkap || '').trim();
             const payload = {
                 acara_id: validAcaraId,
-                nama_pendaftar: namaFormat,
+                nama_pendaftar: namaBersih,
+                nik: nikBersih,
+                jalur_pendaftaran: jalur_pendaftaran || 'Daring',
                 nomor_telepon: (nomor_telepon || '-').trim(),
                 nomor_antrean: nomorBaru,
                 kode_barcode: kodeBarcode,
@@ -332,7 +334,7 @@ class GPMApiService {
             this.fallbackPendaftar.unshift(tiketParsed);
             try {
                 localStorage.setItem('sipatokean_pendaftar_gpm_cache', JSON.stringify(this.fallbackPendaftar));
-            } catch (_) {}
+            } catch (_) { }
             if (acara) {
                 acara.antrean_terisi = (acara.antrean_terisi || 0) + 1;
                 acara.sisa_kuota = Math.max(0, (acara.kuota_maksimal || 250) - acara.antrean_terisi);
@@ -365,12 +367,13 @@ class GPMApiService {
         const nomorBaru = pendaftarAcara.length + 1;
         const prefixKode = jalur_pendaftaran === 'Langsung' ? 'GPM-OFF' : 'GPM-MND';
         const kodeBarcode = `${prefixKode}-${String(nomorBaru).padStart(3, '0')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-        const namaFormat = `${(nama_lengkap || '').trim()} [NIK:${nikBersih}] [${jalur_pendaftaran}]`;
-
+        const namaBersih = (nama_lengkap || '').trim();
         const tiketHasil = {
             id: 'antrean-' + Date.now(),
             acara_id: validAcaraId,
-            nama_pendaftar: namaFormat,
+            nama_pendaftar: namaBersih,
+            nik: nikBersih,
+            jalur_pendaftaran: jalur_pendaftaran || 'Daring',
             nomor_telepon: (nomor_telepon || '-').trim(),
             nomor_antrean: nomorBaru,
             kode_barcode: kodeBarcode,
@@ -382,7 +385,7 @@ class GPMApiService {
         this.fallbackPendaftar.unshift(tiketParsed);
         try {
             localStorage.setItem('sipatokean_pendaftar_gpm_cache', JSON.stringify(this.fallbackPendaftar));
-        } catch (_) {}
+        } catch (_) { }
 
         return {
             tiket: tiketParsed,
@@ -448,7 +451,7 @@ class GPMApiService {
                 const hasil = await respon.json();
                 return hasil;
             }
-        } catch (error) {}
+        } catch (error) { }
 
         // 3. Cadangan lokal
         const daftar = this.fallbackPendaftar.filter(p => !validAcaraId || p.acara_id === validAcaraId || p.acara_id === acara_id);
@@ -496,7 +499,7 @@ class GPMApiService {
             });
             const hasil = await respon.json();
             if (respon.ok && hasil.data) return hasil.data;
-        } catch (error) {}
+        } catch (error) { }
 
         // 3. Cadangan lokal
         const pendaftar = this.fallbackPendaftar.find(p => (p.kode_barcode || '').toUpperCase() === kode);
@@ -540,7 +543,7 @@ class GPMApiService {
             });
             const hasil = await respon.json();
             if (respon.ok && hasil.data) return hasil.data;
-        } catch (error) {}
+        } catch (error) { }
 
         // 3. Cadangan lokal
         const idx = this.fallbackPendaftar.findIndex(p => (p.kode_barcode || '').toUpperCase() === kode);
@@ -572,7 +575,7 @@ class GPMApiService {
             });
             const hasil = await respon.json();
             if (respon.ok && hasil.data) return hasil.data;
-        } catch (error) {}
+        } catch (error) { }
 
         // 3. Fallback lokal
         const itemBaru = {
@@ -609,7 +612,7 @@ class GPMApiService {
                 headers: this.ambilHeaderAuth(),
                 body: JSON.stringify({ status: 'Selesai' })
             });
-        } catch (e) {}
+        } catch (e) { }
 
         const idx = this.fallbackAcara.findIndex(a => String(a.id) === String(id) || String(a.id) === String(validId));
         if (idx !== -1) {
@@ -640,7 +643,7 @@ class GPMApiService {
                 method: 'DELETE',
                 headers: this.ambilHeaderAuth()
             });
-        } catch (e) {}
+        } catch (e) { }
 
         this.fallbackAcara = this.fallbackAcara.filter(a => String(a.id) !== String(id) && String(a.id) !== String(validId));
         this.fallbackPendaftar = this.fallbackPendaftar.filter(p => String(p.acara_id) !== String(id) && String(p.acara_id) !== String(validId));

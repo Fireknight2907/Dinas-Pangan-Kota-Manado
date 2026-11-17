@@ -154,6 +154,8 @@ class SupabaseRestClient {
       kode_barcode: data.kode_barcode,
       status_kehadiran: data.status_kehadiran || 'Menunggu'
     };
+    if (data.nik) payload.nik = data.nik;
+    if (data.jalur_pendaftaran) payload.jalur_pendaftaran = data.jalur_pendaftaran;
     const res = await this.request('pendaftar_gpm', 'POST', payload);
     return Array.isArray(res) && res.length > 0 ? res[0] : res;
   }
