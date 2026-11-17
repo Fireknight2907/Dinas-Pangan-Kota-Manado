@@ -179,6 +179,23 @@ export class SupabaseRestClient {
     return true;
   }
 
+  // Fungsi Kriptografi SHA-256 untuk Keamanan Kata Sandi
+  async hitungHashSandi(kataSandi: string): Promise<string> {
+    if (!kataSandi) return '';
+    if (/^[a-f0-9]{64}$/i.test(kataSandi)) return kataSandi.toLowerCase();
+    const garam = 'SIPATOKAAN_MANADO_2026_SECURE_SALT';
+    try {
+      if (typeof crypto !== 'undefined' && crypto.subtle) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(garam + kataSandi);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+    } catch (_) {}
+    return kataSandi;
+  }
+
   // --- LOGIN PENGGUNA ---
   async loginPengguna(identifier: string, kata_sandi: string): Promise<any | null> {
     const idClean = identifier.toLowerCase().trim();
@@ -187,8 +204,10 @@ export class SupabaseRestClient {
     if (!users || users.length === 0) return null;
 
     const user = users[0];
-    // Jika kata sandi cocok atau default dev
-    if (user.kata_sandi === kata_sandi || kata_sandi === '12345678') {
+    const hashInput = await this.hitungHashSandi(kata_sandi);
+    // Verifikasi pencocokan hash aman atau plaintext migrasi (tanpa backdoor)
+    const cocok = (user.kata_sandi === hashInput) || (user.kata_sandi === kata_sandi);
+    if (cocok) {
       const copy = { ...user };
       delete copy.kata_sandi;
       return copy;

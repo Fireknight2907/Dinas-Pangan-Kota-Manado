@@ -121,6 +121,18 @@
               <span class="status-label-short">{{ statusKoneksi.online ? 'Online' : 'Offline' }}</span>
             </button>
 
+            <!-- Tombol Notifikasi Dinamis Mobile -->
+            <button
+              type="button"
+              class="btn-notif-mobile"
+              @click="modalNotifMobileBuka = true"
+              title="Notifikasi Sistem"
+              style="position: relative; background: none; border: none; padding: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #1e293b;"
+            >
+              <span style="font-size: 1.15rem;">🔔</span>
+              <span v-if="daftarNotifMobile.length > 0" class="red-dot" style="position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; background: #dc2626; border-radius: 50%; border: 1.5px solid #fff;"></span>
+            </button>
+
             <!-- Profil User Button -->
             <div class="staff-avatar-mini" @click="bukaModalProfil" :title="'Profil ' + (userAktif?.nama || 'Petugas')">
               <img v-if="userAktif?.foto_profil" :src="userAktif.foto_profil" class="avatar-img-fit" alt="Avatar" />
@@ -153,11 +165,21 @@
         </ion-refresher>
         <!-- SUB-VIEW A: FORMULIR PENETAPAN HARGA & DAFTAR (KHUSUS STAF / PENETAPAN) -->
         <div v-if="menuPetugas === 'input-harga' || menuPetugas === 'tetapkan'" class="staff-view-container">
-          <div class="staff-heading-area">
-            <h1 class="staff-view-title">Penetapan Harga Pangan</h1>
-            <p class="staff-view-desc">
-              Tetapkan harga acuan untuk jenis pangan yang ditetapkan admin, lalu terbitkan ke halaman masyarakat
-            </p>
+          <div class="staff-heading-area" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <h1 class="staff-view-title">Penetapan Harga Pangan</h1>
+              <p class="staff-view-desc">
+                Tetapkan harga acuan untuk jenis pangan yang diawasi, lalu ajukan untuk verifikasi
+              </p>
+            </div>
+            <button
+              type="button"
+              class="btn-m-super-csv"
+              style="background: #166534; color: #ffffff; padding: 6px 12px; font-size: 0.78rem; border-radius: 6px;"
+              @click="laporanMobileService.eksporLaporanHargaCSV(semuaKomoditas)"
+            >
+              📥 Unduh CSV
+            </button>
           </div>
 
           <!-- Alert jika berhasil simpan -->
@@ -545,6 +567,14 @@
               >
                 ✕ Tutup Kamera
               </button>
+
+              <button 
+                type="button" 
+                @click="bukaModalManualMobile"
+                style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px; margin-top: 8px; font-weight: 700; background: #059669; color: #ffffff; border-radius: 8px; border: none; cursor: pointer; box-shadow: 0 3px 10px rgba(5,150,105,0.25);"
+              >
+                ➕ Tambah Manual (Di Tempat)
+              </button>
             </div>
 
             <!-- Viewfinder Kamera Scanner Mobile -->
@@ -574,14 +604,6 @@
               </button>
             </form>
 
-            <!-- Quick sample chips -->
-            <div class="m-quick-chips">
-              <span style="font-size: 0.72rem; color: #888;">Uji coba kode tiket:</span>
-              <button type="button" class="m-chip-pill" @click="pindaiBarcodeMobile('GPM-TIKA-001-A9F2')">Meity (#001)</button>
-              <button type="button" class="m-chip-pill" @click="pindaiBarcodeMobile('GPM-TIKA-002-C4B8')">Frangky (#002)</button>
-              <button type="button" class="m-chip-pill" @click="pindaiBarcodeMobile('GPM-TIKA-003-X8Q1')">Grace (#003)</button>
-            </div>
-
             <div v-if="pesanScanErrorPetugas" class="m-error-alert">
               ⚠️  {{ pesanScanErrorPetugas }}
             </div>
@@ -600,11 +622,23 @@
               <div class="m-profile-info-grid">
                 <div>
                   <span class="m-info-lbl">Nama Lengkap</span>
-                  <strong class="m-info-val">{{ hasilScanPetugas.nama_pendaftar }}</strong>
+                  <strong class="m-info-val">{{ gpmMobileService.parseDataPendaftar(hasilScanPetugas).nama_bersih }}</strong>
+                </div>
+                <div>
+                  <span class="m-info-lbl">NIK (16 Digit)</span>
+                  <strong class="m-info-val">{{ gpmMobileService.parseDataPendaftar(hasilScanPetugas).nik || '-' }}</strong>
+                </div>
+                <div>
+                  <span class="m-info-lbl">Jalur Pendaftaran</span>
+                  <div>
+                    <span :class="['m-jalur-tag', gpmMobileService.parseDataPendaftar(hasilScanPetugas).jalur_pendaftaran === 'Langsung' ? 'jalur-langsung' : 'jalur-daring']">
+                      {{ gpmMobileService.parseDataPendaftar(hasilScanPetugas).jalur_pendaftaran === 'Langsung' ? '📍 Langsung' : '🌐 Daring' }}
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <span class="m-info-lbl">No. HP / WA</span>
-                  <strong class="m-info-val">{{ hasilScanPetugas.nomor_telepon }}</strong>
+                  <strong class="m-info-val">{{ gpmMobileService.parseDataPendaftar(hasilScanPetugas).nomor_telepon }}</strong>
                 </div>
                 <div style="grid-column: 1 / -1;">
                   <span class="m-info-lbl">Kode QR / Barcode</span>
@@ -641,7 +675,7 @@
               <span class="m-event-quota">Total: {{ pendaftarGPMList.length }} warga</span>
             </div>
 
-            <!-- Tombol Aksi Mobile: Unduh CSV & Selesaikan GPM (Khusus Kepala Bidang) -->
+            <!-- Tombol Aksi Mobile: Unduh CSV, Tambah Manual & Selesaikan GPM -->
             <div class="m-antrean-action-bar">
               <button 
                 type="button" 
@@ -649,6 +683,13 @@
                 @click="unduhRekapAktifMobile"
               >
                 📥 Unduh Rekap (CSV)
+              </button>
+              <button 
+                type="button" 
+                class="btn-m-tambah-manual"
+                @click="bukaModalManualMobile"
+              >
+                ➕ Tambah Manual (Di Tempat)
               </button>
               <button 
                 v-if="isKabid && acaraGPMDipilih"
@@ -667,17 +708,25 @@
             <div v-else class="m-queue-items-list">
               <div v-for="item in pendaftarGPMList" :key="item.id" class="m-queue-item-row">
                 <div class="m-queue-number-badge">
-                  #{{ String(item.nomor_antrean).padStart(3, '0') }}
+                  #{{ String(gpmMobileService.parseDataPendaftar(item).nomor_antrean || item.nomor_antrean).padStart(3, '0') }}
                 </div>
                 <div class="m-queue-meta">
-                  <strong>{{ item.nama_pendaftar }}</strong>
-                  <div style="font-size: 0.76rem; color: #64748b;">
-                    📱 {{ item.nomor_telepon }} · <code>{{ item.kode_barcode }}</code>
+                  <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                    <strong>{{ gpmMobileService.parseDataPendaftar(item).nama_bersih }}</strong>
+                    <span :class="['m-jalur-tag', gpmMobileService.parseDataPendaftar(item).jalur_pendaftaran === 'Langsung' ? 'jalur-langsung' : 'jalur-daring']">
+                      {{ gpmMobileService.parseDataPendaftar(item).jalur_pendaftaran === 'Langsung' ? '📍 Langsung' : '🌐 Daring' }}
+                    </span>
+                  </div>
+                  <div style="font-size: 0.76rem; color: #64748b; margin-top: 2px;">
+                    NIK: {{ gpmMobileService.parseDataPendaftar(item).nik || '-' }} · 📱 {{ gpmMobileService.parseDataPendaftar(item).nomor_telepon }}
+                  </div>
+                  <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 2px;">
+                    <code>{{ gpmMobileService.parseDataPendaftar(item).kode_barcode }}</code>
                   </div>
                 </div>
                 <div>
                   <span :class="['m-status-tag', item.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu']">
-                    {{ item.status_kehadiran }}
+                    {{ item.status_kehadiran === 'Hadir' ? '✓ Hadir' : 'Menunggu' }}
                   </span>
                 </div>
               </div>
@@ -862,13 +911,18 @@
                   </div>
                   <div v-else class="m-history-queue-list">
                     <div v-for="p in detailRiwayatPendaftar[acara.id]" :key="p.id" class="m-hist-queue-row">
-                      <span class="q-num">#{{ String(p.nomor_antrean).padStart(3, '0') }}</span>
+                      <span class="q-num">#{{ String(gpmMobileService.parseDataPendaftar(p).nomor_antrean || p.nomor_antrean).padStart(3, '0') }}</span>
                       <div class="q-info">
-                        <strong>{{ p.nama_pendaftar }}</strong>
-                        <span>{{ p.nomor_telepon }} · <code>{{ p.kode_barcode }}</code></span>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                          <strong>{{ gpmMobileService.parseDataPendaftar(p).nama_bersih }}</strong>
+                          <span :class="['m-jalur-tag', gpmMobileService.parseDataPendaftar(p).jalur_pendaftaran === 'Langsung' ? 'jalur-langsung' : 'jalur-daring']">
+                            {{ gpmMobileService.parseDataPendaftar(p).jalur_pendaftaran }}
+                          </span>
+                        </div>
+                        <span style="font-size: 0.74rem; color: #64748b;">NIK: {{ gpmMobileService.parseDataPendaftar(p).nik || '-' }} · {{ gpmMobileService.parseDataPendaftar(p).nomor_telepon }} · <code>{{ gpmMobileService.parseDataPendaftar(p).kode_barcode }}</code></span>
                       </div>
                       <span :class="['m-status-tag', p.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu']">
-                        {{ p.status_kehadiran }}
+                        {{ p.status_kehadiran === 'Hadir' ? '✓ Hadir' : 'Menunggu' }}
                       </span>
                     </div>
                   </div>
@@ -1054,9 +1108,12 @@
                 </div>
               </div>
 
-              <div class="m-super-actions">
-                <button class="btn-m-super-csv" @click="unduhRekapAktifMobile">
-                  📥 Unduh Rekap Antrean (CSV)
+              <div class="m-super-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button type="button" class="btn-m-super-csv" style="flex: 1; background: #8b1e1e;" @click="bukaDetailWargaMobile(acara)">
+                  👥 Buka Data Warga ({{ acara.antrean_terisi || pendaftarGPMList.filter(p => p.acara_id === acara.id).length }})
+                </button>
+                <button type="button" class="btn-m-super-csv" style="flex: 1;" @click="unduhRekapAcaraMobile(acara)">
+                  📥 Unduh CSV
                 </button>
               </div>
             </div>
@@ -1183,16 +1240,7 @@
               <div class="s-field">
                 <label>Komoditas Pangan</label>
                 <select v-model="komoditasTren" @change="muatTrenKadis">
-                  <option value="Beras Medium">Beras Medium</option>
-                  <option value="Beras Premium">Beras Premium</option>
-                  <option value="Minyak Goreng Kemasan">Minyak Goreng Kemasan</option>
-                  <option value="Gula Pasir">Gula Pasir</option>
-                  <option value="Telur Ayam">Telur Ayam</option>
-                  <option value="Daging Ayam">Daging Ayam</option>
-                  <option value="Daging Sapi">Daging Sapi</option>
-                  <option value="Bawang Merah">Bawang Merah</option>
-                  <option value="Bawang Putih">Bawang Putih</option>
-                  <option value="Cabai Rawit">Cabai Rawit</option>
+                  <option v-for="k in daftarKomoditasTersediaKadis" :key="String(k)" :value="k">{{ k }}</option>
                 </select>
               </div>
 
@@ -1273,31 +1321,41 @@
 
         <!-- SUB-VIEW J: LAPORAN EKSEKUTIF GPM (KHUSUS KADIS) -->
         <div v-if="menuPetugas === 'laporan-gpm'" class="staff-view-container">
-          <div class="staff-heading-area">
-            <h1 class="staff-view-title">Laporan Eksekutif GPM</h1>
-            <p class="staff-view-desc">Rekapitulasi pencapaian stabilisasi pasokan dan serapan kuota masyarakat</p>
+          <div class="staff-heading-area" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <h1 class="staff-view-title">Laporan Eksekutif GPM</h1>
+              <p class="staff-view-desc">Rekapitulasi pencapaian stabilisasi pasokan dan serapan kuota masyarakat</p>
+            </div>
+            <button
+              type="button"
+              class="btn-m-super-csv"
+              style="background: #166534; color: #fff; padding: 7px 12px; font-size: 0.8rem;"
+              @click="unduhLaporanEksekutifGPM"
+            >
+              📥 Unduh Laporan (CSV)
+            </button>
           </div>
 
           <div class="staff-stats-grid">
             <div class="stat-box-card">
-              <div class="stat-val">3</div>
+              <div class="stat-val">{{ daftarRekapGPMKadis.length }}</div>
               <div class="stat-lbl">Kegiatan Terlaksana</div>
               <div class="stat-sub">evaluasi berkala</div>
             </div>
             <div class="stat-box-card">
-              <div class="stat-val">750</div>
+              <div class="stat-val">{{ totalKuotaGPMKadis }}</div>
               <div class="stat-lbl">Target Kuota</div>
               <div class="stat-sub">paket pangan murah</div>
             </div>
             <div class="stat-box-card">
-              <div class="stat-val">646</div>
+              <div class="stat-val">{{ totalTerlayaniGPMKadis }}</div>
               <div class="stat-lbl">Warga Terlayani</div>
               <div class="stat-sub">penerima manfaat</div>
             </div>
             <div class="stat-box-card">
-              <div class="stat-val" style="color: #16a34a;">86.1%</div>
+              <div class="stat-val" style="color: #16a34a;">{{ persentaseSerapanKadis }}%</div>
               <div class="stat-lbl">Tingkat Penyerapan</div>
-              <div class="stat-sub">sangat optimal</div>
+              <div class="stat-sub">realisasi serapan</div>
             </div>
           </div>
 
@@ -1317,7 +1375,7 @@
                 </div>
                 <div class="super-stat-col">
                   <span class="lbl">Terdaftar</span>
-                  <strong>{{ rekap.terdaftar }}</strong>
+                  <strong style="color: #1d4ed8;">{{ rekap.terdaftar }}</strong>
                 </div>
                 <div class="super-stat-col">
                   <span class="lbl">Terlayani</span>
@@ -1326,12 +1384,17 @@
               </div>
 
               <div style="margin-top: 12px; background: #f8fafc; padding: 10px; border-radius: 6px;">
-                <span style="font-size: 0.78rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Komoditas Tersalurkan:</span>
-                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-                  <span v-for="kom in rekap.komoditas_tersalurkan" :key="kom.nama" style="font-size: 0.74rem; background: #ffffff; border: 1px solid #cbd5e1; padding: 3px 8px; border-radius: 12px; color: #334155;">
-                    🌾 {{ kom.nama }}: <strong>{{ kom.jumlah }}</strong>
-                  </span>
-                </div>
+                <span style="font-size: 0.78rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">🌾 Komoditas Disediakan:</span>
+                <p style="margin: 0; font-size: 0.8rem; color: #334155;">{{ rekap.komoditas_tersedia || 'Beras SPHP 5kg, Minyakita 1L, Gula Pasir 1kg' }}</p>
+              </div>
+
+              <div class="m-super-actions" style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                <button type="button" class="btn-m-super-csv" style="flex: 1; background: #8b1e1e;" @click="bukaDetailWargaMobile(rekap)">
+                  👥 Buka Data Warga ({{ rekap.terdaftar }})
+                </button>
+                <button type="button" class="btn-m-super-csv" style="flex: 1;" @click="unduhRekapAcaraMobile(rekap)">
+                  📥 Unduh CSV
+                </button>
               </div>
             </div>
           </div>
@@ -1511,7 +1574,7 @@
             </div>
             <h2 class="hero-title-text">Gerakan Pangan Murah</h2>
             <p class="hero-desc-text">
-              Dapatkan komoditas pangan pokok berkualitas dengan harga terjangkau langsung dari produsen untuk stabilisasi pasokan dan harga di Kota Manado. <strong>Masyarakat tak perlu masuk akun (cukup nama & no. HP).</strong>
+              Dapatkan komoditas pangan pokok berkualitas dengan harga terjangkau langsung dari produsen untuk stabilisasi pasokan dan harga di Kota Manado. <strong>Masyarakat tak perlu masuk akun (cukup NIK & nama).</strong>
             </p>
             <div class="hero-update-date">
               <span>📍  {{ daftarAcaraGPM.length }} Lokasi Pelaksanaan Tersedia</span>
@@ -1601,14 +1664,30 @@
               <!-- Form Ambil Antrean (Tanpa Login) -->
               <form @submit.prevent="ambilNomorAntreanMobile" class="m-queue-form">
                 <h4 class="m-form-heading">🎟️  Formulir Ambil Nomor Antrean</h4>
-                <p class="m-form-subheading">Masyarakat tidak perlu masuk akun, cukup isi nama dan nomor HP:</p>
+                <p class="m-form-subheading">Masyarakat tidak perlu masuk akun, cukup isi NIK dan nama lengkap:</p>
 
                 <div v-if="pesanErrorGPM" class="m-error-alert">
                   ⚠️  {{ pesanErrorGPM }}
                 </div>
 
                 <div class="m-input-group-mobile">
-                  <label>NAMA LENGKAP</label>
+                  <label>NOMOR INDUK KEPENDUDUKAN (NIK) <span style="color: #ef4444;">* (Wajib 16 Digit)</span></label>
+                  <input 
+                    type="text" 
+                    required 
+                    maxlength="16"
+                    v-model="formAntreanGPM.nik" 
+                    placeholder="Contoh: 7171012345678901"
+                    class="m-input-text"
+                    @input="formAntreanGPM.nik = formAntreanGPM.nik.replace(/[^0-9]/g, '').slice(0, 16)"
+                  />
+                  <small :style="{ color: formAntreanGPM.nik?.length === 16 ? '#16a34a' : '#64748b', fontSize: '0.74rem', marginTop: '3px', display: 'block' }">
+                    {{ formAntreanGPM.nik?.length || 0 }}/16 digit {{ formAntreanGPM.nik?.length > 0 && formAntreanGPM.nik?.length < 16 ? `(Kurang ${16 - formAntreanGPM.nik.length} digit)` : '' }}
+                  </small>
+                </div>
+
+                <div class="m-input-group-mobile">
+                  <label>NAMA LENGKAP <span style="color: #ef4444;">*</span></label>
                   <input 
                     type="text" 
                     required 
@@ -1620,14 +1699,13 @@
                 </div>
 
                 <div class="m-input-group-mobile">
-                  <label>NOMOR TELEPON / WHATSAPP</label>
+                  <label>NOMOR TELEPON / WHATSAPP <span style="color: #64748b; font-weight: normal;">(Opsional)</span></label>
                   <input 
                     type="tel" 
-                    required 
                     v-model="formAntreanGPM.nomor_telepon" 
-                    placeholder="081234567890"
+                    placeholder="081234567890 (Boleh kosong)"
                     class="m-input-text"
-                    @input="formAntreanGPM.nomor_telepon = formAntreanGPM.nomor_telepon.replace(/[^0-9]/g, '')"
+                    @input="formAntreanGPM.nomor_telepon = formAntreanGPM.nomor_telepon.replace(/[^0-9]/g, '').slice(0, 15)"
                   />
                 </div>
 
@@ -1782,11 +1860,17 @@
           </div>
 
           <div class="s-field" style="margin-top: 14px;">
-            <label>URL Foto Profil (Opsional):</label>
-            <div style="display: flex; gap: 6px;">
-              <input type="text" v-model="inputFotoProfilUrl" placeholder="https://example.com/foto.jpg" style="flex: 1;" />
-              <button type="button" class="btn-m-add" @click="eksekusiGantiFotoProfil">Perbarui</button>
+            <label>Foto Profil Pengguna:</label>
+            <input type="file" ref="inputFotoMobileRef" accept="image/*" style="display: none;" @change="handlePilihBerkasFotoMobile" />
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <button type="button" class="btn-m-add" style="flex: 1; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1;" @click="pilihFotoDariPerangkat">
+                📁 Unggah Foto (Galeri)
+              </button>
+              <button type="button" class="btn-m-add" style="flex: 1; background: #8b1e1e; color: #fff;" @click="eksekusiGantiFotoProfil">
+                Simpan Foto
+              </button>
             </div>
+            <input type="text" v-model="inputFotoProfilUrl" placeholder="Atau tempel URL gambar..." />
           </div>
 
           <div style="margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 14px;">
@@ -2003,6 +2087,228 @@
           <button type="button" class="btn-cancel-server" @click="modalEditKabidBuka = false">Batal</button>
           <button type="button" class="btn-save-server" @click="simpanEditKabid">
             💾 Simpan Penyesuaian
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===============================================================================
+         MODAL TAMBAH PENDAFTAR MANUAL (DI TEMPAT / WALK-IN TANPA HP)
+         =============================================================================== -->
+    <div v-if="modalTambahManualMobile.buka" class="server-config-modal-overlay" @click.self="modalTambahManualMobile.buka = false">
+      <div class="server-config-modal-card">
+        <div class="server-modal-header">
+          <div class="server-modal-title-wrap">
+            <span class="server-icon-pulse">➕</span>
+            <div>
+              <h3 class="server-m-title">Pendaftaran Manual di Lokasi GPM</h3>
+              <p class="server-m-sub">Warga yang hadir di lokasi tanpa membawa HP</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal-icon" @click="modalTambahManualMobile.buka = false">✕</button>
+        </div>
+
+        <form @submit.prevent="simpanPendaftarManualMobile">
+          <div class="server-modal-body">
+            <div v-if="modalTambahManualMobile.pesanError" class="m-error-alert" style="margin-bottom: 12px;">
+              ⚠️ {{ modalTambahManualMobile.pesanError }}
+            </div>
+
+            <div class="s-field" style="margin-bottom: 10px;">
+              <label>Lokasi Acara GPM <span style="color: #ef4444;">*</span></label>
+              <select v-model="modalTambahManualMobile.acaraId" class="m-role-select" style="width: 100%;" required>
+                <option v-for="a in daftarAcaraGPM" :key="a.id" :value="a.id">
+                  {{ a.nama_acara }} ({{ a.lokasi }})
+                </option>
+              </select>
+            </div>
+
+            <div class="s-field" style="margin-bottom: 10px;">
+              <label>NIK <span style="color: #ef4444;">* (Wajib 16 Digit)</span></label>
+              <input 
+                type="text" 
+                maxlength="16" 
+                required 
+                v-model="modalTambahManualMobile.nik" 
+                placeholder="Contoh: 7171012345678901" 
+                @input="modalTambahManualMobile.nik = modalTambahManualMobile.nik.replace(/[^0-9]/g, '').slice(0, 16)"
+              />
+              <small :style="{ color: modalTambahManualMobile.nik.length === 16 ? '#16a34a' : '#64748b', fontSize: '0.72rem', display: 'block', marginTop: '2px' }">
+                {{ modalTambahManualMobile.nik.length }}/16 digit {{ modalTambahManualMobile.nik.length > 0 && modalTambahManualMobile.nik.length < 16 ? `(Kurang ${16 - modalTambahManualMobile.nik.length} digit)` : '' }}
+              </small>
+            </div>
+
+            <div class="s-field" style="margin-bottom: 10px;">
+              <label>Nama Lengkap Warga <span style="color: #ef4444;">*</span></label>
+              <input 
+                type="text" 
+                required 
+                v-model="modalTambahManualMobile.nama" 
+                placeholder="Contoh: Meity Rondonuwu"
+                @input="modalTambahManualMobile.nama = modalTambahManualMobile.nama.replace(/[^a-zA-Z\s'.]/g, '')"
+              />
+            </div>
+
+            <div class="s-field" style="margin-bottom: 12px;">
+              <label>Nomor Telepon / WhatsApp <span style="color: #64748b; font-weight: normal;">(Opsional)</span></label>
+              <input 
+                type="tel" 
+                v-model="modalTambahManualMobile.telepon" 
+                placeholder="Contoh: 081234567890 (Boleh kosong)" 
+                @input="modalTambahManualMobile.telepon = modalTambahManualMobile.telepon.replace(/[^0-9]/g, '').slice(0, 15)"
+              />
+            </div>
+
+            <div style="background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; font-weight: 600; color: #334155; cursor: pointer;">
+                <input type="checkbox" v-model="modalTambahManualMobile.langsungHadir" />
+                <span>Langsung Tandai Hadir & Verifikasi</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="server-modal-footer">
+            <button type="button" class="btn-cancel-server" @click="modalTambahManualMobile.buka = false">
+              Batal
+            </button>
+            <button type="submit" class="btn-save-server" :disabled="modalTambahManualMobile.sedangKirim" style="background: #059669;">
+              {{ modalTambahManualMobile.sedangKirim ? 'Menyimpan...' : '💾 Simpan Warga' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===============================================================================
+         MODAL DETAIL WARGA PENDAFTAR GPM (MOBILE)
+         =============================================================================== -->
+    <div v-if="modalDetailWargaMobile.buka && modalDetailWargaMobile.acara" class="server-config-modal-overlay" @click.self="modalDetailWargaMobile.buka = false">
+      <div class="server-config-modal-card" style="max-height: 85vh; display: flex; flex-direction: column;">
+        <div class="server-modal-header">
+          <div class="server-modal-title-wrap">
+            <span class="server-icon-pulse">👥</span>
+            <div>
+              <h3 class="server-m-title">Data Warga Pendaftar</h3>
+              <p class="server-m-sub">{{ modalDetailWargaMobile.acara.nama_acara }}</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal-icon" @click="modalDetailWargaMobile.buka = false">✕</button>
+        </div>
+
+        <div class="server-modal-body" style="overflow-y: auto; flex: 1;">
+          <div style="background: #f8fafc; padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.8rem; color: #475569;">
+            <div>📍 {{ modalDetailWargaMobile.acara.lokasi }} ({{ modalDetailWargaMobile.acara.kecamatan }})</div>
+            <div style="margin-top: 2px;">📅 {{ modalDetailWargaMobile.acara.tanggal }}</div>
+            <div style="margin-top: 6px; display: flex; gap: 8px; font-weight: 700;">
+              <span style="color: #1e40af;">Terdaftar: {{ pendaftarAcaraMobileTersaring.length }}</span>
+              <span style="color: #166534;">Hadir: {{ pendaftarAcaraMobileTersaring.filter(p => p.status_kehadiran === 'Hadir').length }}</span>
+            </div>
+          </div>
+
+          <div class="s-field" style="margin-bottom: 12px;">
+            <input 
+              type="text" 
+              v-model="modalDetailWargaMobile.pencarian" 
+              placeholder="🔍 Cari Nama atau NIK 16 digit..." 
+            />
+          </div>
+
+          <div v-if="pendaftarAcaraMobileTersaring.length === 0" style="padding: 20px; text-align: center; color: #94a3b8; font-size: 0.82rem;">
+            Tidak ditemukan data warga pendaftar.
+          </div>
+
+          <div v-else style="display: flex; flex-direction: column; gap: 8px;">
+            <div 
+              v-for="(w, idx) in pendaftarAcaraMobileTersaring" 
+              :key="w.id || idx" 
+              style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                  <strong style="color: #1e293b; font-size: 0.88rem;">{{ w.nama_pendaftar || w.nama_bersih || '-' }}</strong>
+                  <div style="font-size: 0.76rem; color: #64748b; font-family: monospace; margin-top: 1px;">
+                    NIK: <strong>{{ w.nik || '-' }}</strong>
+                  </div>
+                  <div style="font-size: 0.74rem; color: #64748b; margin-top: 2px;">
+                    📞 {{ w.nomor_telepon || '-' }} · Antrean: <strong>#{{ String(w.nomor_antrean || idx + 1).padStart(3, '0') }}</strong>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                  <span 
+                    style="padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;"
+                    :style="w.status_kehadiran === 'Hadir' ? 'background: #dcfce7; color: #166534;' : 'background: #fef3c7; color: #92400e;'"
+                  >
+                    {{ w.status_kehadiran === 'Hadir' ? 'Hadir' : 'Menunggu' }}
+                  </span>
+                  <span 
+                    style="padding: 1px 5px; border-radius: 3px; font-size: 0.68rem; font-weight: 600;"
+                    :style="(w.jalur_pendaftaran || '').toLowerCase() === 'langsung' ? 'background: #f0fdf4; color: #166534;' : 'background: #eff6ff; color: #1e40af;'"
+                  >
+                    {{ w.jalur_pendaftaran || 'Daring' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="server-modal-footer" style="display: flex; gap: 8px;">
+          <button type="button" class="btn-cancel-server" style="flex: 1;" @click="modalDetailWargaMobile.buka = false">
+            Tutup
+          </button>
+          <button 
+            type="button" 
+            class="btn-save-server" 
+            style="flex: 1; background: #166534;"
+            @click="unduhRekapAcaraMobile(modalDetailWargaMobile.acara)"
+          >
+            📥 Unduh CSV
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===============================================================================
+         MODAL NOTIFIKASI DINAMIS SISTEM (MOBILE)
+         =============================================================================== -->
+    <div v-if="modalNotifMobileBuka" class="server-config-modal-overlay" @click.self="modalNotifMobileBuka = false">
+      <div class="server-config-modal-card" style="max-height: 80vh; display: flex; flex-direction: column;">
+        <div class="server-modal-header">
+          <div class="server-modal-title-wrap">
+            <span class="server-icon-pulse">🔔</span>
+            <div>
+              <h3 class="server-m-title">Pemberitahuan Sistem</h3>
+              <p class="server-m-sub">Respon aktivitas riil basis data sesuai peran Anda</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal-icon" @click="modalNotifMobileBuka = false">✕</button>
+        </div>
+
+        <div class="server-modal-body" style="overflow-y: auto; flex: 1;">
+          <div v-if="daftarNotifMobile.length === 0" style="padding: 24px; text-align: center; color: #94a3b8; font-size: 0.85rem;">
+            Belum ada pemberitahuan baru
+          </div>
+
+          <div v-else style="display: flex; flex-direction: column; gap: 10px;">
+            <div 
+              v-for="notif in daftarNotifMobile" 
+              :key="notif.id"
+              @click="bukaNotifTarget(notif.target)"
+              style="padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; cursor: pointer;"
+            >
+              <div style="font-weight: 700; font-size: 0.86rem; color: #1e293b;">{{ notif.judul }}</div>
+              <div style="font-size: 0.78rem; color: #475569; margin-top: 3px; line-height: 1.35;">{{ notif.pesan }}</div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+                <span style="font-size: 0.7rem; color: #94a3b8;">{{ notif.waktu }}</span>
+                <span v-if="notif.target" style="font-size: 0.72rem; color: #8b1e1e; font-weight: 700;">Buka Modul →</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="server-modal-footer">
+          <button type="button" class="btn-cancel-server" style="width: 100%;" @click="modalNotifMobileBuka = false">
+            Tutup
           </button>
         </div>
       </div>
@@ -2233,12 +2539,25 @@ const handleRefresh = async (event: any) => {
 const daftarAcaraGPM = ref<ItemAcaraGPM[]>([]);
 const acaraGPMDipilih = ref<ItemAcaraGPM | null>(null);
 const formAntreanGPM = ref({
+  nik: '',
   nama_lengkap: '',
   nomor_telepon: ''
 });
 const sedangDaftarGPM = ref(false);
 const pesanErrorGPM = ref('');
 const tiketGPMHasil = ref<HasilTiketGPM | null>(null);
+
+// Modal Tambah Pendaftar Manual Mobile (Di Tempat / Walk-In Tanpa HP)
+const modalTambahManualMobile = ref({
+  buka: false,
+  acaraId: '',
+  nama: '',
+  nik: '',
+  telepon: '',
+  langsungHadir: true,
+  sedangKirim: false,
+  pesanError: ''
+});
 
 // State Petugas GPM
 const subMenuPetugasGPM = ref<'scan' | 'antrean' | 'buat' | 'riwayat'>('scan');
@@ -2361,13 +2680,15 @@ const peranAktif = computed<PeranPengguna>(() => {
   return penggunaMobileService.normalisasiPeran(userAktif.value?.peran);
 });
 
-const isAdmin = computed(() => peranAktif.value === 'Admin');
-const isKabid = computed(() => peranAktif.value === 'Kabid');
-const isStaf = computed(() => peranAktif.value === 'Staf');
-const isKadis = computed(() => peranAktif.value === 'Kadis');
+const isSuperadmin = computed(() => peranAktif.value === 'Superadmin');
+const isAdmin = computed(() => peranAktif.value === 'Admin' || isSuperadmin.value);
+const isKabid = computed(() => peranAktif.value === 'Kabid' || isSuperadmin.value);
+const isStaf = computed(() => peranAktif.value === 'Staf' || isSuperadmin.value);
+const isKadis = computed(() => peranAktif.value === 'Kadis' || isSuperadmin.value);
 
 const formatPeranLengkap = (peran?: string | null) => {
   const p = penggunaMobileService.normalisasiPeran(peran);
+  if (p === 'Superadmin') return 'Super Administrator';
   if (p === 'Admin') return 'Administrator';
   if (p === 'Kabid') return 'Kepala Bidang';
   if (p === 'Kadis') return 'Kepala Dinas';
@@ -2461,6 +2782,56 @@ const pasarTren = ref('Semua');
 const dataTren = ref<DataTrenKomoditas | null>(null);
 const daftarRekapGPMKadis = ref<ItemRekapGPM[]>([]);
 
+// State Modal Detail Pendaftar Warga (Mobile)
+const modalDetailWargaMobile = ref<{ buka: boolean; acara: any; pencarian: string }>({
+  buka: false,
+  acara: null,
+  pencarian: ''
+});
+const modalNotifMobileBuka = ref(false);
+const inputFotoMobileRef = ref<HTMLInputElement | null>(null);
+
+interface NotifMobileItem {
+  id: string;
+  judul: string;
+  pesan: string;
+  waktu: string;
+  target?: string;
+}
+const daftarNotifMobile = ref<NotifMobileItem[]>([]);
+
+// Computed Komoditas Lengkap untuk Grafik Kadis (Tarik dari Seluruh DB)
+const daftarKomoditasTersediaKadis = computed(() => {
+  const unik = Array.from(new Set(semuaKomoditas.value.map((i: any) => i.nama_komoditas).filter(Boolean)));
+  return unik.length > 0 ? unik : ['Beras Medium', 'Beras Premium', 'Minyak Goreng Kemasan', 'Gula Pasir', 'Telur Ayam'];
+});
+
+// Computed Pendaftar Tersaring untuk Modal Detail Warga Mobile
+const pendaftarAcaraMobileTersaring = computed(() => {
+  if (!modalDetailWargaMobile.value.acara) return [];
+  const list = pendaftarGPMList.value.filter(p => p.acara_id === modalDetailWargaMobile.value.acara.id);
+  const q = modalDetailWargaMobile.value.pencarian.trim().toLowerCase();
+  if (!q) return list;
+  return list.filter(p => {
+    const nama = (p.nama_pendaftar || p.nama_bersih || '').toLowerCase();
+    const nik = (p.nik || '').toLowerCase();
+    const telp = (p.nomor_telepon || '').toLowerCase();
+    return nama.includes(q) || nik.includes(q) || telp.includes(q);
+  });
+});
+
+// Computed Statistik Ringkasan Eksekutif GPM Kadis
+const totalKuotaGPMKadis = computed(() => {
+  return daftarRekapGPMKadis.value.reduce((acc, r) => acc + (r.target_kuota || 0), 0);
+});
+const totalTerlayaniGPMKadis = computed(() => {
+  return daftarRekapGPMKadis.value.reduce((acc, r) => acc + (r.terlayani || 0), 0);
+});
+const persentaseSerapanKadis = computed(() => {
+  if (totalKuotaGPMKadis.value === 0) return '0.0';
+  return ((totalTerlayaniGPMKadis.value / totalKuotaGPMKadis.value) * 100).toFixed(1);
+});
+
 // ─── PROFIL MANDIRI & GANTI KATA SANDI PRIBADI (SEMUA ROLE) ────────
 const modalProfilBuka = ref(false);
 const formSandiMandiri = ref({
@@ -2517,6 +2888,7 @@ onMounted(async () => {
     muatSemuaPengguna();
     muatTrenKadis();
     muatRekapGPMKadis();
+    muatNotifikasiDinamisMobile();
   }
 
   if (tabAktif.value === 'gpm') {
@@ -2665,28 +3037,46 @@ watch(subMenuPetugasGPM, async (baru) => {
 
 const ambilNomorAntreanMobile = async () => {
   if (!acaraGPMDipilih.value) return;
-  if (!formAntreanGPM.value.nama_lengkap.trim() || !formAntreanGPM.value.nomor_telepon.trim()) {
-    pesanErrorGPM.value = 'Nama lengkap dan nomor telepon wajib diisi!';
-  
+
+  // 1. Validasi NIK 16 Digit (Wajib)
+  const nik = (formAntreanGPM.value.nik || '').replace(/[^0-9]/g, '').trim();
+  if (!nik) {
+    pesanErrorGPM.value = 'Nomor Induk Kependudukan (NIK) wajib diisi!';
+    return;
+  }
+  if (nik.length !== 16) {
+    pesanErrorGPM.value = `NIK harus tepat 16 digit angka! (Saat ini: ${nik.length} digit)`;
+    return;
   }
 
-  // Validasi Nama: Hanya huruf dan spasi, dilarang simbol/angka
+  // 2. Validasi Nama Lengkap: Hanya huruf dan spasi, min 3 karakter
+  const nama = formAntreanGPM.value.nama_lengkap.trim();
+  if (!nama) {
+    pesanErrorGPM.value = 'Nama lengkap wajib diisi!';
+    return;
+  }
   const regexNama = /^[a-zA-Z\s'.]+$/;
-  if (!regexNama.test(formAntreanGPM.value.nama_lengkap.trim())) {
+  if (!regexNama.test(nama)) {
     pesanErrorGPM.value = 'Nama lengkap hanya boleh berisi huruf dan spasi (tanpa angka atau simbol)!';
-  
+    return;
+  }
+  if (nama.length < 3) {
+    pesanErrorGPM.value = 'Nama lengkap minimal 3 karakter!';
+    return;
   }
 
-  // Validasi Nomor Telepon: Hanya angka, minimal > 10 digit (11-15 digit)
+  // 3. Validasi Nomor Telepon (Opsional)
   const telp = formAntreanGPM.value.nomor_telepon.trim();
-  const regexTelp = /^[0-9]+$/;
-  if (!regexTelp.test(telp)) {
-    pesanErrorGPM.value = 'Nomor telepon hanya boleh berisi angka!';
-  
-  }
-  if (telp.length <= 10) {
-    pesanErrorGPM.value = 'Nomor telepon harus lebih dari 10 digit (minimal 11 digit, contoh: 081234567890)!';
-  
+  if (telp) {
+    const regexTelp = /^[0-9]+$/;
+    if (!regexTelp.test(telp)) {
+      pesanErrorGPM.value = 'Nomor telepon hanya boleh berisi angka!';
+      return;
+    }
+    if (telp.length < 10 || telp.length > 15) {
+      pesanErrorGPM.value = 'Nomor telepon harus antara 10-15 digit jika diisi!';
+      return;
+    }
   }
 
   sedangDaftarGPM.value = true;
@@ -2694,10 +3084,13 @@ const ambilNomorAntreanMobile = async () => {
   try {
     const hasil = await gpmMobileService.ambilNomorAntrean(
       acaraGPMDipilih.value.id,
-      formAntreanGPM.value.nama_lengkap,
-      formAntreanGPM.value.nomor_telepon
+      nama,
+      telp || '-',
+      nik,
+      'Daring'
     );
     tiketGPMHasil.value = hasil;
+    formAntreanGPM.value.nik = '';
     formAntreanGPM.value.nama_lengkap = '';
     formAntreanGPM.value.nomor_telepon = '';
     await muatDataGPM();
@@ -2705,6 +3098,73 @@ const ambilNomorAntreanMobile = async () => {
     pesanErrorGPM.value = err.message || 'Gagal mendaftar antrean';
   } finally {
     sedangDaftarGPM.value = false;
+  }
+};
+
+// Handlers Pendaftaran Manual di Lokasi GPM untuk Petugas (Walk-In Tanpa HP)
+const bukaModalManualMobile = () => {
+  modalTambahManualMobile.value = {
+    buka: true,
+    acaraId: acaraGPMDipilih.value?.id || (daftarAcaraGPM.value[0]?.id ? String(daftarAcaraGPM.value[0].id) : ''),
+    nama: '',
+    nik: '',
+    telepon: '',
+    langsungHadir: true,
+    sedangKirim: false,
+    pesanError: ''
+  };
+};
+
+const simpanPendaftarManualMobile = async () => {
+  const m = modalTambahManualMobile.value;
+  if (!m.acaraId) {
+    m.pesanError = 'Silakan pilih kegiatan GPM!';
+    return;
+  }
+  const nik = (m.nik || '').replace(/[^0-9]/g, '').trim();
+  if (!nik) {
+    m.pesanError = 'Nomor Induk Kependudukan (NIK) wajib diisi!';
+    return;
+  }
+  if (nik.length !== 16) {
+    m.pesanError = `NIK harus tepat 16 digit angka! (Saat ini: ${nik.length} digit)`;
+    return;
+  }
+  const nama = (m.nama || '').trim();
+  if (!nama || nama.length < 3) {
+    m.pesanError = 'Nama lengkap wajib diisi minimal 3 karakter!';
+    return;
+  }
+  if (!/^[a-zA-Z\s'.]+$/.test(nama)) {
+    m.pesanError = 'Nama hanya boleh berupa huruf dan spasi!';
+    return;
+  }
+  const telp = (m.telepon || '').trim();
+  if (telp) {
+    if (!/^[0-9]+$/.test(telp) || telp.length < 10 || telp.length > 15) {
+      m.pesanError = 'Nomor telepon harus antara 10-15 digit jika diisi!';
+      return;
+    }
+  }
+
+  m.sedangKirim = true;
+  m.pesanError = '';
+  try {
+    const res = await gpmMobileService.tambahPendaftarManual(
+      m.acaraId,
+      nama,
+      telp || '-',
+      nik,
+      m.langsungHadir
+    );
+    m.buka = false;
+    pesanSuksesMobile.value = `Warga "${nama}" berhasil didaftarkan langsung (Antrean #${res.tiket.nomor_antrean})${m.langsungHadir ? ' dan otomatis diverifikasi Hadir!' : '!'}`;
+    setTimeout(() => { pesanSuksesMobile.value = ''; }, 4500);
+    await muatDataGPM();
+  } catch (err: any) {
+    m.pesanError = err.message || 'Gagal mendaftarkan warga secara manual.';
+  } finally {
+    m.sedangKirim = false;
   }
 };
 
@@ -2768,8 +3228,10 @@ const simpanAcaraGPMBaruMobile = async () => {
 
 const muatData = async () => {
   try {
-    const data = await hargaPanganMobileService.ambilSemua(kategoriAktif.value, pasarAktif.value, kataKunciPencarian.value);
-    semuaKomoditas.value = data;
+    // Portal publik mobile hanya menampilkan komoditas yang telah berstatus 'Terbit'
+    const data = await hargaPanganMobileService.ambilSemua(kategoriAktif.value, pasarAktif.value, kataKunciPencarian.value, 'Terbit');
+    const dataTerverifikasi = Array.isArray(data) ? data.filter(i => (i.status || 'Terbit').toLowerCase() === 'terbit') : [];
+    semuaKomoditas.value = dataTerverifikasi;
 
     const stat = await hargaPanganMobileService.ambilStatistik();
     statistik.value = stat;
@@ -2846,6 +3308,7 @@ const eksekusiLogin = async () => {
     muatSemuaPengguna();
     muatTrenKadis();
     muatRekapGPMKadis();
+    muatNotifikasiDinamisMobile();
   } catch (err: any) {
     alert('Gagal masuk: ' + (err.message || 'Terjadi kesalahan saat masuk'));
   } finally {
@@ -3122,7 +3585,7 @@ const muatSemuaPengguna = () => {
   daftarKecamatan.value = hargaPanganMobileService.ambilKecamatan();
 };
 
-const tambahPenggunaBaru = () => {
+const tambahPenggunaBaru = async () => {
   if (!formPenggunaBaru.value.nama.trim() || !formPenggunaBaru.value.username.trim() || !formPenggunaBaru.value.kata_sandi) {
     alert('Nama lengkap, username, dan kata sandi wajib diisi!');
     return;
@@ -3132,7 +3595,7 @@ const tambahPenggunaBaru = () => {
     return;
   }
   try {
-    penggunaMobileService.adminTambahPengguna(userAktif.value?.id || 'usr-admin', formPenggunaBaru.value);
+    await penggunaMobileService.adminTambahPengguna(userAktif.value?.id || 'usr-admin', formPenggunaBaru.value);
     modalTambahUserBuka.value = false;
     formPenggunaBaru.value = {
       nama: '',
@@ -3156,7 +3619,7 @@ const bukaModalResetSandi = (user: AkunPengguna) => {
   modalResetSandiBuka.value = true;
 };
 
-const eksekusiResetSandi = () => {
+const eksekusiResetSandi = async () => {
   if (!targetResetUser.value) return;
   if (!inputSandiResetBaru.value || inputSandiResetBaru.value.length < 8) {
     alert('Kata sandi baru minimal 8 karakter!');
@@ -3167,7 +3630,7 @@ const eksekusiResetSandi = () => {
     return;
   }
   try {
-    penggunaMobileService.adminResetPassword(
+    await penggunaMobileService.adminResetPassword(
       userAktif.value?.id || 'usr-admin',
       targetResetUser.value.id,
       inputSandiResetBaru.value
@@ -3282,12 +3745,167 @@ const muatTrenKadis = () => {
   dataTren.value = laporanMobileService.ambilDataTrenKomoditas(
     komoditasTren.value,
     periodeTren.value,
-    pasarTren.value
+    pasarTren.value,
+    semuaKomoditas.value
   );
 };
 
 const muatRekapGPMKadis = () => {
-  daftarRekapGPMKadis.value = laporanMobileService.ambilRekapitulasiGPM();
+  if (daftarAcaraGPM.value.length > 0) {
+    daftarRekapGPMKadis.value = daftarAcaraGPM.value.map(a => {
+      const pendaftar = pendaftarGPMList.value.filter(p => p.acara_id === a.id);
+      const terdaftar = Math.max(pendaftar.length, a.antrean_terisi || 0);
+      const terlayani = pendaftar.filter(p => p.status_kehadiran === 'Hadir').length;
+      return {
+        id: a.id,
+        nama_acara: a.nama_acara,
+        lokasi: a.lokasi,
+        kecamatan: a.kecamatan || 'Wenang',
+        tanggal: a.tanggal,
+        target_kuota: a.kuota_maksimal || 250,
+        terdaftar,
+        terlayani,
+        status: a.status || 'Aktif',
+        komoditas_tersedia: a.komoditas_tersedia || 'Beras SPHP 5kg, Minyakita 1L, Gula Pasir 1kg'
+      };
+    });
+  } else {
+    daftarRekapGPMKadis.value = laporanMobileService.ambilRekapitulasiGPM();
+  }
+};
+
+const bukaDetailWargaMobile = (acara: any) => {
+  modalDetailWargaMobile.value = {
+    buka: true,
+    acara,
+    pencarian: ''
+  };
+};
+
+const unduhRekapAcaraMobile = (acara: any) => {
+  if (!acara) return;
+  const pendaftar = pendaftarGPMList.value.filter(p => p.acara_id === acara.id);
+  gpmMobileService.eksporKeCSV(acara, pendaftar);
+};
+
+const unduhLaporanEksekutifGPM = () => {
+  laporanMobileService.eksporRekapitulasiSemuaGPMCSV(daftarRekapGPMKadis.value);
+};
+
+const pilihFotoDariPerangkat = () => {
+  inputFotoMobileRef.value?.click();
+};
+
+const handlePilihBerkasFotoMobile = (e: Event) => {
+  const target = e.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    alert('Format berkas harus berupa gambar (JPG, PNG, atau WebP)!');
+    return;
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    alert('Ukuran berkas foto maksimal 2 MB!');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (uploadEvt) => {
+    const base64 = uploadEvt.target?.result as string;
+    if (base64) {
+      inputFotoProfilUrl.value = base64;
+    }
+  };
+  reader.readAsDataURL(file);
+};
+
+const muatNotifikasiDinamisMobile = () => {
+  const notifs: NotifMobileItem[] = [];
+  const itemsHarga = semuaKomoditas.value || [];
+  const acaraGPM = daftarAcaraGPM.value || [];
+
+  if (isKabid.value) {
+    const draftCount = itemsHarga.filter((i: any) => (i.status || '').toLowerCase() === 'draft').length;
+    if (draftCount > 0) {
+      notifs.push({
+        id: 'notif-kabid-draft',
+        judul: '📝 Verifikasi Harga Pangan',
+        pesan: `Terdapat ${draftCount} usulan harga draf menunggu verifikasi Anda.`,
+        waktu: 'Terkini',
+        target: 'verif-harga'
+      });
+    }
+    const gpmSelesai = acaraGPM.filter(a => a.status === 'Selesai');
+    if (gpmSelesai.length > 0) {
+      notifs.push({
+        id: 'notif-kabid-gpm',
+        judul: '🌾 GPM Terarsip',
+        pesan: `Kegiatan "${gpmSelesai[0].nama_acara}" telah diselesaikan.`,
+        waktu: 'Hari ini',
+        target: 'kelola-gpm'
+      });
+    }
+  }
+
+  if (isKadis.value) {
+    const gpmSelesai = acaraGPM.filter(a => a.status === 'Selesai');
+    if (gpmSelesai.length > 0) {
+      notifs.push({
+        id: 'notif-kadis-gpm-selesai',
+        judul: '📊 Laporan Pelaksanaan GPM',
+        pesan: `Kegiatan "${gpmSelesai[0].nama_acara}" selesai dengan ${gpmSelesai[0].antrean_terisi || 0} warga terlayani.`,
+        waktu: 'Hari ini',
+        target: 'laporan-gpm'
+      });
+    }
+    notifs.push({
+      id: 'notif-kadis-tren',
+      judul: '📈 Fluktuasi Harga Pasar',
+      pesan: 'Grafik pangan terhubung ke seluruh komoditas acuan pasar Manado.',
+      waktu: 'Terkini',
+      target: 'grafik-pangan'
+    });
+  }
+
+  if (isStaf.value) {
+    const terbitCount = itemsHarga.filter((i: any) => (i.status || '').toLowerCase() === 'terbit').length;
+    const draftCount = itemsHarga.filter((i: any) => (i.status || '').toLowerCase() === 'draft').length;
+    notifs.push({
+      id: 'notif-staf-status',
+      judul: '📢 Status Publikasi Komoditas',
+      pesan: `${terbitCount} komoditas terbit di publik.${draftCount > 0 ? ` ${draftCount} draf dalam proses telaah.` : ''}`,
+      waktu: 'Terkini',
+      target: 'input-harga'
+    });
+    const gpmAktif = acaraGPM.find(a => a.status === 'Aktif' || a.status === 'Berlangsung');
+    if (gpmAktif) {
+      notifs.push({
+        id: 'notif-staf-gpm-aktif',
+        judul: '🎫 Pelaksanaan GPM Aktif',
+        pesan: `${gpmAktif.nama_acara} siap melayani verifikasi tiket warga.`,
+        waktu: 'Hari ini',
+        target: 'kelola-gpm'
+      });
+    }
+  }
+
+  if (isAdmin.value) {
+    notifs.push({
+      id: 'notif-admin-supervisi',
+      judul: '🛡️ Pengawasan Sistem & Akun',
+      pesan: `Sistem mencatat ${daftarSemuaPengguna.value.length || 4} akun kedinasan dan ${acaraGPM.length} agenda GPM.`,
+      waktu: 'Terkini',
+      target: 'kelola-user'
+    });
+  }
+
+  daftarNotifMobile.value = notifs;
+};
+
+const bukaNotifTarget = (target?: string) => {
+  if (target) {
+    menuPetugas.value = target;
+  }
+  modalNotifMobileBuka.value = false;
 };
 
 const hitungKoordinatTitik = (titikData: any[]) => {
@@ -3326,7 +3944,7 @@ const bukaModalProfil = () => {
   modalProfilBuka.value = true;
 };
 
-const eksekusiGantiSandiMandiri = () => {
+const eksekusiGantiSandiMandiri = async () => {
   if (!userAktif.value) return;
   if (!formSandiMandiri.value.sandiLama) {
     alert('Kata sandi lama wajib diisi!');
@@ -3341,7 +3959,7 @@ const eksekusiGantiSandiMandiri = () => {
     return;
   }
   try {
-    penggunaMobileService.ubahKataSandiPribadi(
+    await penggunaMobileService.ubahKataSandiPribadi(
       userAktif.value.id,
       formSandiMandiri.value.sandiLama,
       formSandiMandiri.value.sandiBaru
@@ -6258,6 +6876,42 @@ const eksekusiGantiFotoProfil = () => {
   background: #f8fafc;
   border-radius: 8px;
   border: 1px dashed #cbd5e1;
+}
+
+/* Badge Jalur Pendaftaran Mobile */
+.m-jalur-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.m-jalur-tag.jalur-langsung {
+  background: #ede9fe;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.m-jalur-tag.jalur-daring {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.btn-m-tambah-manual {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: #059669;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
 </style>

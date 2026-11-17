@@ -33,6 +33,9 @@ export interface ItemPendaftarGPM {
     id: string;
     acara_id: string;
     nama_pendaftar: string;
+    nama_bersih?: string;
+    nik?: string;
+    jalur_pendaftaran?: 'Daring' | 'Langsung';
     nomor_telepon: string;
     nomor_antrean: number;
     kode_barcode: string;
@@ -326,8 +329,42 @@ class GPMMobileApiService {
         });
     }
 
+    // Helper OOP: Normalisasi dan penguraian data pendaftar (Nama, NIK, Jalur Daring/Langsung)
+    parseDataPendaftar(item: any): ItemPendaftarGPM {
+        if (!item) return item;
+        let nama = item.nama_pendaftar || '';
+        let nik = item.nik || '';
+        let jalur: 'Daring' | 'Langsung' = item.jalur_pendaftaran || 'Daring';
+
+        const nikMatch = nama.match(/\[NIK:?\s*(\d{16})\]/i);
+        if (nikMatch) {
+            nik = nikMatch[1];
+            nama = nama.replace(nikMatch[0], '').trim();
+        }
+
+        const jalurMatch = nama.match(/\[(Daring|Langsung)\]/i);
+        if (jalurMatch) {
+            jalur = jalurMatch[1] as 'Daring' | 'Langsung';
+            nama = nama.replace(jalurMatch[0], '').trim();
+        }
+
+        return {
+            ...item,
+            nama_pendaftar: nama || item.nama_pendaftar,
+            nama_bersih: nama || item.nama_pendaftar,
+            nik: nik || item.nik || '-',
+            jalur_pendaftaran: jalur
+        };
+    }
+
     // [Modul Layanan GPM Mobile] 2. Masyarakat Ambil Antrean & Barcode (Cloud Supabase)
-    async ambilNomorAntrean(acara_id: string, nama_lengkap: string, nomor_telepon: string): Promise<HasilTiketGPM> {
+    async ambilNomorAntrean(acara_id: string, nama_lengkap: string, nomor_telepon: string, nik: string, jalur_pendaftaran: 'Daring' | 'Langsung' = 'Daring'): Promise<HasilTiketGPM> {
+        // Validasi NIK tepat 16 digit
+        const nikBersih = String(nik || '').replace(/[^0-9]/g, '').trim();
+        if (nikBersih.length !== 16) {
+            throw new Error(`NIK wajib terdiri dari tepat 16 digit angka! (Saat ini: ${nikBersih.length} digit)`);
+        }
+
         let validAcaraId = acara_id;
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(validAcaraId)) {
@@ -339,23 +376,36 @@ class GPMMobileApiService {
         // 1. Simpan langsung ke Supabase Cloud
         try {
             const pendaftarEksis = await supabaseClient.getPendaftarGPM(validAcaraId);
-            const nomorBaru = (Array.isArray(pendaftarEksis) ? pendaftarEksis.length : 0) + 1;
-            const kodeBarcode = `GPM-MOB-${String(nomorBaru).padStart(3, '0')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+            
+            // Pengecekan Keamanan: Cegah pendaftaran ganda NIK pada kegiatan GPM yang sama
+            const daftarParsed = (Array.isArray(pendaftarEksis) ? pendaftarEksis : []).map((p: any) => this.parseDataPendaftar(p));
+            const sudahAdaNIK = daftarParsed.some(p => p.nik === nikBersih);
+            if (sudahAdaNIK) {
+                throw new Error(`Pendaftaran ditolak: NIK (${nikBersih}) sudah terdaftar pada kegiatan GPM ini! Satu NIK hanya dapat digunakan untuk 1 nomor antrean pada kegiatan yang sama.`);
+            }
 
+            const nomorBaru = (Array.isArray(pendaftarEksis) ? pendaftarEksis.length : 0) + 1;
+            const prefixKode = jalur_pendaftaran === 'Langsung' ? 'GPM-DIR' : 'GPM-MOB';
+            const kodeBarcode = `${prefixKode}-${String(nomorBaru).padStart(3, '0')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+            const namaFormat = `${(nama_lengkap || '').trim()} [NIK:${nikBersih}] [${jalur_pendaftaran}]`;
             const payload = {
                 acara_id: validAcaraId,
-                nama_pendaftar: nama_lengkap.trim(),
-                nomor_telepon: nomor_telepon.trim(),
+                nama_pendaftar: namaFormat,
+                nomor_telepon: (nomor_telepon || '-').trim(),
                 nomor_antrean: nomorBaru,
                 kode_barcode: kodeBarcode,
-                status_kehadiran: 'Menunggu'
+                status_kehadiran: 'Menunggu' as const
             };
 
             const dataMasuk = await supabaseClient.daftarAntreanGPM(payload);
-            const tiketBaru: ItemPendaftarGPM = dataMasuk && dataMasuk.id ? dataMasuk : {
+            const tiketBaru: ItemPendaftarGPM = dataMasuk && dataMasuk.id ? this.parseDataPendaftar(dataMasuk) : {
                 ...payload,
                 id: 'antrean-' + Date.now(),
-                waktu_mendaftar: new Date().toISOString()
+                waktu_mendaftar: new Date().toISOString(),
+                nama_bersih: nama_lengkap.trim(),
+                nik: nikBersih,
+                jalur_pendaftaran
             };
 
             this.fallbackPendaftar.push(tiketBaru);
@@ -377,50 +427,41 @@ class GPMMobileApiService {
                     jam: `${acara.jam_mulai} - ${acara.jam_selesai} WITA`
                 }
             };
-        } catch (cloudErr) {
+        } catch (cloudErr: any) {
+            if (cloudErr.message && cloudErr.message.includes('Pendaftaran ditolak: NIK')) {
+                throw cloudErr;
+            }
             console.warn('[GPMService Mobile] Supabase offline, mencoba penyimpanan lokal:', cloudErr);
         }
 
-        // 2. Coba API server jika terhubung LAN
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-            const respon = await fetch(`${this.baseUrl}/antrian`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ acara_id: validAcaraId, nama_lengkap, nomor_telepon }),
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-
-            const json = await respon.json();
-            if (respon.ok && json.data) return json.data;
-        } catch (error) {}
-
-        // 3. Fallback penyimpanan offline lokal
+        // 2. Fallback penyimpanan offline lokal
         const pendaftarAcara = this.fallbackPendaftar.filter(p => p.acara_id === validAcaraId || p.acara_id === acara_id);
+        const sudahAdaLokal = pendaftarAcara.some(p => this.parseDataPendaftar(p).nik === nikBersih);
+        if (sudahAdaLokal) {
+            throw new Error(`Pendaftaran ditolak: NIK (${nikBersih}) sudah terdaftar pada kegiatan GPM ini! Satu NIK hanya dapat digunakan untuk 1 nomor antrean pada kegiatan yang sama.`);
+        }
+
         const nomorBaru = pendaftarAcara.length + 1;
-        const kodeBarcode = `GPM-MOB-${String(nomorBaru).padStart(3, '0')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        const prefixKode = jalur_pendaftaran === 'Langsung' ? 'GPM-DIR' : 'GPM-MOB';
+        const kodeBarcode = `${prefixKode}-${String(nomorBaru).padStart(3, '0')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        const namaFormat = `${(nama_lengkap || '').trim()} [NIK:${nikBersih}] [${jalur_pendaftaran}]`;
 
         const tiketBaru: ItemPendaftarGPM = {
             id: 'antrean-' + Date.now(),
             acara_id: acara.id,
-            nama_pendaftar: nama_lengkap,
-            nomor_telepon,
+            nama_pendaftar: namaFormat,
+            nama_bersih: (nama_lengkap || '').trim(),
+            nik: nikBersih,
+            jalur_pendaftaran,
+            nomor_telepon: (nomor_telepon || '-').trim(),
             nomor_antrean: nomorBaru,
             kode_barcode: kodeBarcode,
-            status_kehadiran: 'Menunggu',
-            waktu_kehadiran: null,
+            status_kehadiran: 'Menunggu' as const,
             waktu_mendaftar: new Date().toISOString()
         };
 
         this.fallbackPendaftar.push(tiketBaru);
         this.simpanPendaftarKeStorage();
-
-        acara.antrean_terisi = (acara.antrean_terisi || 0) + 1;
-        acara.sisa_kuota = Math.max(0, (acara.kuota_maksimal || 200) - acara.antrean_terisi);
-        this.simpanAcaraKeStorage();
 
         return {
             tiket: tiketBaru,
@@ -432,6 +473,21 @@ class GPMMobileApiService {
                 jam: `${acara.jam_mulai} - ${acara.jam_selesai} WITA`
             }
         };
+    }
+
+    // [Modul Layanan GPM Mobile] 3. Pendaftaran Manual di Lokasi oleh Petugas
+    async tambahPendaftarManual(acara_id: string, nama_lengkap: string, nomor_telepon: string, nik: string, langsungHadir: boolean = true): Promise<HasilTiketGPM> {
+        const hasil = await this.ambilNomorAntrean(acara_id, nama_lengkap, nomor_telepon, nik, 'Langsung');
+        if (langsungHadir && hasil && hasil.tiket && hasil.tiket.kode_barcode) {
+            try {
+                await this.verifikasiKehadiran(hasil.tiket.kode_barcode);
+                hasil.tiket.status_kehadiran = 'Hadir';
+                hasil.tiket.waktu_kehadiran = new Date().toISOString();
+            } catch (e) {
+                console.warn('Auto verifikasi hadir error:', e);
+            }
+        }
+        return hasil;
     }
 
     // [Modul Layanan GPM Mobile] 3. Petugas Scan Barcode
@@ -730,19 +786,22 @@ class GPMMobileApiService {
         csv += `Waktu Unduh Rekapitulasi,"${new Date().toLocaleString('id-ID')}"\n\n`;
 
         csv += 'DATA DETAIL PENDAFTAR & ANTREAN\n';
-        csv += 'No Urut,Nomor Antrean,Nama Lengkap,Nomor Telepon / WhatsApp,Kode Tiket QR,Status Kehadiran,Waktu Pendaftaran,Waktu Hadir\n';
+        csv += 'No Urut,Nomor Antrean,Nama Lengkap,NIK (16 Digit),Jalur Pendaftaran,Nomor Telepon / WhatsApp,Kode Tiket QR,Status Kehadiran,Waktu Pendaftaran,Waktu Hadir\n';
 
         pendaftar.forEach((p, index) => {
+            const parsed = this.parseDataPendaftar(p);
             const noUrut = index + 1;
-            const noAntrean = `="#${String(p.nomor_antrean || index + 1).padStart(3, '0')}"`;
-            const nama = `"${(p.nama_pendaftar || '').replace(/"/g, '""')}"`;
-            const rawTelp = String(p.nomor_telepon || '').replace(/[^0-9]/g, '');
+            const noAntrean = `="#${String(parsed.nomor_antrean || index + 1).padStart(3, '0')}"`;
+            const nama = `"${(parsed.nama_bersih || '').replace(/"/g, '""')}"`;
+            const nik = parsed.nik && parsed.nik !== '-' ? `="${parsed.nik}"` : `"-"`;
+            const jalur = `"${parsed.jalur_pendaftaran || 'Daring'}"`;
+            const rawTelp = String(parsed.nomor_telepon || '').replace(/[^0-9]/g, '');
             const telp = rawTelp ? `="${rawTelp}"` : `"-"`;
-            const kode = `"${(p.kode_barcode || '').replace(/"/g, '""')}"`;
-            const status = `"${p.status_kehadiran || 'Menunggu'}"`;
-            const waktuDaftar = `"${p.waktu_mendaftar ? new Date(p.waktu_mendaftar).toLocaleString('id-ID') : '-'}"`;
-            const waktuHadir = `"${p.waktu_kehadiran ? new Date(p.waktu_kehadiran).toLocaleString('id-ID') : (p.status_kehadiran === 'Hadir' ? 'Hadir di Lokasi' : '-')}"`;
-            csv += `${noUrut},${noAntrean},${nama},${telp},${kode},${status},${waktuDaftar},${waktuHadir}\n`;
+            const kode = `"${(parsed.kode_barcode || '').replace(/"/g, '""')}"`;
+            const status = `"${parsed.status_kehadiran || 'Menunggu'}"`;
+            const waktuDaftar = `"${parsed.waktu_mendaftar ? new Date(parsed.waktu_mendaftar).toLocaleString('id-ID') : '-'}"`;
+            const waktuHadir = `"${parsed.waktu_kehadiran ? new Date(parsed.waktu_kehadiran).toLocaleString('id-ID') : (parsed.status_kehadiran === 'Hadir' ? 'Hadir di Lokasi' : '-')}"`;
+            csv += `${noUrut},${noAntrean},${nama},${nik},${jalur},${telp},${kode},${status},${waktuDaftar},${waktuHadir}\n`;
         });
 
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

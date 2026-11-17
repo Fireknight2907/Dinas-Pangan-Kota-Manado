@@ -8,10 +8,11 @@
 // 4. Kadis : Dashboard Eksekutif, Laporan GPM, Grafik Pangan (Tren Fluktuasi)
 // ===================================================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { penggunaService } from '../services/PenggunaService';
 import { hargaPanganService } from '../services/HargaPanganService';
 import { laporanService } from '../services/LaporanService';
+import { gpmService } from '../services/GPMService';
 import PetugasGPMManager from './PetugasGPMManager';
 import './PetugasDashboard.css';
 
@@ -22,11 +23,20 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   const peran = penggunaService.normalisasiPeran(pengguna?.peran);
   const daftarMenuResmi = penggunaService.ambilDaftarMenu(peran);
 
+  // Aksesibilitas peran menyeluruh (Superadmin memiliki hak akses penuh ke seluruh menu)
+  const isSuperadmin = peran === 'Superadmin';
+  const isAdmin = peran === 'Admin' || isSuperadmin;
+  const isKabid = peran === 'Kabid' || isSuperadmin;
+  const isStaf = peran === 'Staf' || isSuperadmin;
+  const isKadis = peran === 'Kadis' || isSuperadmin;
+
   // Format nama peran lengkap untuk tampilan antarmuka
   const namaLengkapPeran = (r) => {
+    if (r === 'Superadmin') return 'Super Administrator';
     if (r === 'Kabid') return 'Kepala Bidang';
     if (r === 'Kadis') return 'Kepala Dinas';
-    return r || 'Petugas';
+    if (r === 'Admin') return 'Administrator';
+    return r || 'Staf Pangan';
   };
 
   // Menu aktif awal diarahkan ke menu pertama yang diizinkan (default: 'dashboard')
@@ -122,26 +132,49 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   const [pasarTren, setPasarTren] = useState('Semua');
   const [dataTren, setDataTren] = useState(null);
 
+  // Data Riil Pelaksanaan GPM & Pendaftar Warga (Kadis, Admin, Kabid)
+  const [daftarAcaraGPM, setDaftarAcaraGPM] = useState([]);
+  const [daftarPendaftarGPM, setDaftarPendaftarGPM] = useState([]);
+
+  // Modal Detail Pendaftar Warga GPM (Dapat diakses Kadis, Admin, Superadmin)
+  const [modalDetailWarga, setModalDetailWarga] = useState({
+    buka: false,
+    acara: null,
+    pencarian: ''
+  });
+
+  // Modal Pilihan Cetak Rekapitulasi GPM (Kadis & Superadmin)
+  const [modalPilihanCetakGPM, setModalPilihanCetakGPM] = useState({
+    buka: false,
+    mode: 'semua', // 'semua' | 'acara'
+    acaraId: ''
+  });
+
+  // State Dokumen Cetak Resmi Anti-Blank
+  const [dataCetakResmi, setDataCetakResmi] = useState(null);
+
+  // Ref Input Unggah Berkas Foto Profil dari Perangkat
+  const inputBerkasFotoRef = useRef(null);
+
   // ─────────────────────────────────────────────
   // 2. SIKLUS HIDUP & PEMUATAN DATA
   // ─────────────────────────────────────────────
   useEffect(() => {
     muatDataDashboard();
     muatMasterData();
-    muatNotifikasi();
 
-    if (peran === 'Kadis') {
-      const tren = laporanService.ambilDataTrenKomoditas(komoditasTren, periodeTren, pasarTren);
+    if (isKadis) {
+      const tren = laporanService.ambilDataTrenKomoditas(komoditasTren, periodeTren, pasarTren, daftarHarga);
       setDataTren(tren);
     }
   }, [peran]);
 
   useEffect(() => {
-    if (peran === 'Kadis') {
-      const tren = laporanService.ambilDataTrenKomoditas(komoditasTren, periodeTren, pasarTren);
+    if (isKadis) {
+      const tren = laporanService.ambilDataTrenKomoditas(komoditasTren, periodeTren, pasarTren, daftarHarga);
       setDataTren(tren);
     }
-  }, [komoditasTren, periodeTren, pasarTren]);
+  }, [komoditasTren, periodeTren, pasarTren, daftarHarga]);
 
   const muatDataDashboard = async () => {
     try {
@@ -150,6 +183,20 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
       const items = await hargaPanganService.ambilSemua();
       setDaftarHarga(items);
+
+      const acara = await gpmService.ambilSemuaAcara();
+      setDaftarAcaraGPM(acara || []);
+
+      const pendaftar = await gpmService.ambilPendaftarAcara();
+      setDaftarPendaftarGPM(pendaftar || []);
+
+      const users = isAdmin ? penggunaService.ambilSemuaPengguna() : [];
+      muatNotifikasiDinamis(items, acara, users);
+
+      if (isKadis) {
+        const tren = laporanService.ambilDataTrenKomoditas(komoditasTren, periodeTren, pasarTren, items);
+        setDataTren(tren);
+      }
     } catch (error) {
       console.error('Gagal memuat data dashboard:', error);
     }
@@ -165,14 +212,95 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     const kec = hargaPanganService.ambilKecamatan();
     setDaftarKecamatan(kec);
 
-    if (peran === 'Admin') {
+    if (isAdmin) {
       const users = penggunaService.ambilSemuaPengguna();
       setDaftarPengguna(users);
+      muatNotifikasiDinamis(daftarHarga, daftarAcaraGPM, users);
     }
   };
 
-  const muatNotifikasi = () => {
-    const notifs = hargaPanganService.ambilNotifikasi();
+  // Pemuatan Notifikasi Dinamis Sesuai Peran Respon Riil Sistem
+  const muatNotifikasiDinamis = (hargaList, acaraList, usersList) => {
+    const notifs = [];
+    const itemsHarga = hargaList || daftarHarga || [];
+    const acaraGPM = acaraList || daftarAcaraGPM || [];
+    const users = usersList || daftarPengguna || [];
+
+    if (isKabid) {
+      const draftCount = itemsHarga.filter(i => (i.status || '').toLowerCase() === 'draft').length;
+      if (draftCount > 0) {
+        notifs.push({
+          id: 'notif-kabid-draft',
+          judul: '📝 Verifikasi Harga Pangan',
+          pesan: `Terdapat ${draftCount} usulan harga draf dari staf menunggu verifikasi & persetujuan Anda.`,
+          waktu: 'Terkini',
+          target: 'verif-harga'
+        });
+      }
+      const gpmSelesai = acaraGPM.filter(a => a.status === 'Selesai');
+      if (gpmSelesai.length > 0) {
+        notifs.push({
+          id: 'notif-kabid-gpm',
+          judul: '🌾 Realisasi Gerakan Pangan Murah',
+          pesan: `Kegiatan "${gpmSelesai[0].nama_acara}" telah selesai dan terarsip dalam riwayat.`,
+          waktu: 'Hari ini',
+          target: 'gpm-petugas'
+        });
+      }
+    }
+
+    if (isKadis) {
+      const gpmSelesai = acaraGPM.filter(a => a.status === 'Selesai');
+      if (gpmSelesai.length > 0) {
+        notifs.push({
+          id: 'notif-kadis-gpm-selesai',
+          judul: '📊 Laporan Pelaksanaan GPM',
+          pesan: `Kegiatan "${gpmSelesai[0].nama_acara}" selesai dengan ${gpmSelesai[0].terlayani || 0} warga terlayani. Laporan siap dievaluasi.`,
+          waktu: 'Hari ini',
+          target: 'laporan-gpm'
+        });
+      }
+      notifs.push({
+        id: 'notif-kadis-tren',
+        judul: '📈 Fluktuasi Harga Pasar',
+        pesan: 'Grafik komoditas diperbarui otomatis dari 15 data pangan pokok di pasar Manado.',
+        waktu: 'Terkini',
+        target: 'grafik-pangan'
+      });
+    }
+
+    if (isStaf) {
+      const terbitCount = itemsHarga.filter(i => (i.status || '').toLowerCase() === 'terbit').length;
+      const draftCount = itemsHarga.filter(i => (i.status || '').toLowerCase() === 'draft').length;
+      notifs.push({
+        id: 'notif-staf-status',
+        judul: '📢 Status Publikasi Komoditas',
+        pesan: `${terbitCount} komoditas tampil di publik.${draftCount > 0 ? ` ${draftCount} draf sedang ditelaah pimpinan.` : ' Seluruh usulan harga terbit.'}`,
+        waktu: 'Terkini',
+        target: 'input-harga'
+      });
+      const gpmAktif = acaraGPM.find(a => a.status === 'Aktif' || a.status === 'Berlangsung');
+      if (gpmAktif) {
+        notifs.push({
+          id: 'notif-staf-gpm-aktif',
+          judul: '🎫 Pelaksanaan GPM Terjadwal',
+          pesan: `${gpmAktif.nama_acara} di ${gpmAktif.lokasi} siap melayani registrasi tiket warga.`,
+          waktu: 'Hari ini',
+          target: 'gpm-petugas'
+        });
+      }
+    }
+
+    if (isAdmin) {
+      notifs.push({
+        id: 'notif-admin-supervisi',
+        judul: '🛡️ Pengawasan Sistem & Akun',
+        pesan: `Sistem mencatat ${users.length || 4} akun kedinasan aktif dan ${acaraGPM.length} agenda GPM dalam basis data.`,
+        waktu: 'Terkini',
+        target: 'kelola-user'
+      });
+    }
+
     setDaftarNotif(notifs);
   };
 
@@ -450,10 +578,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   // ─────────────────────────────────────────────
   // 5. LOGIKA KELOLA PENGGUNA (KHUSUS ADMIN)
   // ─────────────────────────────────────────────
-  const handleTambahUserBaru = (e) => {
+  const handleTambahUserBaru = async (e) => {
     e.preventDefault();
     try {
-      penggunaService.adminTambahPengguna(userState.id, formUserBaru);
+      await penggunaService.adminTambahPengguna(userState.id, formUserBaru);
       setFormUserBaru({
         nama: '',
         username: '',
@@ -495,7 +623,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   };
 
   // Eksekusi Hard Reset Password oleh Admin
-  const handleEksekusiResetAdmin = (e) => {
+  const handleEksekusiResetAdmin = async (e) => {
     e.preventDefault();
     if (!modalResetAdmin.sandiBaru || modalResetAdmin.sandiBaru.length < 8) {
       setModalResetAdmin(prev => ({ ...prev, pesan: 'Kata sandi baru minimal 8 karakter!' }));
@@ -507,7 +635,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     }
 
     try {
-      penggunaService.adminResetPassword(userState.id, modalResetAdmin.userTarget.id, modalResetAdmin.sandiBaru);
+      await penggunaService.adminResetPassword(userState.id, modalResetAdmin.userTarget.id, modalResetAdmin.sandiBaru);
       tampilkanPesan(`✅ Kata sandi untuk @${modalResetAdmin.userTarget.username} berhasil di-reset.`);
       setModalResetAdmin({ buka: false, userTarget: null, sandiBaru: '', konfirmasiSandi: '', pesan: '' });
     } catch (err) {
@@ -548,7 +676,38 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     }
   };
 
-  const handleSimpanPasswordPribadi = (e) => {
+  // Unggah Berkas Foto Profil Langsung dari Galeri/Perangkat Lokal
+  const handlePilihBerkasFoto = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setPesanProfil({ tipe: 'error', teks: '⚠️ Berkas harus berupa gambar (JPG, PNG, atau WebP)!' });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setPesanProfil({ tipe: 'error', teks: '⚠️ Ukuran foto maksimal 2 MB!' });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      const base64 = uploadEvent.target?.result;
+      if (base64) {
+        setInputFotoUrl(base64);
+        setPesanProfil({ tipe: 'sukses', teks: 'Foto dipilih dari perangkat. Klik "Perbarui Foto" untuk menyimpan.' });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Cetak Dokumen Resmi Anti-Blank dengan Kop Surat Pemkot Manado
+  const handleCetakDokumen = (konfigurasi) => {
+    setDataCetakResmi(konfigurasi);
+    setTimeout(() => {
+      window.print();
+    }, 250);
+  };
+
+  const handleSimpanPasswordPribadi = async (e) => {
     e.preventDefault();
     if (!passwordBaru || passwordBaru.length < 8) {
       setPesanProfil({ tipe: 'error', teks: '⚠️ Kata sandi baru minimal 8 karakter!' });
@@ -560,7 +719,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     }
 
     try {
-      penggunaService.ubahKataSandiPribadi(userState.id, passwordLama, passwordBaru);
+      await penggunaService.ubahKataSandiPribadi(userState.id, passwordLama, passwordBaru);
       setPasswordLama('');
       setPasswordBaru('');
       setKonfirmasiPasswordBaru('');
@@ -579,7 +738,27 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     }).format(angka).replace('IDR', 'Rp');
   };
 
-  const rekapitulasiGPMList = laporanService.ambilRekapitulasiGPM();
+  // Data Riil Rekapitulasi GPM (Terkoneksi Basis Data Supabase & Pendaftar Riil)
+  const rekapitulasiGPMList = daftarAcaraGPM.map(a => {
+    const pendaftarAcara = daftarPendaftarGPM.filter(p => p.acara_id === a.id);
+    const terdaftarCount = Math.max(pendaftarAcara.length, a.terdaftar || 0);
+    const terlayaniCount = pendaftarAcara.filter(p => p.status_kehadiran === 'Hadir').length || (a.terlayani || 0);
+    return {
+      id: a.id,
+      nama_acara: a.nama_acara,
+      lokasi: a.lokasi,
+      kecamatan: a.kecamatan || 'Wenang',
+      tanggal: a.tanggal,
+      jam_mulai: a.jam_mulai,
+      jam_selesai: a.jam_selesai,
+      target_kuota: a.kuota_maksimal || 250,
+      terdaftar: terdaftarCount,
+      terlayani: terlayaniCount,
+      status: a.status || 'Aktif',
+      komoditas_tersedia: a.komoditas_tersedia || 'Beras SPHP 5kg, Minyakita 1L, Gula Pasir 1kg',
+      daftar_warga: pendaftarAcara
+    };
+  });
   const daftarDraftVerifikasi = daftarHarga.filter(item => item.status === 'Draft');
 
   return (
@@ -672,16 +851,16 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 position: 'absolute',
                 top: '46px',
                 right: '0',
-                width: '320px',
+                width: '340px',
                 background: '#ffffff',
                 border: '1px solid #e2e8f0',
                 borderRadius: '12px',
-                boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
                 zIndex: 50,
                 padding: '14px'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <strong style={{ fontSize: '0.9rem' }}>Pemberitahuan Sistem</strong>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
+                  <strong style={{ fontSize: '0.9rem', color: '#1e293b' }}>🔔 Notifikasi Respon Sistem</strong>
                   <button 
                     onClick={() => {
                       const updated = hargaPanganService.tandaiSemuaDibaca();
@@ -692,14 +871,39 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                     Tandai Dibaca
                   </button>
                 </div>
-                <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
-                  {daftarNotif.map(n => (
-                    <div key={n.id} style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.82rem' }}>{n.judul}</div>
-                      <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{n.pesan}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>{n.waktu}</div>
+                <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                  {daftarNotif.length === 0 ? (
+                    <div style={{ padding: '16px 8px', textAlign: 'center', color: '#94a3b8', fontSize: '0.82rem' }}>
+                      Belum ada pemberitahuan baru
                     </div>
-                  ))}
+                  ) : (
+                    daftarNotif.map(n => (
+                      <div 
+                        key={n.id} 
+                        onClick={() => {
+                          if (n.target) setMenuAktif(n.target);
+                          setTampilkanNotifDropdown(false);
+                        }}
+                        style={{ 
+                          padding: '10px 8px', 
+                          borderBottom: '1px solid #f1f5f9',
+                          cursor: n.target ? 'pointer' : 'default',
+                          borderRadius: '6px',
+                          background: '#ffffff',
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; }}
+                      >
+                        <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#1e293b' }}>{n.judul}</div>
+                        <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px', lineHeight: 1.35 }}>{n.pesan}</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                          <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{n.waktu}</span>
+                          {n.target && <span style={{ fontSize: '0.7rem', color: '#8b1e1e', fontWeight: 700 }}>Buka Modul →</span>}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}
@@ -783,6 +987,32 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               </h3>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+                {/* Superadmin Full Access Quick Cards */}
+                {isSuperadmin && (
+                  <>
+                    <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('input-harga')}>
+                      <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>📝 Input Harga Komoditas</h4>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Akses modul pengusulan dan penginputan harga pangan.</p>
+                    </div>
+                    <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('verif-harga')}>
+                      <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>✅ Verifikasi Harga Kabid</h4>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Tinjau dan sahkan usulan harga komoditas menjadi Terbit.</p>
+                    </div>
+                    <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('kelola-gpm')}>
+                      <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>🎟️ Kelola & Pindai GPM</h4>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Jadwal GPM, scan QR, dan tambah peserta manual.</p>
+                    </div>
+                    <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('grafik-pangan')}>
+                      <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>📈 Grafik Pangan Kadis</h4>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Pantau tren grafik fluktuasi harga komoditas pangan.</p>
+                    </div>
+                    <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('kelola-user')}>
+                      <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>👥 Manajemen Pengguna</h4>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Kelola seluruh akun, tambah akun, dan atur peran sistem.</p>
+                    </div>
+                  </>
+                )}
+
                 {/* Admin Quick Cards */}
                 {peran === 'Admin' && (
                   <>
@@ -852,9 +1082,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         )}
 
         {/* ─────────────────────────────────────────────
-            10. VIEW 2: MENU INPUT DATA PANGAN (KHUSUS STAF)
+            10. VIEW 2: MENU INPUT DATA PANGAN (KHUSUS STAF / SUPERADMIN)
             ───────────────────────────────────────────── */}
-        {menuAktif === 'input-harga' && peran === 'Staf' && (
+        {menuAktif === 'input-harga' && isStaf && (
           <div className="tetapkan-harga-page-container">
             <div className="dashboard-hero-title-box">
               <h1 className="dashboard-main-heading">Menu Masukan Data Pangan</h1>
@@ -1008,7 +1238,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                           >
                             ✏️ Edit
                           </button>
-                          {peran === 'Kabid' && (
+                          {isKabid && (
                             <button
                               type="button"
                               onClick={() => handleHapusHarga(item.id, item.nama_komoditas)}
@@ -1038,9 +1268,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         )}
 
         {/* ─────────────────────────────────────────────
-            11. VIEW 3: MENU VERIF HARGA PANGAN (KHUSUS KABID)
+            11. VIEW 3: MENU VERIF HARGA PANGAN (KABID / SUPERADMIN)
             ───────────────────────────────────────────── */}
-        {menuAktif === 'verif-harga' && peran === 'Kabid' && (
+        {menuAktif === 'verif-harga' && isKabid && (
           <div className="dashboard-page-container">
             <div className="dashboard-hero-title-box">
               <h1 className="dashboard-main-heading">Menu Verifikasi Harga Pangan</h1>
@@ -1185,9 +1415,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         )}
 
         {/* ─────────────────────────────────────────────
-            12. VIEW 4: MENU KELOLA GPM (KABID & STAF)
+            12. VIEW 4: MENU KELOLA GPM (KABID, STAF & SUPERADMIN)
             ───────────────────────────────────────────── */}
-        {menuAktif === 'kelola-gpm' && (peran === 'Kabid' || peran === 'Staf') && (
+        {menuAktif === 'kelola-gpm' && (isKabid || isStaf) && (
           <div className="dashboard-page-container">
             <h1 className="dashboard-main-heading">Menu Kelola Gerakan Pangan Murah (GPM)</h1>
             <p className="dashboard-main-subheading">
@@ -1203,9 +1433,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         )}
 
         {/* ─────────────────────────────────────────────
-            13. VIEW 5: MENU CEK GPM (KHUSUS ADMIN)
+            13. VIEW 5: MENU CEK GPM (ADMIN & SUPERADMIN)
             ───────────────────────────────────────────── */}
-        {menuAktif === 'cek-gpm' && peran === 'Admin' && (
+        {menuAktif === 'cek-gpm' && isAdmin && (
           <div className="dashboard-page-container">
             <h1 className="dashboard-main-heading">Menu Cek GPM (Supervisi Administrator)</h1>
             <p className="dashboard-main-subheading">
@@ -1213,60 +1443,86 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginTop: '20px' }}>
-              {rekapitulasiGPMList.map((gpm) => (
-                <div key={gpm.id} style={{ background: '#ffffff', padding: '22px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                    <span style={{ 
-                      fontSize: '0.72rem', 
-                      fontWeight: 800, 
-                      padding: '3px 8px', 
-                      borderRadius: '4px',
-                      background: gpm.status === 'Selesai' ? '#dcfce7' : '#eff6ff',
-                      color: gpm.status === 'Selesai' ? '#166534' : '#1e40af'
-                    }}>
-                      {gpm.status}
-                    </span>
-                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>📅 {gpm.tanggal}</span>
-                  </div>
-
-                  <h3 style={{ margin: '0 0 6px 0', fontSize: '1.05rem', color: '#8b1e1e' }}>{gpm.nama_acara}</h3>
-                  <p style={{ margin: '0 0 14px 0', fontSize: '0.85rem', color: '#475569' }}>📍 {gpm.lokasi}</p>
-
-                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', marginBottom: '14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
-                      <span>Kapasitas Kuota:</span>
-                      <strong>{gpm.target_kuota} KK</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
-                      <span>Warga Terdaftar:</span>
-                      <strong>{gpm.terdaftar} Warga</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
-                      <span>Tingkat Keterlayanan:</span>
-                      <strong style={{ color: gpm.status === 'Selesai' ? '#166534' : '#d97706' }}>
-                        {gpm.status === 'Selesai' ? `${Math.round((gpm.terlayani / gpm.terdaftar) * 100)}%` : 'Dalam Proses'}
-                      </strong>
-                    </div>
-                  </div>
-
-                  <div style={{ fontSize: '0.82rem' }}>
-                    <strong>Komoditas Tersedia:</strong>
-                    <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px', color: '#475569' }}>
-                      {gpm.komoditas_tersalurkan.map((k, i) => (
-                        <li key={i}>{k.nama} — Kuota: {k.jumlah}</li>
-                      ))}
-                    </ul>
-                  </div>
+              {rekapitulasiGPMList.length === 0 ? (
+                <div style={{ gridColumn: '1 / -1', padding: '32px', textAlign: 'center', color: '#64748b', background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  Belum ada agenda Gerakan Pangan Murah dalam basis data.
                 </div>
-              ))}
+              ) : (
+                rekapitulasiGPMList.map((gpm) => (
+                  <div key={gpm.id} style={{ background: '#ffffff', padding: '22px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                      <span style={{ 
+                        fontSize: '0.72rem', 
+                        fontWeight: 800, 
+                        padding: '3px 8px', 
+                        borderRadius: '4px',
+                        background: gpm.status === 'Selesai' ? '#dcfce7' : '#eff6ff',
+                        color: gpm.status === 'Selesai' ? '#166534' : '#1e40af'
+                      }}>
+                        {gpm.status}
+                      </span>
+                      <span style={{ fontSize: '0.78rem', color: '#64748b' }}>📅 {gpm.tanggal}</span>
+                    </div>
+
+                    <h3 style={{ margin: '0 0 6px 0', fontSize: '1.05rem', color: '#8b1e1e' }}>{gpm.nama_acara}</h3>
+                    <p style={{ margin: '0 0 14px 0', fontSize: '0.85rem', color: '#475569' }}>📍 {gpm.lokasi} (Kec. {gpm.kecamatan})</p>
+
+                    <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', marginBottom: '14px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
+                        <span>Kapasitas Kuota:</span>
+                        <strong>{gpm.target_kuota} KK</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
+                        <span>Warga Terdaftar:</span>
+                        <strong style={{ color: '#1d4ed8' }}>{gpm.terdaftar} Warga</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                        <span>Warga Terlayani (Hadir):</span>
+                        <strong style={{ color: gpm.terlayani > 0 ? '#166534' : '#64748b' }}>
+                          {gpm.terlayani > 0 ? `${gpm.terlayani} KK` : '-'}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: '0.82rem', marginBottom: '14px' }}>
+                      <strong>🌾 Komoditas Disediakan:</strong>
+                      <div style={{ marginTop: '4px', color: '#475569', lineHeight: 1.4 }}>
+                        {gpm.komoditas_tersedia || 'Beras SPHP 5kg, Minyakita 1L, Gula Pasir 1kg'}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setModalDetailWarga({ buka: true, acara: gpm, pencarian: '' })}
+                      style={{
+                        background: '#8b1e1e',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '8px 14px',
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      👥 Buka & Supervisi Data Warga ({gpm.terdaftar} Pendaftar)
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
 
         {/* ─────────────────────────────────────────────
-            14. VIEW 6: LAPORAN KHUSUS BIDANG (KHUSUS KABID)
+            14. VIEW 6: LAPORAN KHUSUS BIDANG (KABID & SUPERADMIN)
             ───────────────────────────────────────────── */}
-        {menuAktif === 'laporan' && peran === 'Kabid' && (
+        {menuAktif === 'laporan' && isKabid && (
           <div className="dashboard-page-container" id="area-laporan-resmi">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
               <div>
@@ -1293,7 +1549,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   📥 Unduh CSV (Excel)
                 </button>
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => handleCetakDokumen({ jenis: 'kabid-harga', data: daftarHarga })}
                   style={{
                     background: '#8b1e1e',
                     color: '#ffffff',
@@ -1369,9 +1625,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         )}
 
         {/* ─────────────────────────────────────────────
-            15. VIEW 7: MASTER PASAR & WILAYAH (KHUSUS ADMIN)
+            15. VIEW 7: MASTER PASAR & WILAYAH (ADMIN & SUPERADMIN)
             ───────────────────────────────────────────── */}
-        {menuAktif === 'master-data' && peran === 'Admin' && (
+        {menuAktif === 'master-data' && isAdmin && (
           <div className="dashboard-page-container">
             <h1 className="dashboard-main-heading">🏛️ Master Pasar dan Wilayah</h1>
             <p className="dashboard-main-subheading">
@@ -1437,9 +1693,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         )}
 
         {/* ─────────────────────────────────────────────
-            16. VIEW 8: MENU EDIT USER (KHUSUS ADMIN)
+            16. VIEW 8: MENU EDIT USER (ADMIN & SUPERADMIN)
             ───────────────────────────────────────────── */}
-        {menuAktif === 'kelola-user' && peran === 'Admin' && (
+        {menuAktif === 'kelola-user' && isAdmin && (
           <div className="dashboard-page-container">
             <h1 className="dashboard-main-heading">👥 Menu Kelola Pengguna & Manajemen Akses (Admin)</h1>
             <p className="dashboard-main-subheading">
@@ -1613,14 +1869,14 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         )}
 
         {/* ─────────────────────────────────────────────
-            17. VIEW 9: GRAFIK PANGAN (KHUSUS KADIS)
+            17. VIEW 9: GRAFIK PANGAN (KADIS & SUPERADMIN)
             ───────────────────────────────────────────── */}
-        {menuAktif === 'grafik-pangan' && peran === 'Kadis' && (
+        {menuAktif === 'grafik-pangan' && isKadis && (
           <div className="dashboard-page-container">
             <div className="dashboard-hero-title-box">
               <h1 className="dashboard-main-heading">📈 Analisis Grafik & Tren Harga Pangan (Kepala Dinas)</h1>
               <p className="dashboard-main-subheading">
-                Visualisasi dinamika pergerakan dan stabilitas harga komoditas pangan pokok di pasar-pasar Kota Manado.
+                Visualisasi dinamika pergerakan dan stabilitas harga komoditas pangan pokok di pasar-pasar Kota Manado (data riil basis data).
               </p>
             </div>
 
@@ -1633,16 +1889,13 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   onChange={(e) => setKomoditasTren(e.target.value)}
                   style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 600 }}
                 >
-                  <option value="Beras Medium">Beras Medium</option>
-                  <option value="Beras Premium">Beras Premium</option>
-                  <option value="Minyak Goreng Kemasan">Minyak Goreng Kemasan</option>
-                  <option value="Gula Pasir">Gula Pasir</option>
-                  <option value="Telur Ayam">Telur Ayam</option>
-                  <option value="Daging Ayam">Daging Ayam</option>
-                  <option value="Daging Sapi">Daging Sapi</option>
-                  <option value="Bawang Merah">Bawang Merah</option>
-                  <option value="Bawang Putih">Bawang Putih</option>
-                  <option value="Cabai Rawit">Cabai Rawit</option>
+                  {(() => {
+                    const daftarNama = Array.from(new Set(daftarHarga.map(i => i.nama_komoditas).filter(Boolean)));
+                    const daftarOpsi = daftarNama.length > 0 ? daftarNama : ['Beras Medium', 'Beras Premium', 'Minyak Goreng Kemasan', 'Gula Pasir', 'Telur Ayam'];
+                    return daftarOpsi.map(nama => (
+                      <option key={nama} value={nama}>{nama}</option>
+                    ));
+                  })()}
                 </select>
               </div>
 
@@ -1747,9 +2000,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         )}
 
         {/* ─────────────────────────────────────────────
-            18. VIEW 10: LAPORAN GPM (KHUSUS KADIS)
+            18. VIEW 10: LAPORAN GPM (KADIS & SUPERADMIN)
             ───────────────────────────────────────────── */}
-        {menuAktif === 'laporan-gpm' && peran === 'Kadis' && (
+        {menuAktif === 'laporan-gpm' && isKadis && (
           <div className="dashboard-page-container">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
               <div>
@@ -1760,7 +2013,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               </div>
 
               <button
-                onClick={() => window.print()}
+                onClick={() => setModalPilihanCetakGPM({ buka: true, mode: 'semua', acaraId: '' })}
                 style={{
                   background: '#8b1e1e',
                   color: '#ffffff',
@@ -1769,7 +2022,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   borderRadius: '8px',
                   fontWeight: 700,
                   cursor: 'pointer',
-                  fontSize: '0.85rem'
+                  fontSize: '0.85rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
                 }}
               >
                 🖨️ Cetak Rekapitulasi GPM
@@ -1790,44 +2046,73 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                     <th style={{ padding: '10px' }}>Warga Mendaftar</th>
                     <th style={{ padding: '10px' }}>Warga Terlayani</th>
                     <th style={{ padding: '10px' }}>Status Acara</th>
+                    <th style={{ padding: '10px', textAlign: 'center' }}>Data Pendaftar</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rekapitulasiGPMList.map((gpm) => (
-                    <tr key={gpm.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '10px' }}>
-                        <strong>{gpm.nama_acara}</strong>
-                        <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{gpm.lokasi}</div>
-                      </td>
-                      <td style={{ padding: '10px' }}>{gpm.kecamatan}</td>
-                      <td style={{ padding: '10px', fontWeight: 700 }}>{gpm.target_kuota} KK</td>
-                      <td style={{ padding: '10px' }}>{gpm.terdaftar} Warga</td>
-                      <td style={{ padding: '10px', fontWeight: 800, color: gpm.terlayani > 0 ? '#166534' : '#64748b' }}>
-                        {gpm.terlayani > 0 ? `${gpm.terlayani} KK` : '-'}
-                      </td>
-                      <td style={{ padding: '10px' }}>
-                        <span style={{ 
-                          padding: '3px 8px', 
-                          borderRadius: '4px', 
-                          fontSize: '0.72rem', 
-                          fontWeight: 700, 
-                          background: gpm.status === 'Selesai' ? '#dcfce7' : '#eff6ff', 
-                          color: gpm.status === 'Selesai' ? '#166534' : '#1e40af' 
-                        }}>
-                          {gpm.status}
-                        </span>
+                  {rekapitulasiGPMList.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
+                        Belum ada riwayat kegiatan Gerakan Pangan Murah yang tercatat.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    rekapitulasiGPMList.map((gpm) => (
+                      <tr key={gpm.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '10px' }}>
+                          <strong>{gpm.nama_acara}</strong>
+                          <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{gpm.lokasi}</div>
+                        </td>
+                        <td style={{ padding: '10px' }}>{gpm.kecamatan}</td>
+                        <td style={{ padding: '10px', fontWeight: 700 }}>{gpm.target_kuota} KK</td>
+                        <td 
+                          style={{ padding: '10px', cursor: 'pointer', color: '#1d4ed8', fontWeight: 700 }}
+                          onClick={() => setModalDetailWarga({ buka: true, acara: gpm, pencarian: '' })}
+                          title="Klik untuk membuka data pendaftar warga"
+                        >
+                          {gpm.terdaftar} Warga 🔍
+                        </td>
+                        <td style={{ padding: '10px', fontWeight: 800, color: gpm.terlayani > 0 ? '#166534' : '#64748b' }}>
+                          {gpm.terlayani > 0 ? `${gpm.terlayani} KK` : '-'}
+                        </td>
+                        <td style={{ padding: '10px' }}>
+                          <span style={{ 
+                            padding: '3px 8px', 
+                            borderRadius: '4px', 
+                            fontSize: '0.72rem', 
+                            fontWeight: 700, 
+                            background: gpm.status === 'Selesai' ? '#dcfce7' : '#eff6ff', 
+                            color: gpm.status === 'Selesai' ? '#166534' : '#1e40af' 
+                          }}>
+                            {gpm.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px', textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => setModalDetailWarga({ buka: true, acara: gpm, pencarian: '' })}
+                            style={{
+                              background: '#eff6ff',
+                              color: '#1d4ed8',
+                              border: '1px solid #bfdbfe',
+                              borderRadius: '6px',
+                              padding: '5px 12px',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            👥 Buka Data ({gpm.terdaftar})
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
-
-              <div style={{ marginTop: '24px', padding: '16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
-                <strong style={{ color: '#166534' }}>💡 Catatan Kebijakan Pimpinan:</strong>
-                <p style={{ margin: '6px 0 0 0', fontSize: '0.85rem', color: '#14532d' }}>
-                  Tingkat kehadiran masyarakat pada GPM terbukti mencapai 95.2% dari total kuota yang dialokasikan. Disarankan untuk menambah alokasi beras SPHP pada titik kecamatan pesisir dan kepulauan.
-                </p>
-              </div>
             </div>
           </div>
         )}
@@ -2060,21 +2345,62 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   )}
                 </div>
                 <div style={{ flex: 1 }}>
+                  {/* Input Berkas Foto Tersembunyi */}
+                  <input
+                    type="file"
+                    ref={inputBerkasFotoRef}
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={handlePilihBerkasFoto}
+                  />
+
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => inputBerkasFotoRef.current?.click()}
+                      style={{
+                        background: '#f1f5f9',
+                        color: '#334155',
+                        border: '1px solid #cbd5e1',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      📁 Unggah dari Perangkat
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSimpanFotoProfil}
+                      style={{
+                        background: '#8b1e1e',
+                        color: '#fff',
+                        border: 'none',
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Simpan Foto
+                    </button>
+                  </div>
+
                   <input
                     type="url"
-                    placeholder="Tautan gambar / foto profil baru..."
+                    placeholder="Atau tempel tautan gambar web (opsional)..."
                     className="field-input-box"
-                    value={inputFotoUrl}
+                    value={inputFotoUrl.startsWith('data:') ? 'Foto terpilih dari galeri/perangkat (Base64)' : inputFotoUrl}
                     onChange={(e) => setInputFotoUrl(e.target.value)}
-                    style={{ fontSize: '0.85rem', marginBottom: '6px' }}
+                    style={{ fontSize: '0.82rem' }}
                   />
-                  <button
-                    type="button"
-                    onClick={handleSimpanFotoProfil}
-                    style={{ background: '#380a0a', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
-                  >
-                    Perbarui Foto
-                  </button>
                 </div>
               </div>
             </div>
@@ -2346,6 +2672,528 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           </div>
         </div>
       )}
+
+      {/* ─────────────────────────────────────────────
+          22. MODAL LIHAT DETAIL WARGA PENDAFTAR GPM
+          (Dapat diakses Kadis, Admin, dan Superadmin)
+          ───────────────────────────────────────────── */}
+      {modalDetailWarga.buka && modalDetailWarga.acara && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 120,
+            padding: '16px'
+          }}
+          onClick={() => setModalDetailWarga({ buka: false, acara: null, pencarian: '' })}
+        >
+          <div 
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              padding: '24px',
+              maxWidth: '960px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+              <div>
+                <h3 style={{ margin: '0 0 4px 0', color: '#8b1e1e', fontSize: '1.2rem' }}>
+                  👥 Rincian Pendaftar Warga: {modalDetailWarga.acara.nama_acara}
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.84rem', color: '#64748b' }}>
+                  📍 {modalDetailWarga.acara.lokasi} (Kec. {modalDetailWarga.acara.kecamatan}) · 📅 {modalDetailWarga.acara.tanggal} ({modalDetailWarga.acara.jam_mulai || '08:00'} - {modalDetailWarga.acara.jam_selesai || '13:00'} WITA)
+                </p>
+              </div>
+              <button 
+                onClick={() => setModalDetailWarga({ buka: false, acara: null, pencarian: '' })}
+                style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: '#888' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Statistik Ringkas Pendaftar */}
+            {(() => {
+              const pendaftarAcara = daftarPendaftarGPM.filter(p => p.acara_id === modalDetailWarga.acara.id);
+              const totalTerdaftar = Math.max(pendaftarAcara.length, modalDetailWarga.acara.terdaftar || 0);
+              const totalHadir = pendaftarAcara.filter(p => p.status_kehadiran === 'Hadir').length || (modalDetailWarga.acara.terlayani || 0);
+              const totalBelum = Math.max(0, totalTerdaftar - totalHadir);
+
+              const pendaftarTersaring = pendaftarAcara.filter(p => {
+                if (!modalDetailWarga.pencarian) return true;
+                const cari = modalDetailWarga.pencarian.toLowerCase();
+                const nama = (p.nama_lengkap || p.nama || '').toLowerCase();
+                const nik = (p.nik || '').toLowerCase();
+                const telp = (p.nomor_telepon || '').toLowerCase();
+                return nama.includes(cari) || nik.includes(cari) || telp.includes(cari);
+              });
+
+              return (
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+                    <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Target Alokasi Kuota</div>
+                      <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b' }}>{modalDetailWarga.acara.target_kuota} KK</div>
+                    </div>
+                    <div style={{ background: '#eff6ff', padding: '12px', borderRadius: '8px', border: '1px solid #bfdbfe', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#1d4ed8' }}>Warga Terdaftar</div>
+                      <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e40af' }}>{totalTerdaftar} Warga</div>
+                    </div>
+                    <div style={{ background: '#f0fdf4', padding: '12px', borderRadius: '8px', border: '1px solid #bbf7d0', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#166534' }}>Warga Hadir (Terlayani)</div>
+                      <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#15803d' }}>{totalHadir} Warga</div>
+                    </div>
+                    <div style={{ background: '#fffbeb', padding: '12px', borderRadius: '8px', border: '1px solid #fef3c7', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#92400e' }}>Belum Hadir</div>
+                      <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#b45309' }}>{totalBelum} Warga</div>
+                    </div>
+                  </div>
+
+                  {/* Filter & Toolbar */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
+                    <input
+                      type="text"
+                      placeholder="🔍 Cari warga berdasarkan Nama, NIK 16 digit, atau No. HP..."
+                      className="field-input-box"
+                      value={modalDetailWarga.pencarian}
+                      onChange={(e) => setModalDetailWarga(prev => ({ ...prev, pencarian: e.target.value }))}
+                      style={{ maxWidth: '400px', fontSize: '0.85rem' }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => gpmService.eksporKeCSV(modalDetailWarga.acara, pendaftarAcara)}
+                        style={{
+                          background: '#166534',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '8px 14px',
+                          borderRadius: '6px',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}
+                      >
+                        📥 Unduh CSV (Excel)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModalDetailWarga({ buka: false, acara: null, pencarian: '' });
+                          handleCetakDokumen({ jenis: 'kadis-gpm-acara', acara: modalDetailWarga.acara, pendaftar: pendaftarAcara });
+                        }}
+                        style={{
+                          background: '#8b1e1e',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '8px 14px',
+                          borderRadius: '6px',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}
+                      >
+                        🖨️ Cetak Rekap Acara
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tabel Pendaftar Warga */}
+                  <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+                          <th style={{ padding: '8px 10px' }}>No.</th>
+                          <th style={{ padding: '8px 10px' }}>No. Antrean</th>
+                          <th style={{ padding: '8px 10px' }}>NIK (16 Digit)</th>
+                          <th style={{ padding: '8px 10px' }}>Nama Lengkap Warga</th>
+                          <th style={{ padding: '8px 10px' }}>Jalur</th>
+                          <th style={{ padding: '8px 10px' }}>Nomor Telepon</th>
+                          <th style={{ padding: '8px 10px' }}>Status Kehadiran</th>
+                          <th style={{ padding: '8px 10px' }}>Waktu Hadir</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pendaftarTersaring.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
+                              Tidak ditemukan data pendaftar warga untuk kegiatan ini.
+                            </td>
+                          </tr>
+                        ) : (
+                          pendaftarTersaring.map((w, idx) => (
+                            <tr key={w.id || idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                              <td style={{ padding: '8px 10px' }}>{idx + 1}</td>
+                              <td style={{ padding: '8px 10px', fontWeight: 800, color: '#8b1e1e' }}>
+                                #{String(w.nomor_antrean || idx + 1).padStart(3, '0')}
+                              </td>
+                              <td style={{ padding: '8px 10px', fontFamily: 'monospace', fontWeight: 600 }}>
+                                {w.nik || '-'}
+                              </td>
+                              <td style={{ padding: '8px 10px', fontWeight: 700 }}>
+                                {w.nama_lengkap || w.nama}
+                              </td>
+                              <td style={{ padding: '8px 10px' }}>
+                                <span style={{
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  background: (w.jalur_pendaftaran || '').toLowerCase() === 'langsung' ? '#f0fdf4' : '#eff6ff',
+                                  color: (w.jalur_pendaftaran || '').toLowerCase() === 'langsung' ? '#166534' : '#1e40af'
+                                }}>
+                                  {w.jalur_pendaftaran || 'Daring'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '8px 10px' }}>{w.nomor_telepon || '-'}</td>
+                              <td style={{ padding: '8px 10px' }}>
+                                <span style={{
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  background: w.status_kehadiran === 'Hadir' ? '#dcfce7' : '#fef3c7',
+                                  color: w.status_kehadiran === 'Hadir' ? '#166534' : '#92400e'
+                                }}>
+                                  {w.status_kehadiran === 'Hadir' ? 'Hadir' : 'Menunggu'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '8px 10px', fontSize: '0.78rem', color: '#64748b' }}>
+                                {w.waktu_kehadiran ? new Date(w.waktu_kehadiran).toLocaleString('id-ID') : (w.status_kehadiran === 'Hadir' ? 'Terverifikasi di Lokasi' : '-')}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────
+          23. MODAL PILIHAN CETAK REKAPITULASI GPM (KADIS & SUPERADMIN)
+          ───────────────────────────────────────────── */}
+      {modalPilihanCetakGPM.buka && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 120,
+            padding: '16px'
+          }}
+          onClick={() => setModalPilihanCetakGPM({ buka: false, mode: 'semua', acaraId: '' })}
+        >
+          <div 
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              padding: '24px',
+              maxWidth: '520px',
+              width: '100%',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>
+              <h3 style={{ margin: 0, color: '#8b1e1e', fontSize: '1.1rem' }}>🖨️ Cetak Rekapitulasi GPM Resmi</h3>
+              <button 
+                onClick={() => setModalPilihanCetakGPM({ buka: false, mode: 'semua', acaraId: '' })}
+                style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#888' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ margin: '0 0 16px 0', fontSize: '0.86rem', color: '#64748b' }}>
+              Tentukan format laporan Gerakan Pangan Murah (GPM) yang ingin dicetak ke dokumen resmi PDF:
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px', borderRadius: '8px', border: modalPilihanCetakGPM.mode === 'semua' ? '2px solid #8b1e1e' : '1px solid #cbd5e1', background: modalPilihanCetakGPM.mode === 'semua' ? '#fff5f5' : '#ffffff', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="modeCetakGPM"
+                  checked={modalPilihanCetakGPM.mode === 'semua'}
+                  onChange={() => setModalPilihanCetakGPM(prev => ({ ...prev, mode: 'semua' }))}
+                  style={{ marginTop: '3px', accentColor: '#8b1e1e' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.92rem', color: '#1e293b' }}>1. Rekapitulasi Seluruh Kegiatan GPM</strong>
+                  <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Mencetak rangkuman evaluasi seluruh titik pelaksanaan GPM Kota Manado, serapan kuota, dan status kegiatan.</span>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px', borderRadius: '8px', border: modalPilihanCetakGPM.mode === 'acara' ? '2px solid #8b1e1e' : '1px solid #cbd5e1', background: modalPilihanCetakGPM.mode === 'acara' ? '#fff5f5' : '#ffffff', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="modeCetakGPM"
+                  checked={modalPilihanCetakGPM.mode === 'acara'}
+                  onChange={() => setModalPilihanCetakGPM(prev => ({ ...prev, mode: 'acara' }))}
+                  style={{ marginTop: '3px', accentColor: '#8b1e1e' }}
+                />
+                <div style={{ flex: 1 }}>
+                  <strong style={{ display: 'block', fontSize: '0.92rem', color: '#1e293b' }}>2. Rekapitulasi & Rincian Warga Titik Tertentu</strong>
+                  <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Mencetak laporan spesifik satu lokasi GPM beserta rincian lengkap daftar hadir warga pendaftar.</span>
+                  
+                  {modalPilihanCetakGPM.mode === 'acara' && (
+                    <div style={{ marginTop: '10px' }}>
+                      <select
+                        value={modalPilihanCetakGPM.acaraId}
+                        onChange={(e) => setModalPilihanCetakGPM(prev => ({ ...prev, acaraId: e.target.value }))}
+                        className="field-input-box"
+                        style={{ width: '100%', fontSize: '0.85rem' }}
+                      >
+                        <option value="">-- Pilih Titik Pelaksanaan GPM --</option>
+                        {rekapitulasiGPMList.map(a => (
+                          <option key={a.id} value={a.id}>{a.nama_acara} ({a.kecamatan})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </label>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setModalPilihanCetakGPM({ buka: false, mode: 'semua', acaraId: '' })}
+                style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '8px 16px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (modalPilihanCetakGPM.mode === 'acara') {
+                    const target = rekapitulasiGPMList.find(a => a.id === modalPilihanCetakGPM.acaraId) || rekapitulasiGPMList[0];
+                    if (!target) {
+                      alert('Silakan pilih kegiatan GPM terlebih dahulu!');
+                      return;
+                    }
+                    const pendaftarAcara = daftarPendaftarGPM.filter(p => p.acara_id === target.id);
+                    setModalPilihanCetakGPM({ buka: false, mode: 'semua', acaraId: '' });
+                    handleCetakDokumen({ jenis: 'kadis-gpm-acara', acara: target, pendaftar: pendaftarAcara });
+                  } else {
+                    setModalPilihanCetakGPM({ buka: false, mode: 'semua', acaraId: '' });
+                    handleCetakDokumen({ jenis: 'kadis-gpm-semua', data: rekapitulasiGPMList });
+                  }
+                }}
+                style={{ background: '#8b1e1e', color: '#ffffff', border: 'none', padding: '8px 18px', borderRadius: '6px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                🖨️ Mulai Cetak PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────
+          24. DOKUMEN CETAK RESMI PDF (KOP SURAT PEMKOT MANADO & FORMAT STANDAR)
+          ───────────────────────────────────────────── */}
+      <div id="area-cetak-dokumen">
+        {/* KOP SURAT RESMI */}
+        <div style={{ borderBottom: '3px double #000000', paddingBottom: '12px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px' }}>
+          <img src="/logodinaspangan.png" alt="Logo Pemkot Manado" style={{ width: '80px', height: '80px', objectFit: 'contain' }} />
+          <div style={{ textAlign: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: '15pt', fontWeight: 800, letterSpacing: '1px', color: '#000000' }}>
+              PEMERINTAH KOTA MANADO
+            </h3>
+            <h2 style={{ margin: '2px 0 0 0', fontSize: '18pt', fontWeight: 900, color: '#000000' }}>
+              DINAS PANGAN
+            </h2>
+            <p style={{ margin: '2px 0 0 0', fontSize: '10pt', fontWeight: 700, color: '#222222' }}>
+              BIDANG CADANGAN DAN DISTRIBUSI PANGAN
+            </p>
+            <p style={{ margin: '2px 0 0 0', fontSize: '8.5pt', color: '#444444' }}>
+              Jl. Balai Kota No. 1, Tikala Ares, Kec. Tikala, Kota Manado, Sulawesi Utara 95124
+            </p>
+          </div>
+        </div>
+
+        {/* KONTEN SESUAI JENIS CETAK */}
+        {dataCetakResmi?.jenis === 'kabid-harga' && (
+          <div>
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <h4 style={{ margin: 0, fontSize: '12pt', fontWeight: 800, textDecoration: 'underline' }}>
+                LAPORAN RESMI REKAPITULASI DAN PENETAPAN HARGA PANGAN POKOK
+              </h4>
+              <p style={{ margin: '4px 0 0 0', fontSize: '9pt', color: '#333333' }}>
+                Nomor: 520 / DP-CDP / {new Date().getFullYear()} · Waktu Cetak: {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            </div>
+
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt', marginBottom: '20px' }}>
+              <thead>
+                <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #000000', textAlign: 'left' }}>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>No.</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Nama Komoditas</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Kategori</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Satuan</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Harga Acuan</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Pasar Pantauan</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {daftarHarga.map((h, idx) => (
+                  <tr key={h.id}>
+                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{idx + 1}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333', fontWeight: 700 }}>{h.nama_komoditas}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333' }}>{h.kategori || 'Bahan Pokok'}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333' }}>{formatSatuanTampil(h.satuan)}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333', fontWeight: 700 }}>{formatRupiah(h.harga)}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333' }}>{h.nama_pasar}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{h.status || 'Terbit'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'flex-end', textAlign: 'center' }}>
+              <div style={{ width: '280px' }}>
+                <div style={{ fontSize: '9.5pt' }}>Manado, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                <div style={{ fontWeight: 800, fontSize: '9.5pt', marginTop: '2px' }}>Kepala Bidang Cadangan & Distribusi Pangan</div>
+                <div style={{ height: '65px' }}></div>
+                <div style={{ fontWeight: 800, fontSize: '10pt', textDecoration: 'underline' }}>MEITY RONDONUWU, S.Pt, M.Si</div>
+                <div style={{ fontSize: '8.5pt', color: '#444' }}>NIP. 19780815 200501 2 008</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {dataCetakResmi?.jenis === 'kadis-gpm-semua' && (
+          <div>
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <h4 style={{ margin: 0, fontSize: '12pt', fontWeight: 800, textDecoration: 'underline' }}>
+                LAPORAN EKSEKUTIF REKAPITULASI PELAKSANAAN GERAKAN PANGAN MURAH (GPM)
+              </h4>
+              <p style={{ margin: '4px 0 0 0', fontSize: '9pt', color: '#333333' }}>
+                Evaluasi Serapan Kuota Pangan Pokok & Pemerataan Distribusi Kota Manado
+              </p>
+            </div>
+
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt', marginBottom: '20px' }}>
+              <thead>
+                <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #000000', textAlign: 'left' }}>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>No.</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Nama Kegiatan GPM</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Lokasi / Titik Acara</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Kecamatan</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Tanggal Pelaksanaan</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Target Kuota</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Terdaftar</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Terlayani</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rekapitulasiGPMList.map((g, idx) => (
+                  <tr key={g.id}>
+                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{idx + 1}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333', fontWeight: 700 }}>{g.nama_acara}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333' }}>{g.lokasi}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333' }}>{g.kecamatan}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333' }}>{g.tanggal}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{g.target_kuota} KK</td>
+                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{g.terdaftar} Warga</td>
+                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center', fontWeight: 700 }}>{g.terlayani} KK</td>
+                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{g.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'flex-end', textAlign: 'center' }}>
+              <div style={{ width: '280px' }}>
+                <div style={{ fontSize: '9.5pt' }}>Manado, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                <div style={{ fontWeight: 800, fontSize: '9.5pt', marginTop: '2px' }}>Kepala Dinas Pangan Kota Manado</div>
+                <div style={{ height: '65px' }}></div>
+                <div style={{ fontWeight: 800, fontSize: '10pt', textDecoration: 'underline' }}>Ir. PHILIPS H. SONDY, M.Si</div>
+                <div style={{ fontSize: '8.5pt', color: '#444' }}>NIP. 19681120 199303 1 004</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {dataCetakResmi?.jenis === 'kadis-gpm-acara' && dataCetakResmi.acara && (
+          <div>
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <h4 style={{ margin: 0, fontSize: '12pt', fontWeight: 800, textDecoration: 'underline' }}>
+                LAPORAN PELAKSANAAN & DAFTAR PENDAFTAR WARGA GPM
+              </h4>
+              <p style={{ margin: '4px 0 0 0', fontSize: '9pt', color: '#333333' }}>
+                {dataCetakResmi.acara.nama_acara} — {dataCetakResmi.acara.lokasi} (Kec. {dataCetakResmi.acara.kecamatan})
+              </p>
+              <p style={{ margin: '2px 0 0 0', fontSize: '8.5pt', color: '#555555' }}>
+                Jadwal: {dataCetakResmi.acara.tanggal} ({dataCetakResmi.acara.jam_mulai || '08:00'} - {dataCetakResmi.acara.jam_selesai || '13:00'} WITA) · Komoditas: {dataCetakResmi.acara.komoditas_tersedia}
+              </p>
+            </div>
+
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt', marginBottom: '20px' }}>
+              <thead>
+                <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #000000', textAlign: 'left' }}>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>No.</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Antrean</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>NIK Warga (16 Digit)</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Nama Lengkap</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Jalur</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>No. HP / WA</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Status Kehadiran</th>
+                  <th style={{ padding: '6px', border: '1px solid #333' }}>Waktu Hadir</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(dataCetakResmi.pendaftar || []).map((w, idx) => (
+                  <tr key={w.id || idx}>
+                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{idx + 1}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center', fontWeight: 700 }}>#{String(w.nomor_antrean || idx + 1).padStart(3, '0')}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333', fontFamily: 'monospace' }}>{w.nik || '-'}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333', fontWeight: 700 }}>{w.nama_lengkap || w.nama}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{w.jalur_pendaftaran || 'Daring'}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333' }}>{w.nomor_telepon || '-'}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center', fontWeight: 700 }}>{w.status_kehadiran || 'Menunggu'}</td>
+                    <td style={{ padding: '5px', border: '1px solid #333', fontSize: '8pt' }}>{w.waktu_kehadiran ? new Date(w.waktu_kehadiran).toLocaleString('id-ID') : (w.status_kehadiran === 'Hadir' ? 'Hadir di Lokasi' : '-')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'flex-end', textAlign: 'center' }}>
+              <div style={{ width: '280px' }}>
+                <div style={{ fontSize: '9.5pt' }}>Manado, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                <div style={{ fontWeight: 800, fontSize: '9.5pt', marginTop: '2px' }}>Kepala Dinas Pangan Kota Manado</div>
+                <div style={{ height: '65px' }}></div>
+                <div style={{ fontWeight: 800, fontSize: '10pt', textDecoration: 'underline' }}>Ir. PHILIPS H. SONDY, M.Si</div>
+                <div style={{ fontSize: '8.5pt', color: '#444' }}>NIP. 19681120 199303 1 004</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
     </div>
   );

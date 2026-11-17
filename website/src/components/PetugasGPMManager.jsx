@@ -99,8 +99,20 @@ export default function PetugasGPMManager({ token, pengguna }) {
 
   // Identifikasi Hak Akses Peran Petugas (OOP RBAC)
   const peranUser = (pengguna?.peran || '').toLowerCase();
-  const isKabid = peranUser === 'kabid' || peranUser === 'kepala bidang' || peranUser === 'kepala bagian' || peranUser === 'admin';
+  const isKabid = peranUser === 'kabid' || peranUser === 'kepala bidang' || peranUser === 'kepala bagian' || peranUser === 'admin' || peranUser === 'superadmin';
   const bisaKelolaMaster = isKabid;
+
+  // Modal Tambah Pendaftar Manual (Walk-In / Di Tempat saat Pelaksanaan GPM)
+  const [modalTambahManual, setModalTambahManual] = useState({
+    buka: false,
+    acaraId: '',
+    nama: '',
+    nik: '',
+    telepon: '',
+    langsungHadir: true,
+    sedangKirim: false,
+    pesanError: ''
+  });
 
   // State Riwayat Kegiatan GPM & Ekspor Rekapitulasi
   const [daftarRiwayat, setDaftarRiwayat] = useState([]);
@@ -382,6 +394,85 @@ export default function PetugasGPMManager({ token, pengguna }) {
     }
   };
 
+  // Buka Modal Tambah Pendaftar Manual (Walk-In / Di Tempat saat Pelaksanaan)
+  const handleBukaModalManual = () => {
+    setModalTambahManual({
+      buka: true,
+      acaraId: acaraTerpilihId || (daftarAcara[0] ? daftarAcara[0].id : ''),
+      nama: '',
+      nik: '',
+      telepon: '',
+      langsungHadir: true,
+      sedangKirim: false,
+      pesanError: ''
+    });
+  };
+
+  // Simpan Pendaftar Manual oleh Staf atau Kabid
+  const handleSimpanPendaftarManual = async (e) => {
+    e.preventDefault();
+    const { acaraId, nama, nik, telepon, langsungHadir } = modalTambahManual;
+    if (!acaraId) {
+      setModalTambahManual(prev => ({ ...prev, pesanError: 'Silakan pilih kegiatan GPM!' }));
+      return;
+    }
+    const nikBersih = (nik || '').replace(/[^0-9]/g, '').trim();
+    if (!nikBersih) {
+      setModalTambahManual(prev => ({ ...prev, pesanError: 'Nomor Induk Kependudukan (NIK) wajib diisi!' }));
+      return;
+    }
+    if (nikBersih.length !== 16) {
+      setModalTambahManual(prev => ({ ...prev, pesanError: `NIK harus tepat 16 digit angka! (Saat ini: ${nikBersih.length} digit)` }));
+      return;
+    }
+    const namaBersih = (nama || '').trim();
+    if (!namaBersih || namaBersih.length < 3) {
+      setModalTambahManual(prev => ({ ...prev, pesanError: 'Nama lengkap wajib diisi minimal 3 karakter!' }));
+      return;
+    }
+    const regexNama = /^[a-zA-Z\s'.]+$/;
+    if (!regexNama.test(namaBersih)) {
+      setModalTambahManual(prev => ({ ...prev, pesanError: 'Nama hanya boleh berupa huruf dan spasi!' }));
+      return;
+    }
+    const telpBersih = (telepon || '').trim();
+    if (telpBersih) {
+      if (!/^[0-9]+$/.test(telpBersih) || telpBersih.length < 10 || telpBersih.length > 15) {
+        setModalTambahManual(prev => ({ ...prev, pesanError: 'Nomor telepon harus antara 10-15 digit angka jika diisi!' }));
+        return;
+      }
+    }
+
+    setModalTambahManual(prev => ({ ...prev, sedangKirim: true, pesanError: '' }));
+    try {
+      const res = await gpmService.tambahPendaftarManual(
+        acaraId,
+        namaBersih,
+        telpBersih || '-',
+        nikBersih,
+        langsungHadir
+      );
+      setModalTambahManual({
+        buka: false,
+        acaraId: '',
+        nama: '',
+        nik: '',
+        telepon: '',
+        langsungHadir: true,
+        sedangKirim: false,
+        pesanError: ''
+      });
+      setNotifSukses(`✅ Warga "${namaBersih}" berhasil didaftarkan langsung (Nomor Antrean #${res.tiket.nomor_antrean})${langsungHadir ? ' dan otomatis diverifikasi Hadir!' : '!'}`);
+      setTimeout(() => setNotifSukses(''), 4500);
+      muatDataAwal();
+      if (acaraId === acaraTerpilihId) {
+        muatPendaftar(acaraId);
+      }
+    } catch (err) {
+      setModalTambahManual(prev => ({ ...prev, sedangKirim: false, pesanError: err.message || 'Gagal mendaftarkan warga secara manual.' }));
+    }
+  };
+
   // ─────────────────────────────────────────────
   // 4. TAMBAH KECAMATAN OLEH KEPALA BAGIAN
   // ─────────────────────────────────────────────
@@ -574,8 +665,8 @@ export default function PetugasGPMManager({ token, pengguna }) {
             </p>
           </div>
 
-          {/* Tombol Pemindai Kamera Langsung (Responsif HP, iPhone & Laptop) */}
-          <div style={{ textAlign: 'center', marginBottom: '18px' }}>
+          {/* Tombol Pemindai Kamera Langsung & Tombol Tambah Manual (Walk-in) */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '18px' }}>
             {!kameraAktif ? (
               <button
                 type="button"
@@ -584,10 +675,10 @@ export default function PetugasGPMManager({ token, pengguna }) {
                   background: '#8b1e1e',
                   color: '#ffffff',
                   border: 'none',
-                  padding: '12px 26px',
+                  padding: '12px 24px',
                   borderRadius: '10px',
                   fontWeight: 700,
-                  fontSize: '0.96rem',
+                  fontSize: '0.94rem',
                   cursor: 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -619,6 +710,15 @@ export default function PetugasGPMManager({ token, pengguna }) {
                 ✕ Tutup Kamera
               </button>
             )}
+
+            <button
+              type="button"
+              className="btn-tambah-manual"
+              onClick={handleBukaModalManual}
+              title="Daftarkan warga yang datang di tempat tanpa membawa HP/smartphone"
+            >
+              ➕ Tambah Manual (Di Tempat)
+            </button>
           </div>
 
           {/* Kotak Bidik Kamera Scanner */}
@@ -651,25 +751,6 @@ export default function PetugasGPMManager({ token, pengguna }) {
             </button>
           </form>
 
-          {/* Tombol Demo Cepat untuk Petugas */}
-          <div className="scan-quick-samples">
-            <span>Uji coba Kode QR pendaftar:</span>
-            <button
-              type="button"
-              className="sample-barcode-chip"
-              onClick={() => { setInputQRCode('GPM-TIKA-001-A9F2'); handleEksekusiScan(null, 'GPM-TIKA-001-A9F2'); }}
-            >
-              Meity Rondonuwu (#001)
-            </button>
-            <button
-              type="button"
-              className="sample-barcode-chip"
-              onClick={() => { setInputQRCode('GPM-TIKA-002-C4B8'); handleEksekusiScan(null, 'GPM-TIKA-002-C4B8'); }}
-            >
-              Frangky Wenas (#002)
-            </button>
-          </div>
-
           {pesanScanError && (
             <div style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', padding: '14px 18px', borderRadius: '10px', marginTop: '18px', maxWidth: '620px', margin: '18px auto 0 auto' }}>
               ⚠️ {pesanScanError}
@@ -677,74 +758,91 @@ export default function PetugasGPMManager({ token, pengguna }) {
           )}
 
           {/* KARTU HASIL SCAN */}
-          {hasilScanPendaftar && (
-            <div className="scan-result-profile-card">
-              <div className="result-card-banner">
-                <span className="result-banner-title">
-                  <span>✓</span> DATA PENDAFTAR RESMI DITEMUKAN
-                </span>
-                <span className="result-barcode-tag">
-                  {hasilScanPendaftar.kode_barcode}
-                </span>
-              </div>
+          {hasilScanPendaftar && (() => {
+            const parsedScan = gpmService.parseDataPendaftar(hasilScanPendaftar);
+            return (
+              <div className="scan-result-profile-card">
+                <div className="result-card-banner">
+                  <span className="result-banner-title">
+                    <span>✓</span> DATA PENDAFTAR RESMI DITEMUKAN
+                  </span>
+                  <span className="result-barcode-tag">
+                    {parsedScan.kode_barcode}
+                  </span>
+                </div>
 
-              <div className="result-card-body">
-                <div className="result-card-inner-flex">
-                  <div className="result-qr-box">
-                    <QRCodeComponent value={hasilScanPendaftar.kode_barcode} size={115} />
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, marginTop: '6px', color: '#64748b' }}>
-                      QR RESMI GPM
-                    </div>
-                  </div>
-
-                  <div className="result-data-grid">
-                    <div className="data-item-col">
-                      <span className="data-item-lbl">Nomor Antrean</span>
-                      <span className="data-item-val big-queue">
-                        #{String(hasilScanPendaftar.nomor_antrean).padStart(3, '0')}
-                      </span>
-                    </div>
-
-                    <div className="data-item-col">
-                      <span className="data-item-lbl">Status Kehadiran</span>
-                      <div>
-                        <span className={`badge-status-attend ${hasilScanPendaftar.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu'}`}>
-                          {hasilScanPendaftar.status_kehadiran === 'Hadir' ? '✓ Sudah Hadir / Terlayani' : '⏳ Menunggu Verifikasi'}
-                        </span>
+                <div className="result-card-body">
+                  <div className="result-card-inner-flex">
+                    <div className="result-qr-box">
+                      <QRCodeComponent value={parsedScan.kode_barcode} size={115} />
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, marginTop: '6px', color: '#64748b' }}>
+                        QR RESMI GPM
                       </div>
                     </div>
 
-                    <div className="data-item-col">
-                      <span className="data-item-lbl">Nama Lengkap Masyarakat</span>
-                      <span className="data-item-val">{hasilScanPendaftar.nama_pendaftar}</span>
-                    </div>
+                    <div className="result-data-grid">
+                      <div className="data-item-col">
+                        <span className="data-item-lbl">Nomor Antrean</span>
+                        <span className="data-item-val big-queue">
+                          #{String(parsedScan.nomor_antrean || 1).padStart(3, '0')}
+                        </span>
+                      </div>
 
-                    <div className="data-item-col">
-                      <span className="data-item-lbl">Nomor Telepon / WhatsApp</span>
-                      <span className="data-item-val">{hasilScanPendaftar.nomor_telepon}</span>
-                    </div>
+                      <div className="data-item-col">
+                        <span className="data-item-lbl">Status Kehadiran</span>
+                        <div>
+                          <span className={`badge-status-attend ${parsedScan.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu'}`}>
+                            {parsedScan.status_kehadiran === 'Hadir' ? '✓ Sudah Hadir / Terlayani' : '⏳ Menunggu Verifikasi'}
+                          </span>
+                        </div>
+                      </div>
 
-                    <div className="data-item-col" style={{ gridColumn: '1 / -1' }}>
-                      <span className="data-item-lbl">Lokasi Acara GPM</span>
-                      <span className="data-item-val">
-                        {hasilScanPendaftar.acara ? hasilScanPendaftar.acara.nama_acara : 'Gerakan Pangan Murah (GPM) Kota Manado'}
-                      </span>
+                      <div className="data-item-col">
+                        <span className="data-item-lbl">Nama Lengkap</span>
+                        <span className="data-item-val">{parsedScan.nama_bersih}</span>
+                      </div>
+
+                      <div className="data-item-col">
+                        <span className="data-item-lbl">NIK (16 Digit)</span>
+                        <span className="data-item-val" style={{ fontWeight: 700, letterSpacing: '0.5px' }}>{parsedScan.nik || '-'}</span>
+                      </div>
+
+                      <div className="data-item-col">
+                        <span className="data-item-lbl">Jalur Pendaftaran</span>
+                        <div>
+                          <span className={parsedScan.jalur_pendaftaran === 'Langsung' ? 'badge-jalur-langsung' : 'badge-jalur-daring'}>
+                            {parsedScan.jalur_pendaftaran === 'Langsung' ? '📍 Langsung (Di Tempat)' : '🌐 Daring (Online)'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="data-item-col">
+                        <span className="data-item-lbl">Nomor Telepon / WhatsApp</span>
+                        <span className="data-item-val">{parsedScan.nomor_telepon}</span>
+                      </div>
+
+                      <div className="data-item-col" style={{ gridColumn: '1 / -1' }}>
+                        <span className="data-item-lbl">Lokasi Acara GPM</span>
+                        <span className="data-item-val">
+                          {parsedScan.acara ? parsedScan.acara.nama_acara : 'Gerakan Pangan Murah (GPM) Kota Manado'}
+                        </span>
+                      </div>
                     </div>
                   </div>
+
+                  {parsedScan.status_kehadiran === 'Hadir' ? (
+                    <div className="badge-verified-done">
+                      ✅ Warga ini telah diverifikasi hadir dan berhak menerima paket pangan murah.
+                    </div>
+                  ) : (
+                    <button className="btn-verify-success" onClick={handleKonfirmasiKehadiran}>
+                      <span>✓</span> Konfirmasi Kehadiran & Layani Antrean #{parsedScan.nomor_antrean}
+                    </button>
+                  )}
                 </div>
-
-                {hasilScanPendaftar.status_kehadiran === 'Hadir' ? (
-                  <div className="badge-verified-done">
-                    ✅ Warga ini telah diverifikasi hadir dan berhak menerima paket pangan murah.
-                  </div>
-                ) : (
-                  <button className="btn-verify-success" onClick={handleKonfirmasiKehadiran}>
-                    <span>✓</span> Konfirmasi Kehadiran & Layani Antrean #{hasilScanPendaftar.nomor_antrean}
-                  </button>
-                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
@@ -793,8 +891,17 @@ export default function PetugasGPMManager({ token, pengguna }) {
               </div>
             </div>
 
-            {/* Tombol Aksi Acara: Unduh CSV & Selesaikan GPM (Khusus Kepala Bidang) */}
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {/* Tombol Aksi Acara: Tambah Manual, Unduh CSV & Selesaikan GPM */}
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn-tambah-manual"
+                onClick={handleBukaModalManual}
+                title="Daftarkan warga yang hadir di tempat tanpa membawa HP/smartphone"
+              >
+                ➕ Tambah Manual (Di Tempat)
+              </button>
+
               {daftarAcara.find(a => a.id === acaraTerpilihId) && (
                 <button
                   type="button"
@@ -825,7 +932,8 @@ export default function PetugasGPMManager({ token, pengguna }) {
               <thead>
                 <tr>
                   <th style={{ width: '80px' }}>No. Urut</th>
-                  <th>Nama Lengkap</th>
+                  <th>Nama Lengkap & NIK</th>
+                  <th>Jalur Pendaftaran</th>
                   <th>No. Telepon / WA</th>
                   <th>Kode QR</th>
                   <th>Waktu Mendaftar</th>
@@ -836,42 +944,55 @@ export default function PetugasGPMManager({ token, pengguna }) {
               <tbody>
                 {pendaftarTerfilter.length === 0 ? (
                   <tr>
-                    <td colSpan="7" style={{ textAlign: 'center', padding: '30px', color: '#888' }}>
+                    <td colSpan="8" style={{ textAlign: 'center', padding: '30px', color: '#888' }}>
                       Belum ada pendaftar untuk acara ini atau tidak cocok dengan filter pencarian.
                     </td>
                   </tr>
                 ) : (
-                  pendaftarTerfilter.map((item) => (
-                    <tr key={item.id}>
-                      <td style={{ fontWeight: 800, color: '#8b1e1e' }}>
-                        #{String(item.nomor_antrean).padStart(3, '0')}
-                      </td>
-                      <td style={{ fontWeight: 700 }}>{item.nama_pendaftar}</td>
-                      <td>{item.nomor_telepon}</td>
-                      <td>
-                        <span style={{ fontFamily: 'monospace', fontWeight: 700, background: '#f1f5f9', padding: '3px 6px', borderRadius: '4px' }}>
-                          {item.kode_barcode}
-                        </span>
-                      </td>
-                      <td style={{ fontSize: '0.82rem', color: '#666' }}>
-                        {item.waktu_mendaftar ? new Date(item.waktu_mendaftar).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WITA' : '-'}
-                      </td>
-                      <td>
-                        <span className={`badge-status-attend ${item.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu'}`}>
-                          {item.status_kehadiran === 'Hadir' ? '✓ Hadir' : 'Menunggu'}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          className={item.status_kehadiran === 'Hadir' ? 'btn-cancel-attend' : 'btn-mark-attend'}
-                          onClick={() => handleToggleKehadiranTabel(item)}
-                        >
-                          {item.status_kehadiran === 'Hadir' ? 'Batalkan' : '✓ Tandai Hadir'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  pendaftarTerfilter.map((item) => {
+                    const parsed = gpmService.parseDataPendaftar(item);
+                    return (
+                      <tr key={item.id}>
+                        <td style={{ fontWeight: 800, color: '#8b1e1e' }}>
+                          #{String(parsed.nomor_antrean || 1).padStart(3, '0')}
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 700, color: '#1e293b' }}>{parsed.nama_bersih}</div>
+                          <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
+                            NIK: {parsed.nik && parsed.nik !== '-' ? parsed.nik : <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>Tidak tercatat</span>}
+                          </div>
+                        </td>
+                        <td>
+                          <span className={parsed.jalur_pendaftaran === 'Langsung' ? 'badge-jalur-langsung' : 'badge-jalur-daring'}>
+                            {parsed.jalur_pendaftaran === 'Langsung' ? '📍 Langsung' : '🌐 Daring'}
+                          </span>
+                        </td>
+                        <td>{parsed.nomor_telepon || '-'}</td>
+                        <td>
+                          <span style={{ fontFamily: 'monospace', fontWeight: 700, background: '#f1f5f9', padding: '3px 6px', borderRadius: '4px' }}>
+                            {parsed.kode_barcode}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '0.82rem', color: '#666' }}>
+                          {parsed.waktu_mendaftar ? new Date(parsed.waktu_mendaftar).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WITA' : '-'}
+                        </td>
+                        <td>
+                          <span className={`badge-status-attend ${parsed.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu'}`}>
+                            {parsed.status_kehadiran === 'Hadir' ? '✓ Hadir' : 'Menunggu'}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            className={parsed.status_kehadiran === 'Hadir' ? 'btn-cancel-attend' : 'btn-mark-attend'}
+                            onClick={() => handleToggleKehadiranTabel(item)}
+                          >
+                            {parsed.status_kehadiran === 'Hadir' ? 'Batalkan' : '✓ Tandai Hadir'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -1415,7 +1536,8 @@ export default function PetugasGPMManager({ token, pengguna }) {
                   <thead>
                     <tr>
                       <th style={{ width: '70px' }}>No.</th>
-                      <th>Nama Warga</th>
+                      <th>Nama Warga & NIK</th>
+                      <th>Jalur</th>
                       <th>No. WhatsApp</th>
                       <th>Kode Tiket</th>
                       <th>Status Kehadiran</th>
@@ -1424,26 +1546,37 @@ export default function PetugasGPMManager({ token, pengguna }) {
                   <tbody>
                     {modalRiwayatDetail.pendaftar.length === 0 ? (
                       <tr>
-                        <td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                        <td colSpan="6" style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
                           Tidak ada rekaman pendaftar pada acara ini.
                         </td>
                       </tr>
                     ) : (
-                      modalRiwayatDetail.pendaftar.map((p, idx) => (
-                        <tr key={p.id || idx}>
-                          <td style={{ fontWeight: 700, color: '#8b1e1e' }}>
-                            #{String(p.nomor_antrean || idx + 1).padStart(3, '0')}
-                          </td>
-                          <td style={{ fontWeight: 600 }}>{p.nama_pendaftar}</td>
-                          <td>{p.nomor_telepon}</td>
-                          <td><code>{p.kode_barcode}</code></td>
-                          <td>
-                            <span className={`badge-status-attend ${p.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu'}`}>
-                              {p.status_kehadiran === 'Hadir' ? '✓ Hadir' : 'Menunggu'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
+                      modalRiwayatDetail.pendaftar.map((p, idx) => {
+                        const parsed = gpmService.parseDataPendaftar(p);
+                        return (
+                          <tr key={p.id || idx}>
+                            <td style={{ fontWeight: 700, color: '#8b1e1e' }}>
+                              #{String(parsed.nomor_antrean || idx + 1).padStart(3, '0')}
+                            </td>
+                            <td>
+                              <div style={{ fontWeight: 600 }}>{parsed.nama_bersih}</div>
+                              <div style={{ fontSize: '0.78rem', color: '#64748b' }}>NIK: {parsed.nik || '-'}</div>
+                            </td>
+                            <td>
+                              <span className={parsed.jalur_pendaftaran === 'Langsung' ? 'badge-jalur-langsung' : 'badge-jalur-daring'}>
+                                {parsed.jalur_pendaftaran}
+                              </span>
+                            </td>
+                            <td>{parsed.nomor_telepon || '-'}</td>
+                            <td><code>{parsed.kode_barcode}</code></td>
+                            <td>
+                              <span className={`badge-status-attend ${parsed.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu'}`}>
+                                {parsed.status_kehadiran === 'Hadir' ? '✓ Hadir' : 'Menunggu'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -1459,6 +1592,141 @@ export default function PetugasGPMManager({ token, pengguna }) {
                 Tutup
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL TAMBAH PENDAFTAR MANUAL (DI TEMPAT / WALK-IN TANPA HP) */}
+      {modalTambahManual.buka && (
+        <div className="modal-overlay-backdrop" onClick={() => setModalTambahManual(prev => ({ ...prev, buka: false }))}>
+          <div className="modal-history-content" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-history-header">
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>
+                  ➕ Pendaftaran Manual di Lokasi GPM
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                  Layanan petugas untuk warga yang hadir di tempat tanpa membawa HP/smartphone
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-close-modal"
+                onClick={() => setModalTambahManual(prev => ({ ...prev, buka: false }))}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSimpanPendaftarManual}>
+              <div className="modal-history-body" style={{ padding: '20px' }}>
+                {modalTambahManual.pesanError && (
+                  <div style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', padding: '10px 14px', borderRadius: '8px', marginBottom: '16px', fontSize: '0.88rem' }}>
+                    ⚠️ {modalTambahManual.pesanError}
+                  </div>
+                )}
+
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontWeight: 700, fontSize: '0.85rem', marginBottom: '6px', color: '#334155' }}>
+                    Lokasi Kegiatan GPM <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <select
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                    value={modalTambahManual.acaraId}
+                    onChange={(e) => setModalTambahManual(prev => ({ ...prev, acaraId: e.target.value }))}
+                    required
+                  >
+                    {daftarAcara.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.nama_acara} ({a.lokasi})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontWeight: 700, fontSize: '0.85rem', marginBottom: '6px', color: '#334155' }}>
+                    Nomor Induk Kependudukan (NIK) <span style={{ color: '#ef4444' }}>* (Wajib 16 Digit)</span>
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={16}
+                    required
+                    placeholder="Contoh: 7171012345678901"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                    value={modalTambahManual.nik}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 16);
+                      setModalTambahManual(prev => ({ ...prev, nik: val }));
+                    }}
+                  />
+                  <small style={{ color: modalTambahManual.nik.length === 16 ? '#16a34a' : '#64748b', fontSize: '0.78rem', display: 'block', marginTop: '4px' }}>
+                    {modalTambahManual.nik.length}/16 digit {modalTambahManual.nik.length > 0 && modalTambahManual.nik.length < 16 && `(Kurang ${16 - modalTambahManual.nik.length} digit)`}
+                  </small>
+                </div>
+
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontWeight: 700, fontSize: '0.85rem', marginBottom: '6px', color: '#334155' }}>
+                    Nama Lengkap Warga <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Meity Rondonuwu"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                    value={modalTambahManual.nama}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^a-zA-Z\s'.]/g, '');
+                      setModalTambahManual(prev => ({ ...prev, nama: val }));
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontWeight: 700, fontSize: '0.85rem', marginBottom: '6px', color: '#334155' }}>
+                    Nomor Telepon / WhatsApp <span style={{ color: '#64748b', fontWeight: 400 }}>(Opsional)</span>
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="Contoh: 081234567890 (Boleh kosong)"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                    value={modalTambahManual.telepon}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 15);
+                      setModalTambahManual(prev => ({ ...prev, telepon: val }));
+                    }}
+                  />
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 600, color: '#334155' }}>
+                    <input
+                      type="checkbox"
+                      checked={modalTambahManual.langsungHadir}
+                      onChange={(e) => setModalTambahManual(prev => ({ ...prev, langsungHadir: e.target.checked }))}
+                    />
+                    <span>Langsung Tandai Hadir & Verifikasi (Siap Terima Pangan)</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="modal-history-footer">
+                <button
+                  type="button"
+                  className="btn-close-secondary"
+                  onClick={() => setModalTambahManual(prev => ({ ...prev, buka: false }))}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="btn-tambah-manual"
+                  disabled={modalTambahManual.sedangKirim}
+                >
+                  {modalTambahManual.sedangKirim ? 'Menyimpan...' : '💾 Simpan & Daftarkan Warga'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

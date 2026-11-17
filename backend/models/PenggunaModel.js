@@ -40,6 +40,7 @@ class PenggunaModel {
 
         // Akun Resmi Sesuai Struktur Organisasi Dinas Pangan
         const akunBawaan = [
+            { id: 'usr-superadmin', nama: 'Super Administrator', email: 'superadmin@manado.go.id', username: 'superadmin', kata_sandi: '12345678', peran: 'Superadmin', bidang: 'Akses Penuh Seluruh Modul (Superadmin)', foto_profil: '' },
             { id: 'usr-effrend', nama: 'Effrend', email: 'effrend@manado.go.id', username: 'effrend', kata_sandi: '12345678', peran: 'Staf', bidang: 'Bidang Cadangan dan Distribusi Pangan', foto_profil: '' },
             { id: 'usr-regina', nama: 'Regina', email: 'regina@manado.go.id', username: 'regina', kata_sandi: '12345678', peran: 'Admin', bidang: 'Administrator Sistem (Superadmin)', foto_profil: '' },
             { id: 'usr-mareta', nama: 'Mareta', email: 'mareta@manado.go.id', username: 'mareta', kata_sandi: '12345678', peran: 'Kabid', bidang: 'Kepala Bidang Cadangan & Distribusi Pangan', foto_profil: '' },
@@ -113,6 +114,7 @@ class PenggunaModel {
         }
 
         return [
+            { id: 'usr-superadmin', nama: 'Super Administrator', email: 'superadmin@manado.go.id', username: 'superadmin', peran: 'Superadmin', bidang: 'Akses Penuh Seluruh Modul (Superadmin)' },
             { id: 'usr-effrend', nama: 'Effrend', email: 'effrend@manado.go.id', username: 'effrend', peran: 'Staf', bidang: 'Bidang Cadangan dan Distribusi Pangan' },
             { id: 'usr-regina', nama: 'Regina', email: 'regina@manado.go.id', username: 'regina', peran: 'Admin', bidang: 'Administrator Sistem (Superadmin)' },
             { id: 'usr-mareta', nama: 'Mareta', email: 'mareta@manado.go.id', username: 'mareta', peran: 'Kabid', bidang: 'Kepala Bidang Cadangan & Distribusi Pangan' },

@@ -3,7 +3,27 @@
 // Bidang: Sekretariat & Tim Administrator - Dinas Pangan Kota Manado
 // Berfungsi untuk mengelola autentikasi, pembagian peran, hak akses menu,
 // peremajaan username, serta hard reset kata sandi oleh administrator.
+// Dilengkapi enkripsi hashing SHA-256 (Web Crypto API) untuk proteksi kata sandi.
 // ===================================================================================
+
+export async function hitungHashSandi(kataSandi) {
+    if (!kataSandi) return '';
+    if (/^[a-f0-9]{64}$/i.test(kataSandi)) return kataSandi.toLowerCase();
+    const garam = 'SIPATOKAAN_MANADO_2026_SECURE_SALT';
+    try {
+        if (typeof crypto !== 'undefined' && crypto.subtle) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(garam + kataSandi);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+    } catch (_) {}
+    return kataSandi;
+}
+
+// Hash resmi untuk kata sandi awal '12345678'
+const HASH_AWAL_DEFAULT = 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481';
 
 class PenggunaService {
     constructor() {
@@ -17,11 +37,21 @@ class PenggunaService {
     inisialisasiAkunBawaan() {
         const akunBawaanResmi = [
             {
+                id: 'usr-superadmin',
+                nama: 'Super Administrator',
+                username: 'superadmin',
+                email: 'superadmin@manado.go.id',
+                kata_sandi: HASH_AWAL_DEFAULT,
+                peran: 'Superadmin',
+                bidang: 'Akses Penuh Seluruh Modul (Superadmin)',
+                foto_profil: ''
+            },
+            {
                 id: 'usr-effrend',
                 nama: 'Effrend',
                 username: 'effrend',
                 email: 'effrend@manado.go.id',
-                kata_sandi: '12345678',
+                kata_sandi: HASH_AWAL_DEFAULT,
                 peran: 'Staf',
                 bidang: 'Bidang Cadangan dan Distribusi Pangan',
                 foto_profil: ''
@@ -31,7 +61,7 @@ class PenggunaService {
                 nama: 'Regina',
                 username: 'regina',
                 email: 'regina@manado.go.id',
-                kata_sandi: '12345678',
+                kata_sandi: HASH_AWAL_DEFAULT,
                 peran: 'Admin',
                 bidang: 'Administrator Sistem (Superadmin)',
                 foto_profil: ''
@@ -41,7 +71,7 @@ class PenggunaService {
                 nama: 'Mareta',
                 username: 'mareta',
                 email: 'mareta@manado.go.id',
-                kata_sandi: '12345678',
+                kata_sandi: HASH_AWAL_DEFAULT,
                 peran: 'Kabid',
                 bidang: 'Kepala Bidang Cadangan & Distribusi Pangan',
                 foto_profil: ''
@@ -51,7 +81,7 @@ class PenggunaService {
                 nama: 'Edrick',
                 username: 'edrick',
                 email: 'edrick@manado.go.id',
-                kata_sandi: '12345678',
+                kata_sandi: HASH_AWAL_DEFAULT,
                 peran: 'Admin',
                 bidang: 'Administrator Sistem (Superadmin)',
                 foto_profil: ''
@@ -61,7 +91,7 @@ class PenggunaService {
                 nama: 'Kepala Dinas Pangan',
                 username: 'kadis',
                 email: 'kadis@manado.go.id',
-                kata_sandi: '12345678',
+                kata_sandi: HASH_AWAL_DEFAULT,
                 peran: 'Kadis',
                 bidang: 'Pimpinan Dinas Pangan Kota Manado',
                 foto_profil: ''
@@ -78,8 +108,14 @@ class PenggunaService {
             const daftar = JSON.parse(tersimpan);
             let adaPembaruan = false;
 
+            // Pastikan akun superadmin terdaftar di browser
+            if (!daftar.some(u => u.username && u.username.toLowerCase() === 'superadmin')) {
+                daftar.unshift(akunBawaanResmi.find(u => u.username === 'superadmin'));
+                adaPembaruan = true;
+            }
+
             // Pastikan akun Kadis terdaftar di browser
-            if (!daftar.some(u => u.username.toLowerCase() === 'kadis')) {
+            if (!daftar.some(u => u.username && u.username.toLowerCase() === 'kadis')) {
                 daftar.push(akunBawaanResmi.find(u => u.username === 'kadis'));
                 adaPembaruan = true;
             }
@@ -104,6 +140,7 @@ class PenggunaService {
     normalisasiPeran(peranInput) {
         if (!peranInput) return 'Staf';
         const str = peranInput.toString().toLowerCase().trim();
+        if (str === 'superadmin') return 'Superadmin';
         if (str === 'admin') return 'Admin';
         if (str === 'kabid' || str === 'kepala bagian' || str === 'kepala_bagian') return 'Kabid';
         if (str === 'kadis' || str === 'kepala dinas' || str === 'kepala_dinas') return 'Kadis';
@@ -115,6 +152,21 @@ class PenggunaService {
         const peranBersih = this.normalisasiPeran(peranPengguna);
 
         switch (peranBersih) {
+            case 'Superadmin':
+                // Superadmin: Memiliki hak akses penuh ke seluruh modul sistem
+                return [
+                    { id: 'dashboard', label: 'Beranda', icon: '📊' },
+                    { id: 'input-harga', label: 'Menu Masukan Data Pangan', icon: '📝' },
+                    { id: 'verif-harga', label: 'Menu Verifikasi Harga Pangan', icon: '✅' },
+                    { id: 'kelola-gpm', label: 'Menu Kelola GPM', icon: '🎟️' },
+                    { id: 'laporan', label: 'Laporan Bidang Pangan', icon: '📑' },
+                    { id: 'grafik-pangan', label: 'Grafik Pangan', icon: '📈' },
+                    { id: 'laporan-gpm', label: 'Laporan GPM', icon: '📋' },
+                    { id: 'kelola-user', label: 'Menu Kelola Pengguna', icon: '👥' },
+                    { id: 'master-data', label: 'Master Pasar & Wilayah', icon: '🏛️' },
+                    { id: 'cek-gpm', label: 'Menu Cek GPM', icon: '🔍' }
+                ];
+
             case 'Admin':
                 // Admin: Menu edit user, master pasar dan wilayah, dashboard, menu cek gpm
                 return [
@@ -162,7 +214,7 @@ class PenggunaService {
         return daftar.some(m => m.id === idMenu);
     }
 
-    // Autentikasi Pengguna saat Login
+    // Autentikasi Pengguna saat Login (Aman dengan Verifikasi Hash SHA-256)
     async login(identifier, kataSandi) {
         const inputBersih = (identifier || '').toLowerCase().trim();
         const daftarUsers = this.ambilSemuaPengguna();
@@ -176,8 +228,21 @@ class PenggunaService {
             throw new Error('Akun dengan nama pengguna atau email tersebut tidak ditemukan!');
         }
 
-        if (userCocok.kata_sandi !== kataSandi) {
+        const hashInput = await hitungHashSandi(kataSandi);
+        const cocok = (userCocok.kata_sandi === hashInput) || (userCocok.kata_sandi === kataSandi);
+
+        if (!cocok) {
             throw new Error('Kata sandi yang Anda masukkan tidak sesuai!');
+        }
+
+        // Otomatis migrasikan kata sandi plaintext warisan lama ke hash SHA-256
+        if (userCocok.kata_sandi !== hashInput) {
+            userCocok.kata_sandi = hashInput;
+            const idx = daftarUsers.findIndex(u => u.id === userCocok.id);
+            if (idx !== -1) {
+                daftarUsers[idx].kata_sandi = hashInput;
+                localStorage.setItem(this.kunciMasterUsers, JSON.stringify(daftarUsers));
+            }
         }
 
         const dataPenggunaAman = { ...userCocok };
@@ -203,13 +268,14 @@ class PenggunaService {
         return [];
     }
 
-    // Hard reset kata sandi oleh Admin (Admin tidak dapat melihat kata sandi lama)
-    adminResetPassword(idAdmin, idTarget, passwordBaru) {
+    // Hard reset kata sandi oleh Admin / Superadmin (Tersimpan sebagai Hash Aman)
+    async adminResetPassword(idAdmin, idTarget, passwordBaru) {
         const daftar = this.ambilSemuaPengguna();
         const adminAktif = daftar.find(u => u.id === idAdmin);
+        const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
 
-        if (!adminAktif || this.normalisasiPeran(adminAktif.peran) !== 'Admin') {
-            throw new Error('Akses ditolak: Hanya akun dengan role Admin yang berhak melakukan reset kata sandi!');
+        if (!adminAktif || (peranAdmin !== 'Admin' && peranAdmin !== 'Superadmin')) {
+            throw new Error('Akses ditolak: Hanya akun dengan role Admin atau Superadmin yang berhak melakukan reset kata sandi!');
         }
 
         if (!passwordBaru || passwordBaru.length < 8) {
@@ -221,19 +287,21 @@ class PenggunaService {
             throw new Error('Data pengguna target tidak ditemukan dalam sistem!');
         }
 
-        // Simpan kata sandi baru tanpa melihat/memeriksa kata sandi lama
-        daftar[idxTarget].kata_sandi = passwordBaru;
+        // Simpan dalam bentuk Hash Kriptografi SHA-256
+        const hashBaru = await hitungHashSandi(passwordBaru);
+        daftar[idxTarget].kata_sandi = hashBaru;
         localStorage.setItem(this.kunciMasterUsers, JSON.stringify(daftar));
         return true;
     }
 
-    // Pengubahan username oleh Admin
+    // Pengubahan username oleh Admin / Superadmin
     adminUbahUsername(idAdmin, idTarget, usernameBaru) {
         const daftar = this.ambilSemuaPengguna();
         const adminAktif = daftar.find(u => u.id === idAdmin);
+        const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
 
-        if (!adminAktif || this.normalisasiPeran(adminAktif.peran) !== 'Admin') {
-            throw new Error('Akses ditolak: Hanya role Admin yang berwenang mengganti username pengguna!');
+        if (!adminAktif || (peranAdmin !== 'Admin' && peranAdmin !== 'Superadmin')) {
+            throw new Error('Akses ditolak: Hanya role Admin atau Superadmin yang berwenang mengganti username pengguna!');
         }
 
         const usernameBersih = (usernameBaru || '').toLowerCase().trim();
@@ -267,13 +335,14 @@ class PenggunaService {
         return daftar[idxTarget];
     }
 
-    // Pengubahan role pengguna oleh Admin
+    // Pengubahan role pengguna oleh Admin / Superadmin
     adminUbahPeran(idAdmin, idTarget, peranBaru) {
         const daftar = this.ambilSemuaPengguna();
         const adminAktif = daftar.find(u => u.id === idAdmin);
+        const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
 
-        if (!adminAktif || this.normalisasiPeran(adminAktif.peran) !== 'Admin') {
-            throw new Error('Akses ditolak: Hanya role Admin yang dapat mengatur peran pengguna!');
+        if (!adminAktif || (peranAdmin !== 'Admin' && peranAdmin !== 'Superadmin')) {
+            throw new Error('Akses ditolak: Hanya role Admin atau Superadmin yang dapat mengatur peran pengguna!');
         }
 
         const peranValid = this.normalisasiPeran(peranBaru);
@@ -294,13 +363,14 @@ class PenggunaService {
         return daftar[idxTarget];
     }
 
-    // Tambah pengguna baru oleh Admin
-    adminTambahPengguna(idAdmin, dataBaru) {
+    // Tambah pengguna baru oleh Admin / Superadmin
+    async adminTambahPengguna(idAdmin, dataBaru) {
         const daftar = this.ambilSemuaPengguna();
         const adminAktif = daftar.find(u => u.id === idAdmin);
+        const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
 
-        if (!adminAktif || this.normalisasiPeran(adminAktif.peran) !== 'Admin') {
-            throw new Error('Akses ditolak: Hanya role Admin yang dapat mendaftarkan akun baru!');
+        if (!adminAktif || (peranAdmin !== 'Admin' && peranAdmin !== 'Superadmin')) {
+            throw new Error('Akses ditolak: Hanya role Admin atau Superadmin yang dapat mendaftarkan akun baru!');
         }
 
         const usernameBersih = (dataBaru.username || '').toLowerCase().trim();
@@ -317,12 +387,14 @@ class PenggunaService {
         }
 
         const peranValid = this.normalisasiPeran(dataBaru.peran);
+        const hashKataSandi = await hitungHashSandi(dataBaru.kata_sandi);
+
         const akunBaru = {
             id: 'usr-' + Date.now(),
             nama: dataBaru.nama.trim(),
             username: usernameBersih,
             email: dataBaru.email || `${usernameBersih}@manado.go.id`,
-            kata_sandi: dataBaru.kata_sandi,
+            kata_sandi: hashKataSandi,
             peran: peranValid,
             bidang: dataBaru.bidang || 'Dinas Pangan Kota Manado',
             foto_profil: ''
@@ -333,13 +405,14 @@ class PenggunaService {
         return akunBaru;
     }
 
-    // Hapus pengguna oleh Admin
+    // Hapus pengguna oleh Admin / Superadmin
     adminHapusPengguna(idAdmin, idTarget) {
         const daftar = this.ambilSemuaPengguna();
         const adminAktif = daftar.find(u => u.id === idAdmin);
+        const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
 
-        if (!adminAktif || this.normalisasiPeran(adminAktif.peran) !== 'Admin') {
-            throw new Error('Akses ditolak: Hanya role Admin yang dapat menghapus akun pengguna!');
+        if (!adminAktif || (peranAdmin !== 'Admin' && peranAdmin !== 'Superadmin')) {
+            throw new Error('Akses ditolak: Hanya role Admin atau Superadmin yang dapat menghapus akun pengguna!');
         }
 
         if (idAdmin === idTarget) {
@@ -352,7 +425,7 @@ class PenggunaService {
     }
 
     // Ubah kata sandi pribadi oleh pengguna yang sedang login
-    ubahKataSandiPribadi(idUser, kataSandiLama, kataSandiBaru) {
+    async ubahKataSandiPribadi(idUser, kataSandiLama, kataSandiBaru) {
         if (!kataSandiBaru || kataSandiBaru.length < 8) {
             throw new Error('Kata sandi baru minimal 8 karakter!');
         }
@@ -364,11 +437,14 @@ class PenggunaService {
             throw new Error('Pengguna tidak ditemukan!');
         }
 
-        if (target.kata_sandi !== kataSandiLama) {
+        const hashLama = await hitungHashSandi(kataSandiLama);
+        const cocok = (target.kata_sandi === hashLama) || (target.kata_sandi === kataSandiLama);
+
+        if (!cocok) {
             throw new Error('Kata sandi lama yang Anda masukkan salah!');
         }
 
-        target.kata_sandi = kataSandiBaru;
+        target.kata_sandi = await hitungHashSandi(kataSandiBaru);
         localStorage.setItem(this.kunciMasterUsers, JSON.stringify(daftar));
         return true;
     }

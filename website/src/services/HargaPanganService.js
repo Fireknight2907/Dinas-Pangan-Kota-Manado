@@ -12,63 +12,6 @@ class HargaPanganApiService {
     }
 
     inisialisasiMasterData() {
-        // Master Akun Resmi Sesuai Permintaan
-        if (!localStorage.getItem('sipatokean_master_users')) {
-            const defaultUsers = [
-                {
-                    id: 'usr-effrend',
-                    nama: 'Effrend',
-                    username: 'effrend',
-                    email: 'effrend@manado.go.id',
-                    kata_sandi: '12345678',
-                    peran: 'Staf',
-                    bidang: 'Bidang Cadangan dan Distribusi Pangan',
-                    foto_profil: ''
-                },
-                {
-                    id: 'usr-regina',
-                    nama: 'Regina',
-                    username: 'regina',
-                    email: 'regina@manado.go.id',
-                    kata_sandi: '12345678',
-                    peran: 'Admin',
-                    bidang: 'Administrator Sistem (Superadmin)',
-                    foto_profil: ''
-                },
-                {
-                    id: 'usr-mareta',
-                    nama: 'Mareta',
-                    username: 'mareta',
-                    email: 'mareta@manado.go.id',
-                    kata_sandi: '12345678',
-                    peran: 'Kabid',
-                    bidang: 'Kepala Bidang Cadangan & Distribusi Pangan',
-                    foto_profil: ''
-                },
-                {
-                    id: 'usr-edrick',
-                    nama: 'Edrick',
-                    username: 'edrick',
-                    email: 'edrick@manado.go.id',
-                    kata_sandi: '12345678',
-                    peran: 'Admin',
-                    bidang: 'Administrator Sistem (Superadmin)',
-                    foto_profil: ''
-                },
-                {
-                    id: 'usr-kadis',
-                    nama: 'Kepala Dinas Pangan',
-                    username: 'kadis',
-                    email: 'kadis@manado.go.id',
-                    kata_sandi: '12345678',
-                    peran: 'Kadis',
-                    bidang: 'Pimpinan Dinas Pangan Kota Manado',
-                    foto_profil: ''
-                }
-            ];
-            localStorage.setItem('sipatokean_master_users', JSON.stringify(defaultUsers));
-        }
-
         // Master Kecamatan (Ditambah oleh Kepala Bagian/Admin, Staf hanya memilih)
         if (!localStorage.getItem('sipatokean_master_kecamatan')) {
             const defaultKecamatan = [

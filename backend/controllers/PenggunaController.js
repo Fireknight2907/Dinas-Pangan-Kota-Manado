@@ -28,12 +28,12 @@ class PenggunaController {
         }
     }
 
-    // Hard reset kata sandi oleh Admin (Admin tidak melihat kata sandi lama pengguna)
+    // Hard reset kata sandi oleh Admin / Superadmin (Admin tidak melihat kata sandi lama pengguna)
     async adminResetPassword(req, res) {
         try {
-            const peranPemohon = req.pengguna ? req.pengguna.peran : req.body.peranPemohon;
-            if (peranPemohon !== 'Admin') {
-                return res.status(403).json({ sukses: false, pesan: 'Akses ditolak: Hanya role Admin yang berhak melakukan reset kata sandi!' });
+            const peranPemohon = req.pengguna ? req.pengguna.peran : null;
+            if (peranPemohon !== 'Admin' && peranPemohon !== 'Superadmin') {
+                return res.status(403).json({ sukses: false, pesan: 'Akses ditolak: Hanya role Admin atau Superadmin yang berhak melakukan reset kata sandi!' });
             }
 
             const { idTarget, kataSandiBaru } = req.body;
@@ -48,12 +48,12 @@ class PenggunaController {
         }
     }
 
-    // Mengubah username pengguna oleh Admin
+    // Mengubah username pengguna oleh Admin / Superadmin
     async adminUbahUsername(req, res) {
         try {
-            const peranPemohon = req.pengguna ? req.pengguna.peran : req.body.peranPemohon;
-            if (peranPemohon !== 'Admin') {
-                return res.status(403).json({ sukses: false, pesan: 'Akses ditolak: Hanya role Admin yang berhak mengganti username pengguna!' });
+            const peranPemohon = req.pengguna ? req.pengguna.peran : null;
+            if (peranPemohon !== 'Admin' && peranPemohon !== 'Superadmin') {
+                return res.status(403).json({ sukses: false, pesan: 'Akses ditolak: Hanya role Admin atau Superadmin yang berhak mengganti username pengguna!' });
             }
 
             const { idTarget, usernameBaru } = req.body;
@@ -64,12 +64,12 @@ class PenggunaController {
         }
     }
 
-    // Mengubah peran pengguna oleh Admin
+    // Mengubah peran pengguna oleh Admin / Superadmin
     async adminUbahPeran(req, res) {
         try {
-            const peranPemohon = req.pengguna ? req.pengguna.peran : req.body.peranPemohon;
-            if (peranPemohon !== 'Admin') {
-                return res.status(403).json({ sukses: false, pesan: 'Akses ditolak: Hanya role Admin yang berhak mengatur peran pengguna!' });
+            const peranPemohon = req.pengguna ? req.pengguna.peran : null;
+            if (peranPemohon !== 'Admin' && peranPemohon !== 'Superadmin') {
+                return res.status(403).json({ sukses: false, pesan: 'Akses ditolak: Hanya role Admin atau Superadmin yang berhak mengatur peran pengguna!' });
             }
 
             const { idTarget, peranBaru } = req.body;
@@ -82,10 +82,15 @@ class PenggunaController {
 
     async tambahUser(req, res) {
         try {
+            const peranPemohon = req.pengguna ? req.pengguna.peran : null;
+            if (peranPemohon !== 'Admin' && peranPemohon !== 'Superadmin') {
+                return res.status(403).json({ sukses: false, pesan: 'Akses ditolak: Hanya role Admin atau Superadmin yang berhak menambah akun!' });
+            }
+
             const { nama, email, kata_sandi, peran, bidang } = req.body;
-            const peranDiizinkan = ['Admin', 'Kabid', 'Staf', 'Kadis'];
+            const peranDiizinkan = ['Admin', 'Kabid', 'Staf', 'Kadis', 'Superadmin'];
             if (!peranDiizinkan.includes(peran)) {
-                return res.status(400).json({ sukses: false, pesan: 'Peran kedinasan tidak valid (harus Admin, Kabid, Staf, atau Kadis).' });
+                return res.status(400).json({ sukses: false, pesan: 'Peran kedinasan tidak valid (harus Admin, Kabid, Staf, Kadis, atau Superadmin).' });
             }
 
             const dataBaru = { nama, email, kata_sandi, peran, bidang };
@@ -98,9 +103,9 @@ class PenggunaController {
 
     async hapusUser(req, res) {
         try {
-            const peranPemohon = req.pengguna ? req.pengguna.peran : req.body.peranPemohon;
-            if (peranPemohon !== 'Admin') {
-                return res.status(403).json({ sukses: false, pesan: 'Akses ditolak: Hanya role Admin yang berhak menghapus akun!' });
+            const peranPemohon = req.pengguna ? req.pengguna.peran : null;
+            if (peranPemohon !== 'Admin' && peranPemohon !== 'Superadmin') {
+                return res.status(403).json({ sukses: false, pesan: 'Akses ditolak: Hanya role Admin atau Superadmin yang berhak menghapus akun!' });
             }
 
             const { idTarget } = req.params;

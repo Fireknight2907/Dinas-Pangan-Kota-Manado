@@ -40,6 +40,7 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
   const [sedangMemuat, setSedangMemuat] = useState(false);
 
   // Form Input Pendaftaran Antrean Masyarakat (Tanpa Login)
+  const [nik, setNik] = useState('');
   const [namaLengkap, setNamaLengkap] = useState('');
   const [nomorTelepon, setNomorTelepon] = useState('');
   const [sedangDaftar, setSedangDaftar] = useState(false);
@@ -79,36 +80,50 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
       alert('Silakan pilih salah satu lokasi acara GPM terlebih dahulu!');
       return;
     }
-    if (!namaLengkap.trim() || !nomorTelepon.trim()) {
-      setPesanError('Nama Lengkap dan Nomor Telepon wajib diisi!');
+
+    // 1. Validasi Wajib NIK 16 Digit
+    const nikBersih = nik.trim();
+    if (!nikBersih) {
+      setPesanError('Nomor Induk Kependudukan (NIK) wajib diisi!');
+      return;
+    }
+    if (!/^[0-9]+$/.test(nikBersih)) {
+      setPesanError('NIK hanya boleh berisi digit angka!');
+      return;
+    }
+    if (nikBersih.length !== 16) {
+      setPesanError(`NIK harus tepat 16 digit angka! Saat ini baru terisi ${nikBersih.length} digit.`);
       return;
     }
 
-    // Validasi Keamanan Input Nama: Hanya huruf dan spasi, dilarang simbol & angka
+    // 2. Validasi Nama Lengkap: Hanya huruf dan spasi, minimal 3 karakter
+    const namaBersih = namaLengkap.trim();
+    if (!namaBersih) {
+      setPesanError('Nama Lengkap wajib diisi!');
+      return;
+    }
     const regexNama = /^[a-zA-Z\s'.]+$/;
-    if (!regexNama.test(namaLengkap.trim())) {
+    if (!regexNama.test(namaBersih)) {
       setPesanError('Nama lengkap hanya boleh berisi huruf dan spasi (tidak boleh ada angka atau simbol)!');
       return;
     }
-    if (namaLengkap.trim().length < 3) {
+    if (namaBersih.length < 3) {
       setPesanError('Nama lengkap minimal 3 karakter!');
       return;
     }
 
-    // Validasi Keamanan Input Nomor Telepon: Hanya angka, minimal > 10 digit (11-15 digit)
+    // 3. Validasi Nomor Telepon (Opsional): Jika diisi, periksa format
     const telpBersih = nomorTelepon.trim();
-    const regexTelp = /^[0-9]+$/;
-    if (!regexTelp.test(telpBersih)) {
-      setPesanError('Nomor telepon hanya boleh berisi angka (tidak boleh ada huruf atau simbol)!');
-      return;
-    }
-    if (telpBersih.length <= 10) {
-      setPesanError('Nomor telepon harus di atas 10 digit (minimal 11 digit, contoh: 081234567890)!');
-      return;
-    }
-    if (telpBersih.length > 15) {
-      setPesanError('Nomor telepon maksimal 15 digit!');
-      return;
+    if (telpBersih) {
+      const regexTelp = /^[0-9]+$/;
+      if (!regexTelp.test(telpBersih)) {
+        setPesanError('Nomor telepon hanya boleh berisi angka!');
+        return;
+      }
+      if (telpBersih.length < 10 || telpBersih.length > 15) {
+        setPesanError('Nomor telepon jika diisi harus antara 10 hingga 15 digit angka!');
+        return;
+      }
     }
 
     setSedangDaftar(true);
@@ -116,12 +131,15 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
     try {
       const hasil = await gpmService.ambilNomorAntrean(
         acaraDipilih.id,
-        namaLengkap,
-        nomorTelepon
+        namaBersih,
+        telpBersih || '-',
+        nikBersih,
+        'Daring'
       );
 
       setTiketHasil(hasil);
       // Reset form
+      setNik('');
       setNamaLengkap('');
       setNomorTelepon('');
       // Refresh kuota
@@ -165,7 +183,7 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
             </div>
             <div className="gpm-meta-item">
               <span>🛡️</span>
-              <span>Masyarakat <strong>Tak Perlu Masuk</strong> (Cukup Masukan Nama & No. HP)</span>
+              <span>Masyarakat <strong>Tak Perlu Masuk</strong> (Cukup Masukan NIK & Nama Lengkap)</span>
             </div>
             <div className="gpm-meta-item">
               <span>⚡</span>
@@ -298,11 +316,19 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                   <div className="ticket-details-summary">
                     <p>
                       <span className="lbl">Nama Pendaftar:</span>
-                      <span className="val">{tiketHasil.tiket.nama_pendaftar}</span>
+                      <span className="val">{tiketHasil.tiket.nama_bersih || tiketHasil.tiket.nama_pendaftar}</span>
+                    </p>
+                    <p>
+                      <span className="lbl">NIK (16 Digit):</span>
+                      <span className="val">{tiketHasil.tiket.nik || '-'}</span>
+                    </p>
+                    <p>
+                      <span className="lbl">Jalur Pendaftaran:</span>
+                      <span className="val">{tiketHasil.tiket.jalur_pendaftaran || 'Daring'}</span>
                     </p>
                     <p>
                       <span className="lbl">Nomor Telepon / WA:</span>
-                      <span className="val">{tiketHasil.tiket.nomor_telepon}</span>
+                      <span className="val">{tiketHasil.tiket.nomor_telepon || '-'}</span>
                     </p>
                     <p>
                       <span className="lbl">Lokasi Acara GPM:</span>
@@ -384,7 +410,28 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
 
                       <form onSubmit={handleAmbilAntrean}>
                         <div className="gpm-input-field">
-                          <label>Nama Lengkap Anda</label>
+                          <label>
+                            Nomor Induk Kependudukan (NIK) <span style={{ color: '#e74c3c' }}>* (Wajib 16 Digit)</span>
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            maxLength={16}
+                            placeholder="Contoh: 7171012345678901"
+                            className="gpm-input-box"
+                            value={nik}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 16);
+                              setNik(val);
+                            }}
+                          />
+                          <small style={{ color: nik.length === 16 ? '#27ae60' : '#888', marginTop: '4px', display: 'block', fontSize: '0.8rem' }}>
+                            {nik.length}/16 digit {nik.length > 0 && nik.length < 16 && `(Kurang ${16 - nik.length} digit)`}
+                          </small>
+                        </div>
+
+                        <div className="gpm-input-field">
+                          <label>Nama Lengkap Anda <span style={{ color: '#e74c3c' }}>*</span></label>
                           <input
                             type="text"
                             required
@@ -399,15 +446,14 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                         </div>
 
                         <div className="gpm-input-field">
-                          <label>Nomor Telepon / WhatsApp</label>
+                          <label>Nomor Telepon / WhatsApp <span style={{ color: '#888', fontWeight: 'normal' }}>(Opsional)</span></label>
                           <input
                             type="tel"
-                            required
-                            placeholder="081234567890"
+                            placeholder="081234567890 (Boleh dikosongkan)"
                             className="gpm-input-box"
                             value={nomorTelepon}
                             onChange={(e) => {
-                              const val = e.target.value.replace(/[^0-9]/g, '');
+                              const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 15);
                               setNomorTelepon(val);
                             }}
                           />

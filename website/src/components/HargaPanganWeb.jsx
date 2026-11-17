@@ -108,12 +108,14 @@ export default function HargaPanganWeb({ onBukaLogin }) {
     muatDataKomoditas();
   }, [kategoriAktif, pasarDipilih]);
 
-  // Memuat data komoditas dari backend/Supabase
+  // Memuat data komoditas resmi dari backend/Supabase (HANYA status Terbit untuk publik)
   const muatDataKomoditas = async () => {
     setSedangMemuat(true);
     try {
-      const data = await hargaPanganService.ambilSemua(kategoriAktif, pasarDipilih, pencarian);
-      setDaftarKomoditas(data);
+      // Portal publik wajib hanya menampilkan komoditas yang telah berstatus 'Terbit' dan lolos verifikasi Kabid
+      const data = await hargaPanganService.ambilSemua(kategoriAktif, pasarDipilih, pencarian, 'Terbit');
+      const dataTerverifikasi = Array.isArray(data) ? data.filter(i => (i.status || 'Terbit').toLowerCase() === 'terbit') : [];
+      setDaftarKomoditas(dataTerverifikasi);
 
       const stat = await hargaPanganService.ambilStatistik();
       setStatistik(stat);
