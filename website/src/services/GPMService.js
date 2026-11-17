@@ -69,59 +69,15 @@ class GPMApiService {
             }
         ];
 
-        // Cache pendaftar lokal untuk ketahanan data
+        // Pendaftar tersimpan dari sinkronisasi database riil
         let savedPendaftar = [];
         try {
             const raw = localStorage.getItem('sipatokean_pendaftar_gpm_cache');
             if (raw) savedPendaftar = JSON.parse(raw);
         } catch (_) { }
 
-        this.fallbackPendaftar = Array.isArray(savedPendaftar) && savedPendaftar.length > 0 ? savedPendaftar : [
-            {
-                id: 'antrean-001',
-                acara_id: '777e05ab-a8c0-4bdc-9999-a12e522786d6',
-                nama_pendaftar: 'Meity Rondonuwu',
-                nomor_telepon: '081234567890',
-                nomor_antrean: 1,
-                kode_barcode: 'GPM-TIKA-001-A9F2',
-                status_kehadiran: 'Hadir',
-                waktu_kehadiran: '2026-10-18T08:15:00Z',
-                waktu_mendaftar: '2026-10-15T09:00:00Z'
-            },
-            {
-                id: 'antrean-002',
-                acara_id: '777e05ab-a8c0-4bdc-9999-a12e522786d6',
-                nama_pendaftar: 'Frangky Mandagi',
-                nomor_telepon: '082198765432',
-                nomor_antrean: 2,
-                kode_barcode: 'GPM-TIKA-002-C4B8',
-                status_kehadiran: 'Menunggu',
-                waktu_kehadiran: null,
-                waktu_mendaftar: '2026-10-15T09:12:00Z'
-            },
-            {
-                id: 'antrean-003',
-                acara_id: '777e05ab-a8c0-4bdc-9999-a12e522786d6',
-                nama_pendaftar: 'Grace Lumempouw',
-                nomor_telepon: '085240112233',
-                nomor_antrean: 3,
-                kode_barcode: 'GPM-TIKA-003-X8Q1',
-                status_kehadiran: 'Menunggu',
-                waktu_kehadiran: null,
-                waktu_mendaftar: '2026-10-15T09:30:00Z'
-            },
-            {
-                id: 'antrean-004',
-                acara_id: 'f1da6320-1a2b-48f2-8d0d-c1cf28208808',
-                nama_pendaftar: 'Johan Sompie',
-                nomor_telepon: '081355667788',
-                nomor_antrean: 1,
-                kode_barcode: 'GPM-BERSE-001-V7L2',
-                status_kehadiran: 'Menunggu',
-                waktu_kehadiran: null,
-                waktu_mendaftar: '2026-10-15T10:00:00Z'
-            }
-        ];
+        // Data pendaftar murni ditarik dari database (tidak menggunakan data orang tiruan/dummy)
+        this.fallbackPendaftar = Array.isArray(savedPendaftar) ? savedPendaftar : [];
     }
 
     // Helper Authorization Header

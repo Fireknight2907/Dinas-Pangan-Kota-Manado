@@ -1165,7 +1165,7 @@ export default function PetugasGPMManager({ token, pengguna }) {
                 </MapContainer>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', fontSize: '0.82rem', color: '#555' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginTop: '8px', fontSize: '0.82rem', color: '#555' }}>
                 <span>
                   📍 Titik Terpilih: <strong>{formGPM.latitude.toFixed(5)}, {formGPM.longitude.toFixed(5)}</strong>
                 </span>

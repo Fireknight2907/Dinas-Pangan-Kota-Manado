@@ -13,53 +13,8 @@ class ModelPendaftarGPM {
         // Nama tabel di basis data Supabase
         this.namaTabel = 'pendaftar_gpm';
 
-        // Data cadangan lokal (in-memory fallback)
-        this.dataCadangan = [
-            {
-                id: 'antrean-001',
-                acara_id: 'gpm-001-sparta-tikala',
-                nama_pendaftar: 'Meity Rondonuwu',
-                nomor_telepon: '081234567890',
-                nomor_antrean: 1,
-                kode_barcode: 'GPM-TIKA-A001',
-                status_kehadiran: 'Hadir',
-                waktu_kehadiran: '2026-10-18T08:15:00Z',
-                waktu_mendaftar: '2026-10-15T09:00:00Z'
-            },
-            {
-                id: 'antrean-002',
-                acara_id: 'gpm-001-sparta-tikala',
-                nama_pendaftar: 'Frangky Mandagi',
-                nomor_telepon: '082198765432',
-                nomor_antrean: 2,
-                kode_barcode: 'GPM-TIKA-A002',
-                status_kehadiran: 'Menunggu',
-                waktu_kehadiran: null,
-                waktu_mendaftar: '2026-10-15T09:12:00Z'
-            },
-            {
-                id: 'antrean-003',
-                acara_id: 'gpm-001-sparta-tikala',
-                nama_pendaftar: 'Grace Lumempouw',
-                nomor_telepon: '085240112233',
-                nomor_antrean: 3,
-                kode_barcode: 'GPM-TIKA-A003',
-                status_kehadiran: 'Menunggu',
-                waktu_kehadiran: null,
-                waktu_mendaftar: '2026-10-15T09:30:00Z'
-            },
-            {
-                id: 'antrean-004',
-                acara_id: 'gpm-002-pasar-bersehati',
-                nama_pendaftar: 'Johan Sompie',
-                nomor_telepon: '081355667788',
-                nomor_antrean: 1,
-                kode_barcode: 'GPM-BERSE-B001',
-                status_kehadiran: 'Menunggu',
-                waktu_kehadiran: null,
-                waktu_mendaftar: '2026-10-15T10:00:00Z'
-            }
-        ];
+        // Data cadangan lokal (in-memory fallback - kosong secara bawaan, murni ditarik dari database)
+        this.dataCadangan = [];
     }
 
     // [Modul Model] 1. Mengambil semua pendaftar untuk satu acara GPM tertentu (Menu Petugas)

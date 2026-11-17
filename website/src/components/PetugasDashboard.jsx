@@ -860,11 +860,12 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 top: '46px',
                 right: '0',
                 width: '340px',
+                maxWidth: 'calc(100vw - 32px)',
                 background: '#ffffff',
                 border: '1px solid #e2e8f0',
                 borderRadius: '12px',
                 boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
-                zIndex: 50,
+                zIndex: 1000,
                 padding: '14px'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
@@ -1305,66 +1306,49 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   Semua usulan harga telah diverifikasi. Tidak ada usulan tertunda.
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="verif-cards-list">
                   {daftarDraftVerifikasi.map(item => (
-                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '8px' }}>
-                      <div>
-                        <strong style={{ fontSize: '1rem', color: '#92400e' }}>{item.nama_komoditas}</strong>
-                        <span style={{ fontSize: '0.85rem', color: '#b45309', marginLeft: '8px' }}>({item.kategori})</span>
-                        <div style={{ fontSize: '0.82rem', color: '#78350f', marginTop: '4px' }}>
+                    <div key={item.id} className="verif-item-card">
+                      <div className="verif-item-info">
+                        <div className="verif-item-title-row">
+                          <strong className="verif-item-title">{item.nama_komoditas}</strong>
+                          <span className="verif-item-badge">({item.kategori})</span>
+                        </div>
+                        <div className="verif-item-meta">
                           Pasar: <strong>{item.nama_pasar}</strong> · Satuan: {formatSatuanTampil(item.satuan)} · Tanggal: {item.tanggal_penetapan}
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#92400e' }}>
+                      <div className="verif-item-right-section">
+                        <div className="verif-item-price">
                           {formatRupiah(item.harga)}
                         </div>
-                        <button
-                          onClick={() => handleBukaEditKabid(item)}
-                          style={{
-                            background: '#eff6ff',
-                            color: '#1d4ed8',
-                            border: '1px solid #bfdbfe',
-                            padding: '8px 12px',
-                            borderRadius: '6px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            fontSize: '0.82rem'
-                          }}
-                        >
-                          ✏️ Edit
-                        </button>
-                        <button
-                          onClick={() => handleVerifikasiHarga(item, 'Terbit')}
-                          style={{
-                            background: '#166534',
-                            color: '#ffffff',
-                            border: 'none',
-                            padding: '8px 14px',
-                            borderRadius: '6px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            fontSize: '0.82rem'
-                          }}
-                        >
-                          ✓ Setujui & Terbitkan
-                        </button>
-                        <button
-                          onClick={() => handleHapusHarga(item.id, item.nama_komoditas)}
-                          style={{
-                            background: '#fee2e2',
-                            color: '#991b1b',
-                            border: 'none',
-                            padding: '8px 12px',
-                            borderRadius: '6px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            fontSize: '0.82rem'
-                          }}
-                        >
-                          Tolak
-                        </button>
+                        <div className="verif-item-btn-group">
+                          <button
+                            type="button"
+                            className="verif-btn-edit"
+                            onClick={() => handleBukaEditKabid(item)}
+                            title="Ubah usulan harga komoditas"
+                          >
+                            ✏️ Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="verif-btn-setujui"
+                            onClick={() => handleVerifikasiHarga(item, 'Terbit')}
+                            title="Setujui dan terbitkan ke publik"
+                          >
+                            ✓ Setujui & Terbitkan
+                          </button>
+                          <button
+                            type="button"
+                            className="verif-btn-tolak"
+                            onClick={() => handleHapusHarga(item.id, item.nama_komoditas)}
+                            title="Tolak usulan harga ini"
+                          >
+                            ✕ Tolak
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1377,53 +1361,55 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               <h3 style={{ margin: '0 0 16px 0', color: '#166534', fontSize: '1.05rem' }}>
                 ✅ Komoditas Resmi Terbit di Halaman Publik
               </h3>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
-                    <th style={{ padding: '10px' }}>Komoditas</th>
-                    <th style={{ padding: '10px' }}>Kategori</th>
-                    <th style={{ padding: '10px' }}>Pasar</th>
-                    <th style={{ padding: '10px' }}>Harga</th>
-                    <th style={{ padding: '10px' }}>Status</th>
-                    <th style={{ padding: '10px', textAlign: 'right' }}>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {daftarHarga.filter(h => h.status === 'Terbit').map(h => (
-                    <tr key={h.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '10px', fontWeight: 700 }}>{h.nama_komoditas}</td>
-                      <td style={{ padding: '10px' }}>{h.kategori}</td>
-                      <td style={{ padding: '10px' }}>{h.nama_pasar}</td>
-                      <td style={{ padding: '10px', fontWeight: 800, color: '#8b1e1e' }}>{formatRupiah(h.harga)} / {formatSatuanTampil(h.satuan)}</td>
-                      <td style={{ padding: '10px' }}>
-                        <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700, background: '#dcfce7', color: '#166534' }}>
-                          Terbit
-                        </span>
-                      </td>
-                      <td style={{ padding: '10px', textAlign: 'right' }}>
-                        <button
-                          onClick={() => handleBukaEditKabid(h)}
-                          style={{ background: 'none', border: 'none', color: '#1d4ed8', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, marginRight: '8px' }}
-                        >
-                          ✏️ Edit
-                        </button>
-                        <button
-                          onClick={() => handleVerifikasiHarga(h, 'Draft')}
-                          style={{ background: 'none', border: 'none', color: '#d97706', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, marginRight: '8px' }}
-                        >
-                          Tarik ke Draft
-                        </button>
-                        <button
-                          onClick={() => handleHapusHarga(h.id, h.nama_komoditas)}
-                          style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}
-                        >
-                          Hapus
-                        </button>
-                      </td>
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', minWidth: '600px' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+                      <th style={{ padding: '10px' }}>Komoditas</th>
+                      <th style={{ padding: '10px' }}>Kategori</th>
+                      <th style={{ padding: '10px' }}>Pasar</th>
+                      <th style={{ padding: '10px' }}>Harga</th>
+                      <th style={{ padding: '10px' }}>Status</th>
+                      <th style={{ padding: '10px', textAlign: 'right' }}>Aksi</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {daftarHarga.filter(h => h.status === 'Terbit').map(h => (
+                      <tr key={h.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '10px', fontWeight: 700 }}>{h.nama_komoditas}</td>
+                        <td style={{ padding: '10px' }}>{h.kategori}</td>
+                        <td style={{ padding: '10px' }}>{h.nama_pasar}</td>
+                        <td style={{ padding: '10px', fontWeight: 800, color: '#8b1e1e' }}>{formatRupiah(h.harga)} / {formatSatuanTampil(h.satuan)}</td>
+                        <td style={{ padding: '10px' }}>
+                          <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700, background: '#dcfce7', color: '#166534' }}>
+                            Terbit
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <button
+                            onClick={() => handleBukaEditKabid(h)}
+                            style={{ background: 'none', border: 'none', color: '#1d4ed8', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, marginRight: '8px' }}
+                          >
+                            ✏️ Edit
+                          </button>
+                          <button
+                            onClick={() => handleVerifikasiHarga(h, 'Draft')}
+                            style={{ background: 'none', border: 'none', color: '#d97706', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, marginRight: '8px' }}
+                          >
+                            Tarik ke Draft
+                          </button>
+                          <button
+                            onClick={() => handleHapusHarga(h.id, h.nama_komoditas)}
+                            style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}
+                          >
+                            Hapus
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -1456,7 +1442,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               Inspeksi agenda Gerakan Pangan Murah, monitoring kuota beras & minyak terpakai, dan pemantauan data pendaftar warga.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginTop: '20px' }}>
+            <div className="gpm-supervisi-cards-grid" style={{ marginTop: '20px' }}>
               {rekapitulasiGPMList.length === 0 ? (
                 <div style={{ gridColumn: '1 / -1', padding: '32px', textAlign: 'center', color: '#64748b', background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                   Belum ada agenda Gerakan Pangan Murah dalam basis data.
@@ -1589,41 +1575,43 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 </p>
               </div>
 
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '28px', fontSize: '0.88rem' }}>
-                <thead>
-                  <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
-                    <th style={{ padding: '10px' }}>No.</th>
-                    <th style={{ padding: '10px' }}>Nama Komoditas</th>
-                    <th style={{ padding: '10px' }}>Kategori</th>
-                    <th style={{ padding: '10px' }}>Nama Pasar</th>
-                    <th style={{ padding: '10px' }}>Harga Acuan</th>
-                    <th style={{ padding: '10px' }}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {daftarHarga.map((h, idx) => (
-                    <tr key={h.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '10px' }}>{idx + 1}</td>
-                      <td style={{ padding: '10px', fontWeight: 700 }}>{h.nama_komoditas}</td>
-                      <td style={{ padding: '10px' }}>{h.kategori}</td>
-                      <td style={{ padding: '10px' }}>{h.nama_pasar}</td>
-                      <td style={{ padding: '10px', fontWeight: 800, color: '#8b1e1e' }}>{formatRupiah(h.harga)} / {formatSatuanTampil(h.satuan)}</td>
-                      <td style={{ padding: '10px' }}>
-                        <span style={{ 
-                          padding: '3px 8px', 
-                          borderRadius: '4px', 
-                          fontSize: '0.72rem', 
-                          fontWeight: 700, 
-                          background: h.status === 'Draft' ? '#fef3c7' : '#dcfce7', 
-                          color: h.status === 'Draft' ? '#92400e' : '#166534' 
-                        }}>
-                          {h.status === 'Draft' ? 'Draf' : (h.status || 'Terbit')}
-                        </span>
-                      </td>
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '28px', fontSize: '0.88rem', minWidth: '600px' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+                      <th style={{ padding: '10px' }}>No.</th>
+                      <th style={{ padding: '10px' }}>Nama Komoditas</th>
+                      <th style={{ padding: '10px' }}>Kategori</th>
+                      <th style={{ padding: '10px' }}>Nama Pasar</th>
+                      <th style={{ padding: '10px' }}>Harga Acuan</th>
+                      <th style={{ padding: '10px' }}>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {daftarHarga.map((h, idx) => (
+                      <tr key={h.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '10px' }}>{idx + 1}</td>
+                        <td style={{ padding: '10px', fontWeight: 700 }}>{h.nama_komoditas}</td>
+                        <td style={{ padding: '10px' }}>{h.kategori}</td>
+                        <td style={{ padding: '10px' }}>{h.nama_pasar}</td>
+                        <td style={{ padding: '10px', fontWeight: 800, color: '#8b1e1e' }}>{formatRupiah(h.harga)} / {formatSatuanTampil(h.satuan)}</td>
+                        <td style={{ padding: '10px' }}>
+                          <span style={{ 
+                            padding: '3px 8px', 
+                            borderRadius: '4px', 
+                            fontSize: '0.72rem', 
+                            fontWeight: 700, 
+                            background: h.status === 'Draft' ? '#fef3c7' : '#dcfce7', 
+                            color: h.status === 'Draft' ? '#92400e' : '#166534' 
+                          }}>
+                            {h.status === 'Draft' ? 'Draf' : (h.status || 'Terbit')}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
               <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'flex-end', textAlign: 'center' }}>
                 <div style={{ width: '280px' }}>
@@ -1648,7 +1636,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               Administrator mengelola referensi nama pasar dan wilayah kecamatan agar staf hanya dapat memilih data yang telah disahkan.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginTop: '20px' }}>
+            <div className="gpm-supervisi-cards-grid" style={{ marginTop: '20px' }}>
               {/* Master Pasar */}
               <div style={{ background: '#ffffff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                 <h3 style={{ margin: '0 0 12px 0', color: '#8b1e1e' }}>🏪 Master Daftar Pasar</h3>
@@ -1716,7 +1704,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               Khusus Administrator: Anda dapat mengganti nama pengguna, mengubah peran pengguna, dan melakukan atur ulang kata sandi tanpa melihat kata sandi lama pengguna.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginTop: '20px' }}>
+            <div className="gpm-supervisi-cards-grid" style={{ marginTop: '20px' }}>
               {/* Form Tambah Pengguna Baru */}
               <div style={{ background: '#ffffff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                 <h3 style={{ margin: '0 0 16px 0', color: '#8b1e1e' }}>➕ Tambah Akun Pengguna Baru</h3>
@@ -1975,37 +1963,47 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 </div>
 
                 {/* Visualisasi Grafik Tren Interaktif */}
-                <div style={{ background: '#ffffff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                  <h3 style={{ margin: '0 0 16px 0', color: '#1e293b', fontSize: '1.05rem' }}>
-                    Pergerakan Harga Komoditas: {dataTren.namaKomoditas}
-                  </h3>
+                <div style={{ background: '#ffffff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', width: '100%', maxWidth: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+                    <h3 style={{ margin: 0, color: '#1e293b', fontSize: '1.05rem' }}>
+                      Pergerakan Harga Komoditas: {dataTren.namaKomoditas}
+                    </h3>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b', background: '#f1f5f9', padding: '3px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                      📊 Grafik Batang Riil
+                    </span>
+                  </div>
 
-                  <div style={{ height: '220px', display: 'flex', alignItems: 'flex-end', gap: '16px', padding: '20px 10px 10px 10px', background: '#f8fafc', borderRadius: '8px', borderBottom: '2px solid #cbd5e1' }}>
-                    {Array.isArray(dataTren.titikData) && dataTren.titikData.map((titik, idx) => {
-                      const rasio = (titik.harga - dataTren.hargaTerendah * 0.9) / (dataTren.hargaTertinggi - dataTren.hargaTerendah * 0.9 || 1);
-                      const tinggiPersen = Math.max(25, Math.min(100, Math.round(rasio * 100)));
-                      return (
-                        <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
-                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#8b1e1e', marginBottom: '6px' }}>
-                            {formatRupiah(titik.harga)}
-                          </span>
-                          <div 
-                            style={{ 
-                              width: '100%', 
-                              maxWidth: '48px', 
-                              height: `${tinggiPersen}%`, 
-                              background: 'linear-gradient(180deg, #8b1e1e 0%, #b91c1c 100%)', 
-                              borderRadius: '6px 6px 0 0',
-                              transition: 'all 0.3s ease'
-                            }} 
-                            title={`${titik.tanggal}: ${formatRupiah(titik.harga)}`}
-                          />
-                          <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '8px', fontWeight: 600 }}>
-                            {titik.tanggal}
-                          </span>
-                        </div>
-                      );
-                    })}
+                  <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '6px' }}>
+                    <div style={{ minWidth: '520px', height: '220px', display: 'flex', alignItems: 'flex-end', gap: '14px', padding: '20px 10px 10px 10px', background: '#f8fafc', borderRadius: '8px', borderBottom: '2px solid #cbd5e1' }}>
+                      {Array.isArray(dataTren.titikData) && dataTren.titikData.map((titik, idx) => {
+                        const rasio = (titik.harga - dataTren.hargaTerendah * 0.9) / (dataTren.hargaTertinggi - dataTren.hargaTerendah * 0.9 || 1);
+                        const tinggiPersen = Math.max(25, Math.min(100, Math.round(rasio * 100)));
+                        return (
+                          <div key={idx} style={{ flex: 1, minWidth: '55px', display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#8b1e1e', marginBottom: '6px', whiteSpace: 'nowrap' }}>
+                              {formatRupiah(titik.harga)}
+                            </span>
+                            <div 
+                              style={{ 
+                                width: '100%', 
+                                maxWidth: '44px', 
+                                height: `${tinggiPersen}%`, 
+                                background: 'linear-gradient(180deg, #8b1e1e 0%, #b91c1c 100%)', 
+                                borderRadius: '6px 6px 0 0',
+                                transition: 'all 0.3s ease'
+                              }} 
+                              title={`${titik.tanggal}: ${formatRupiah(titik.harga)}`}
+                            />
+                            <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '8px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                              {titik.tanggal}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8', textAlign: 'right', marginTop: '6px' }}>
+                    💡 Geser ke samping jika grafik terpotong di layar ponsel
                   </div>
                 </div>
               </>
@@ -2051,82 +2049,84 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 Realisasi Penyaluran Komoditas Gerakan Pangan Murah
               </h3>
 
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
-                    <th style={{ padding: '10px' }}>Nama Acara / Lokasi</th>
-                    <th style={{ padding: '10px' }}>Wilayah Kecamatan</th>
-                    <th style={{ padding: '10px' }}>Target Kuota</th>
-                    <th style={{ padding: '10px' }}>Warga Mendaftar</th>
-                    <th style={{ padding: '10px' }}>Warga Terlayani</th>
-                    <th style={{ padding: '10px' }}>Status Acara</th>
-                    <th style={{ padding: '10px', textAlign: 'center' }}>Data Pendaftar</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rekapitulasiGPMList.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
-                        Belum ada riwayat kegiatan Gerakan Pangan Murah yang tercatat.
-                      </td>
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', minWidth: '700px' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+                      <th style={{ padding: '10px' }}>Nama Acara / Lokasi</th>
+                      <th style={{ padding: '10px' }}>Wilayah Kecamatan</th>
+                      <th style={{ padding: '10px' }}>Target Kuota</th>
+                      <th style={{ padding: '10px' }}>Warga Mendaftar</th>
+                      <th style={{ padding: '10px' }}>Warga Terlayani</th>
+                      <th style={{ padding: '10px' }}>Status Acara</th>
+                      <th style={{ padding: '10px', textAlign: 'center' }}>Data Pendaftar</th>
                     </tr>
-                  ) : (
-                    rekapitulasiGPMList.map((gpm) => (
-                      <tr key={gpm.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '10px' }}>
-                          <strong>{gpm.nama_acara}</strong>
-                          <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{gpm.lokasi}</div>
-                        </td>
-                        <td style={{ padding: '10px' }}>{gpm.kecamatan}</td>
-                        <td style={{ padding: '10px', fontWeight: 700 }}>{gpm.target_kuota} KK</td>
-                        <td 
-                          style={{ padding: '10px', cursor: 'pointer', color: '#1d4ed8', fontWeight: 700 }}
-                          onClick={() => setModalDetailWarga({ buka: true, acara: gpm, pencarian: '' })}
-                          title="Klik untuk membuka data pendaftar warga"
-                        >
-                          {gpm.terdaftar} Warga 🔍
-                        </td>
-                        <td style={{ padding: '10px', fontWeight: 800, color: gpm.terlayani > 0 ? '#166534' : '#64748b' }}>
-                          {gpm.terlayani > 0 ? `${gpm.terlayani} KK` : '-'}
-                        </td>
-                        <td style={{ padding: '10px' }}>
-                          <span style={{ 
-                            padding: '3px 8px', 
-                            borderRadius: '4px', 
-                            fontSize: '0.72rem', 
-                            fontWeight: 700, 
-                            background: gpm.status === 'Selesai' ? '#dcfce7' : '#eff6ff', 
-                            color: gpm.status === 'Selesai' ? '#166534' : '#1e40af' 
-                          }}>
-                            {gpm.status}
-                          </span>
-                        </td>
-                        <td style={{ padding: '10px', textAlign: 'center' }}>
-                          <button
-                            type="button"
-                            onClick={() => setModalDetailWarga({ buka: true, acara: gpm, pencarian: '' })}
-                            style={{
-                              background: '#eff6ff',
-                              color: '#1d4ed8',
-                              border: '1px solid #bfdbfe',
-                              borderRadius: '6px',
-                              padding: '5px 12px',
-                              fontSize: '0.78rem',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}
-                          >
-                            👥 Buka Data ({gpm.terdaftar})
-                          </button>
+                  </thead>
+                  <tbody>
+                    {rekapitulasiGPMList.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
+                          Belum ada riwayat kegiatan Gerakan Pangan Murah yang tercatat.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      rekapitulasiGPMList.map((gpm) => (
+                        <tr key={gpm.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '10px' }}>
+                            <strong>{gpm.nama_acara}</strong>
+                            <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{gpm.lokasi}</div>
+                          </td>
+                          <td style={{ padding: '10px' }}>{gpm.kecamatan}</td>
+                          <td style={{ padding: '10px', fontWeight: 700 }}>{gpm.target_kuota} KK</td>
+                          <td 
+                            style={{ padding: '10px', cursor: 'pointer', color: '#1d4ed8', fontWeight: 700 }}
+                            onClick={() => setModalDetailWarga({ buka: true, acara: gpm, pencarian: '' })}
+                            title="Klik untuk membuka data pendaftar warga"
+                          >
+                            {gpm.terdaftar} Warga 🔍
+                          </td>
+                          <td style={{ padding: '10px', fontWeight: 800, color: gpm.terlayani > 0 ? '#166534' : '#64748b' }}>
+                            {gpm.terlayani > 0 ? `${gpm.terlayani} KK` : '-'}
+                          </td>
+                          <td style={{ padding: '10px' }}>
+                            <span style={{ 
+                              padding: '3px 8px', 
+                              borderRadius: '4px', 
+                              fontSize: '0.72rem', 
+                              fontWeight: 700, 
+                              background: gpm.status === 'Selesai' ? '#dcfce7' : '#eff6ff', 
+                              color: gpm.status === 'Selesai' ? '#166534' : '#1e40af' 
+                            }}>
+                              {gpm.status}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => setModalDetailWarga({ buka: true, acara: gpm, pencarian: '' })}
+                              style={{
+                                background: '#eff6ff',
+                                color: '#1d4ed8',
+                                border: '1px solid #bfdbfe',
+                                borderRadius: '6px',
+                                padding: '5px 12px',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              👥 Buka Data ({gpm.terdaftar})
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

@@ -17,24 +17,29 @@
    1. SIDEBAR KIRI (MAROON GELAP #3c0b0b)
    ───────────────────────────────────────────── */
 .petugas-sidebar {
-  width: 260px;
+  width: 270px;
   background-color: #380a0a;
   color: #ffffff;
   display: flex;
   flex-direction: column;
-  padding: 24px 16px;
+  padding: 20px 16px;
   flex-shrink: 0;
-  transition: transform 0.3s ease;
-  z-index: 40;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 1050;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .sidebar-brand-box {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding-bottom: 24px;
+  padding-bottom: 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
 }
 
 .sidebar-logo-circle {
@@ -80,8 +85,9 @@
   font-weight: 700;
   letter-spacing: 0.8px;
   color: rgba(255, 255, 255, 0.45);
-  padding: 0 12px;
-  margin-bottom: 12px;
+  padding: 0 8px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
 }
 
 .sidebar-nav-list {
@@ -89,6 +95,20 @@
   flex-direction: column;
   gap: 6px;
   flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+  padding-right: 4px;
+  overscroll-behavior: contain;
+}
+
+.sidebar-nav-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-nav-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
 }
 
 .sidebar-nav-btn {
@@ -125,8 +145,10 @@
 }
 
 .sidebar-bottom-footer {
-  padding-top: 16px;
+  padding-top: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  margin-top: auto;
 }
 
 .sidebar-logout-btn {
@@ -155,9 +177,12 @@
    ───────────────────────────────────────────── */
 .petugas-main-wrapper {
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .petugas-top-bar {
@@ -692,8 +717,14 @@
     top: 0;
     bottom: 0;
     left: 0;
+    width: 280px;
+    max-width: 85vw;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 1050;
     transform: translateX(-100%);
-    box-shadow: 10px 0 25px rgba(0, 0, 0, 0.3);
+    box-shadow: 10px 0 25px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
   }
 
   .petugas-sidebar.sidebar-open {
@@ -703,8 +734,9 @@
   .sidebar-mobile-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 35;
+    background: rgba(0, 0, 0, 0.65);
+    z-index: 1040;
+    backdrop-filter: blur(2px);
   }
 
   .mobile-toggle-btn {
@@ -716,7 +748,11 @@
   }
 
   .dashboard-page-container, .tetapkan-harga-page-container {
-    padding: 20px 16px;
+    padding: 18px 14px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 
   .dashboard-action-cards-grid {
@@ -751,13 +787,33 @@
 
   .petugas-top-bar {
     flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 10px !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 12px 16px !important;
   }
 
-  .topbar-right-actions {
+  .top-bar-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
     width: 100% !important;
-    justify-content: space-between !important;
+  }
+
+  /* Sorong profil petugas & lonceng notifikasi ke kanan di tampilan ponsel */
+  .top-bar-right {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    gap: 14px !important;
+    margin-left: auto !important;
+  }
+
+  .staff-profile-pill {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    margin-left: 0 !important;
   }
 
   .dashboard-hero-title-box {
@@ -777,6 +833,229 @@
   .pendaftar-data-table td {
     padding: 8px 6px !important;
     font-size: 0.78rem !important;
+  }
+
+  .gpm-supervisi-cards-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+}
+
+.gpm-supervisi-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ===================================================================================
+   KARTU VERIFIKASI HARGA PANGAN (KABID) - RESPONSIF & PROPORSIONAL (MOBILE & DESKTOP)
+   =================================================================================== */
+.verif-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.verif-item-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 20px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  gap: 18px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  transition: all 0.2s ease;
+}
+
+.verif-item-card:hover {
+  border-color: #f59e0b;
+  box-shadow: 0 4px 12px rgba(180, 83, 9, 0.08);
+}
+
+.verif-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.verif-item-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.verif-item-title {
+  font-size: 1.05rem;
+  color: #92400e;
+  word-break: break-word;
+}
+
+.verif-item-badge {
+  font-size: 0.82rem;
+  color: #b45309;
+  background: #fef3c7;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.verif-item-meta {
+  font-size: 0.82rem;
+  color: #78350f;
+  margin-top: 6px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.verif-item-right-section {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.verif-item-price {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #92400e;
+  white-space: nowrap;
+}
+
+.verif-item-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.verif-btn-edit {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.84rem;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.verif-btn-edit:hover {
+  background: #dbeafe;
+}
+
+.verif-btn-setujui {
+  background: #166534;
+  color: #ffffff;
+  border: 1px solid #14532d;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.84rem;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(22, 101, 52, 0.2);
+  transition: all 0.15s ease;
+}
+
+.verif-btn-setujui:hover {
+  background: #14532d;
+}
+
+.verif-btn-tolak {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.84rem;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.verif-btn-tolak:hover {
+  background: #fca5a5;
+}
+
+/* Responsif Layar Tablet & Layar Menengah */
+@media (max-width: 860px) {
+  .verif-item-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
+  .verif-item-right-section {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px dashed #fde68a;
+  }
+}
+
+/* Responsif Layar Ponsel Mobile (Layar HP iPhone / Android) */
+@media (max-width: 640px) {
+  .verif-item-card {
+    padding: 14px 12px;
+    gap: 12px;
+  }
+
+  .verif-item-right-section {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .verif-item-price {
+    font-size: 1.22rem;
+    color: #92400e;
+    text-align: right;
+    padding-bottom: 2px;
+  }
+
+  /* Susunan Tombol Aksi HP: Tombol Setujui Lebar Penuh di Atas, Edit & Tolak Berdampingan di Bawah */
+  .verif-item-btn-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .verif-btn-setujui {
+    grid-column: 1 / -1;
+    order: -1;
+    padding: 12px 14px;
+    font-size: 0.92rem;
+    font-weight: 800;
+    width: 100%;
+  }
+
+  .verif-btn-edit,
+  .verif-btn-tolak {
+    padding: 10px 8px;
+    font-size: 0.84rem;
+    width: 100%;
   }
 }
 

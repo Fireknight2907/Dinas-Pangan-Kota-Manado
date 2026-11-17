@@ -141,41 +141,8 @@ class GPMMobileApiService {
             }
         ];
 
-        const defaultPendaftar: ItemPendaftarGPM[] = [
-            {
-                id: 'antrean-001',
-                acara_id: 'gpm-001-sparta-tikala',
-                nama_pendaftar: 'Meity Rondonuwu',
-                nomor_telepon: '081234567890',
-                nomor_antrean: 1,
-                kode_barcode: 'GPM-TIKA-001-A9F2',
-                status_kehadiran: 'Hadir',
-                waktu_kehadiran: '2026-10-18T08:15:00Z',
-                waktu_mendaftar: '2026-10-15T09:00:00Z'
-            },
-            {
-                id: 'antrean-002',
-                acara_id: 'gpm-001-sparta-tikala',
-                nama_pendaftar: 'Frangky Mandagi',
-                nomor_telepon: '082198765432',
-                nomor_antrean: 2,
-                kode_barcode: 'GPM-TIKA-002-C4B8',
-                status_kehadiran: 'Menunggu',
-                waktu_kehadiran: null,
-                waktu_mendaftar: '2026-10-15T09:12:00Z'
-            },
-            {
-                id: 'antrean-003',
-                acara_id: 'gpm-001-sparta-tikala',
-                nama_pendaftar: 'Grace Lumempouw',
-                nomor_telepon: '085240112233',
-                nomor_antrean: 3,
-                kode_barcode: 'GPM-TIKA-003-X8Q1',
-                status_kehadiran: 'Menunggu',
-                waktu_kehadiran: null,
-                waktu_mendaftar: '2026-10-15T09:30:00Z'
-            }
-        ];
+        // Data pendaftar murni ditarik dari database (tidak menggunakan data orang tiruan/dummy)
+        const defaultPendaftar: ItemPendaftarGPM[] = [];
 
         const savedAcara = localStorage.getItem('sipatokean_mobile_gpm_acara');
         if (savedAcara) {
