@@ -25,6 +25,8 @@ class LaporanService {
             } catch (_) { }
         }
 
+        if (!Array.isArray(sumberHarga)) sumberHarga = [];
+
         // Filter komoditas sesuai nama jenis pangan
         let cocok = sumberHarga.filter(i =>
             (i.nama_komoditas || '').toLowerCase().trim() === namaKomoditas.toLowerCase().trim()
@@ -112,6 +114,8 @@ class LaporanService {
             const p = localStorage.getItem('sipatokean_pendaftar_gpm_cache');
             if (p) daftarPendaftar = JSON.parse(p);
         } catch (_) { }
+
+        if (!Array.isArray(daftarPendaftar)) daftarPendaftar = [];
 
         if (daftarAcara.length > 0) {
             return daftarAcara.map(a => {

@@ -179,16 +179,19 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   const muatDataDashboard = async () => {
     try {
       const stats = await hargaPanganService.ambilStatistikDashboard();
-      setStatsDashboard(stats);
+      if (stats) setStatsDashboard(stats);
 
       const items = await hargaPanganService.ambilSemua();
-      setDaftarHarga(items);
+      setDaftarHarga(Array.isArray(items) ? items : []);
 
       const acara = await gpmService.ambilSemuaAcara();
-      setDaftarAcaraGPM(acara || []);
+      setDaftarAcaraGPM(Array.isArray(acara) ? acara : []);
 
-      const pendaftar = await gpmService.ambilPendaftarAcara();
-      setDaftarPendaftarGPM(pendaftar || []);
+      const pendaftarRes = await gpmService.ambilPendaftarAcara();
+      const listPendaftar = Array.isArray(pendaftarRes)
+        ? pendaftarRes
+        : (Array.isArray(pendaftarRes?.data) ? pendaftarRes.data : []);
+      setDaftarPendaftarGPM(listPendaftar);
 
       const users = isAdmin ? penggunaService.ambilSemuaPengguna() : [];
       muatNotifikasiDinamis(items, acara, users);
@@ -739,8 +742,13 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   };
 
   // Data Riil Rekapitulasi GPM (Terkoneksi Basis Data Supabase & Pendaftar Riil)
-  const rekapitulasiGPMList = daftarAcaraGPM.map(a => {
-    const pendaftarAcara = daftarPendaftarGPM.filter(p => p.acara_id === a.id);
+  const listPendaftarAman = Array.isArray(daftarPendaftarGPM)
+    ? daftarPendaftarGPM
+    : (Array.isArray(daftarPendaftarGPM?.data) ? daftarPendaftarGPM.data : []);
+  const listAcaraAman = Array.isArray(daftarAcaraGPM) ? daftarAcaraGPM : [];
+
+  const rekapitulasiGPMList = listAcaraAman.map(a => {
+    const pendaftarAcara = listPendaftarAman.filter(p => p.acara_id === a.id);
     const terdaftarCount = Math.max(pendaftarAcara.length, a.terdaftar || 0);
     const terlayaniCount = pendaftarAcara.filter(p => p.status_kehadiran === 'Hadir').length || (a.terlayani || 0);
     return {
@@ -759,7 +767,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       daftar_warga: pendaftarAcara
     };
   });
-  const daftarDraftVerifikasi = daftarHarga.filter(item => item.status === 'Draft');
+  const daftarDraftVerifikasi = (Array.isArray(daftarHarga) ? daftarHarga : []).filter(item => item && item.status === 'Draft');
 
   return (
     <div className="petugas-app-layout">
@@ -1967,7 +1975,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   </h3>
 
                   <div style={{ height: '220px', display: 'flex', alignItems: 'flex-end', gap: '16px', padding: '20px 10px 10px 10px', background: '#f8fafc', borderRadius: '8px', borderBottom: '2px solid #cbd5e1' }}>
-                    {dataTren.titikData.map((titik, idx) => {
+                    {Array.isArray(dataTren.titikData) && dataTren.titikData.map((titik, idx) => {
                       const rasio = (titik.harga - dataTren.hargaTerendah * 0.9) / (dataTren.hargaTertinggi - dataTren.hargaTerendah * 0.9 || 1);
                       const tinggiPersen = Math.max(25, Math.min(100, Math.round(rasio * 100)));
                       return (
@@ -2723,7 +2731,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
             {/* Statistik Ringkas Pendaftar */}
             {(() => {
-              const pendaftarAcara = daftarPendaftarGPM.filter(p => p.acara_id === modalDetailWarga.acara.id);
+              const listWarga = Array.isArray(daftarPendaftarGPM)
+                ? daftarPendaftarGPM
+                : (Array.isArray(daftarPendaftarGPM?.data) ? daftarPendaftarGPM.data : []);
+              const pendaftarAcara = listWarga.filter(p => p.acara_id === modalDetailWarga.acara.id);
               const totalTerdaftar = Math.max(pendaftarAcara.length, modalDetailWarga.acara.terdaftar || 0);
               const totalHadir = pendaftarAcara.filter(p => p.status_kehadiran === 'Hadir').length || (modalDetailWarga.acara.terlayani || 0);
               const totalBelum = Math.max(0, totalTerdaftar - totalHadir);
@@ -2994,7 +3005,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                       alert('Silakan pilih kegiatan GPM terlebih dahulu!');
                       return;
                     }
-                    const pendaftarAcara = daftarPendaftarGPM.filter(p => p.acara_id === target.id);
+                    const listWarga = Array.isArray(daftarPendaftarGPM)
+                      ? daftarPendaftarGPM
+                      : (Array.isArray(daftarPendaftarGPM?.data) ? daftarPendaftarGPM.data : []);
+                    const pendaftarAcara = listWarga.filter(p => p.acara_id === target.id);
                     setModalPilihanCetakGPM({ buka: false, mode: 'semua', acaraId: '' });
                     handleCetakDokumen({ jenis: 'kadis-gpm-acara', acara: target, pendaftar: pendaftarAcara });
                   } else {

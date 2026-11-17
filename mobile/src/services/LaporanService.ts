@@ -140,6 +140,8 @@ class LaporanMobileService {
       if (p) daftarPendaftar = JSON.parse(p);
     } catch (_) {}
 
+    if (!Array.isArray(daftarPendaftar)) daftarPendaftar = [];
+
     if (daftarAcara.length > 0) {
       return daftarAcara.map(a => {
         const pendaftarAcara = daftarPendaftar.filter(p => p.acara_id === a.id);
