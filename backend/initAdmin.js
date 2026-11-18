@@ -23,12 +23,12 @@ async function inisialisasiAdmin() {
             const { error: errInsert } = await klienBasisData
                 .from('pengguna')
                 .insert([{
-                    nama: 'Administrator',
+                    nama: 'Admin',
                     username: 'admin',
                     email: 'admin@manado.go.id',
                     kata_sandi: hashedPassword,
-                    peran: 'Superadmin',
-                    bidang: 'Administrator Sistem'
+                    peran: 'Admin',
+                    bidang: 'Admin'
                 }]);
             
             if (errInsert) {

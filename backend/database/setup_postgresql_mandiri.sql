@@ -104,10 +104,10 @@ CREATE TABLE master_pasar (
 -- DATA AWAL RESMI (SEED DATA)
 -- ====================================================================
 
--- Data Pengguna Utama (Akun Tunggal Administrator Bawaan - Username: admin / Password: admin)
+-- Data Pengguna Utama (Akun Tunggal Bawaan - Username: admin / Password: admin)
 -- Salt: SIPATOKAAN_MANADO_2026_SECURE_SALT
 INSERT INTO pengguna (nama, username, email, kata_sandi, peran, bidang) VALUES
-('Administrator', 'admin', 'admin@manado.go.id', 'bfdbf1ca1799b68e56f988a0c60fe4dfebcc377c4f3d21680bcc1eaca9b587c3', 'Superadmin', 'Administrator Sistem');
+('Admin', 'admin', 'admin@manado.go.id', 'bfdbf1ca1799b68e56f988a0c60fe4dfebcc377c4f3d21680bcc1eaca9b587c3', 'Admin', 'Admin');
 
 -- Master Kecamatan Kota Manado
 INSERT INTO master_kecamatan (nama_kecamatan) VALUES

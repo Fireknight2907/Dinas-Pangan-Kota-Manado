@@ -38,9 +38,9 @@ class PenggunaModel {
             }
         }
 
-        // Akun Utama Administrator Bawaan (Username: admin / Password: admin)
+        // Akun Utama Admin Bawaan (Username: admin / Password: admin)
         const akunBawaan = [
-            { id: 'usr-admin', nama: 'Administrator', email: 'admin@manado.go.id', username: 'admin', kata_sandi: 'admin', peran: 'Superadmin', bidang: 'Administrator Sistem', foto_profil: '' }
+            { id: 'usr-admin', nama: 'Admin', email: 'admin@manado.go.id', username: 'admin', kata_sandi: 'admin', peran: 'Admin', bidang: 'Admin', foto_profil: '' }
         ];
 
         const normalisasi = (email || '').toLowerCase().trim();
@@ -109,7 +109,7 @@ class PenggunaModel {
         }
 
         return [
-            { id: 'usr-admin', nama: 'Administrator', email: 'admin@manado.go.id', username: 'admin', peran: 'Superadmin', bidang: 'Administrator Sistem' }
+            { id: 'usr-admin', nama: 'Admin', email: 'admin@manado.go.id', username: 'admin', peran: 'Admin', bidang: 'Admin' }
         ];
     }
 
