@@ -1751,6 +1751,17 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   </div>
 
                   <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '4px' }}>Alamat Email (Opsional)</label>
+                    <input
+                      type="email"
+                      placeholder="contoh@manado.go.id (Otomatis jika dikosongkan)"
+                      className="field-input-box"
+                      value={formUserBaru.email}
+                      onChange={(e) => setFormUserBaru({ ...formUserBaru, email: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
                     <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '4px' }}>Peran Kedinasan (Hak Akses)</label>
                     <select
                       className="field-select-box"

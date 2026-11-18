@@ -1939,6 +1939,10 @@
             <input type="text" v-model="formPenggunaBaru.username" placeholder="Contoh: budi" />
           </div>
           <div class="s-field" style="margin-bottom: 8px;">
+            <label>Alamat Email (Opsional)</label>
+            <input type="email" v-model="formPenggunaBaru.email" placeholder="contoh@manado.go.id (Otomatis jika kosong)" />
+          </div>
+          <div class="s-field" style="margin-bottom: 8px;">
             <label>Peran Hak Akses</label>
             <select v-model="formPenggunaBaru.peran" class="m-role-select" style="width: 100%;">
               <option value="Admin">Admin</option>
