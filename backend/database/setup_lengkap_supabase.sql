@@ -106,12 +106,11 @@ END $$;
 -- 7. Data Master Akun Petugas & Pimpinan (Kata Sandi Terenkripsi SHA-256 + Salt)
 -- Hash untuk kata sandi default '12345678': eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481
 INSERT INTO pengguna (nama, username, email, kata_sandi, peran, bidang) VALUES
-('Super Administrator', 'superadmin', 'superadmin@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Superadmin', 'Akses Penuh Seluruh Modul (Superadmin)'),
+('Superadmin', 'superadmin', 'superadmin@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Superadmin', 'Superadmin'),
 ('Effrend', 'effrend', 'effrend@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Staf', 'Bidang Cadangan dan Distribusi Pangan'),
-('Regina', 'regina', 'regina@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Admin', 'Administrator Sistem (Superadmin)'),
+('Regina', 'regina', 'regina@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Admin', 'Admin'),
 ('Mareta', 'mareta', 'mareta@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Kabid', 'Kepala Bidang Cadangan & Distribusi Pangan'),
-('Edrick', 'edrick', 'edrick@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Admin', 'Administrator Sistem (Superadmin)'),
-('Roni Tilaar', 'roni', 'roni@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Petugas', 'Bidang Cadangan dan Distribusi Pangan'),
+('Edrick', 'edrick', 'edrick@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Admin', 'Admin'),
 ('Kepala Dinas Pangan', 'kadis', 'kadis@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Kadis', 'Pimpinan Dinas Pangan Kota Manado');
 
 -- 8. Data Awal Komoditas Harga Pangan

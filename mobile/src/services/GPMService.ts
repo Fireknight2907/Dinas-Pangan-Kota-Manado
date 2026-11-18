@@ -144,34 +144,34 @@ class GPMMobileApiService {
         // Data pendaftar murni ditarik dari database (tidak menggunakan data orang tiruan/dummy)
         const defaultPendaftar: ItemPendaftarGPM[] = [];
 
-        const savedAcara = localStorage.getItem('sipatokean_mobile_gpm_acara');
+        const savedAcara = localStorage.getItem('sipatokaan_mobile_gpm_acara');
         if (savedAcara) {
             try { this.fallbackAcara = JSON.parse(savedAcara); } catch (e) { this.fallbackAcara = defaultAcara; }
         } else {
             this.fallbackAcara = defaultAcara;
-            localStorage.setItem('sipatokean_mobile_gpm_acara', JSON.stringify(defaultAcara));
+            localStorage.setItem('sipatokaan_mobile_gpm_acara', JSON.stringify(defaultAcara));
         }
 
-        const savedPendaftar = localStorage.getItem('sipatokean_mobile_gpm_pendaftar');
+        const savedPendaftar = localStorage.getItem('sipatokaan_mobile_gpm_pendaftar');
         if (savedPendaftar) {
             try { this.fallbackPendaftar = JSON.parse(savedPendaftar); } catch (e) { this.fallbackPendaftar = defaultPendaftar; }
         } else {
             this.fallbackPendaftar = defaultPendaftar;
-            localStorage.setItem('sipatokean_mobile_gpm_pendaftar', JSON.stringify(defaultPendaftar));
+            localStorage.setItem('sipatokaan_mobile_gpm_pendaftar', JSON.stringify(defaultPendaftar));
         }
     }
 
     private simpanAcaraKeStorage() {
-        localStorage.setItem('sipatokean_mobile_gpm_acara', JSON.stringify(this.fallbackAcara));
+        localStorage.setItem('sipatokaan_mobile_gpm_acara', JSON.stringify(this.fallbackAcara));
     }
 
     private simpanPendaftarKeStorage() {
-        localStorage.setItem('sipatokean_mobile_gpm_pendaftar', JSON.stringify(this.fallbackPendaftar));
+        localStorage.setItem('sipatokaan_mobile_gpm_pendaftar', JSON.stringify(this.fallbackPendaftar));
     }
 
     // Helper token
     private ambilHeaderAuth() {
-        const token = localStorage.getItem('sipatokean_mobile_token');
+        const token = localStorage.getItem('sipatokaan_mobile_token');
         return {
             'Content-Type': 'application/json',
             ...(token ? { 'Authorization': `Bearer ${token}` } : {})

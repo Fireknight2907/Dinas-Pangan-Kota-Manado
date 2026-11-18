@@ -72,7 +72,7 @@ class GPMApiService {
         // Pendaftar tersimpan dari sinkronisasi database riil
         let savedPendaftar = [];
         try {
-            const raw = localStorage.getItem('sipatokean_pendaftar_gpm_cache');
+            const raw = localStorage.getItem('sipatokaan_pendaftar_gpm_cache');
             if (raw) savedPendaftar = JSON.parse(raw);
         } catch (_) { }
 
@@ -82,7 +82,7 @@ class GPMApiService {
 
     // Helper Authorization Header
     ambilHeaderAuth() {
-        const token = localStorage.getItem('sipatokean_token');
+        const token = localStorage.getItem('sipatokaan_token');
         return {
             'Content-Type': 'application/json',
             ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -289,7 +289,7 @@ class GPMApiService {
             const tiketParsed = this.parseDataPendaftar(tiketHasil);
             this.fallbackPendaftar.unshift(tiketParsed);
             try {
-                localStorage.setItem('sipatokean_pendaftar_gpm_cache', JSON.stringify(this.fallbackPendaftar));
+                localStorage.setItem('sipatokaan_pendaftar_gpm_cache', JSON.stringify(this.fallbackPendaftar));
             } catch (_) { }
             if (acara) {
                 acara.antrean_terisi = (acara.antrean_terisi || 0) + 1;
@@ -340,7 +340,7 @@ class GPMApiService {
         const tiketParsed = this.parseDataPendaftar(tiketHasil);
         this.fallbackPendaftar.unshift(tiketParsed);
         try {
-            localStorage.setItem('sipatokean_pendaftar_gpm_cache', JSON.stringify(this.fallbackPendaftar));
+            localStorage.setItem('sipatokaan_pendaftar_gpm_cache', JSON.stringify(this.fallbackPendaftar));
         } catch (_) { }
 
         return {

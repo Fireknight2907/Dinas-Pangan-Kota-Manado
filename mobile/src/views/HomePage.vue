@@ -1194,7 +1194,7 @@
                       {{ formatPeranLengkap(user.peran) }}
                     </span>
                   </div>
-                  <span class="m-user-sub">@{{ user.username }} · {{ user.email }}</span>
+                  <span class="m-user-sub">{{ user.username }} · {{ user.email }}</span>
                   <span class="m-user-bidang">{{ user.bidang || 'Dinas Pangan Kota Manado' }}</span>
                 </div>
               </div>
@@ -1855,7 +1855,7 @@
             </div>
             <div>
               <h4 style="margin: 0; font-size: 1rem; color: #1e293b;">{{ userAktif?.nama }}</h4>
-              <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: #64748b;">@{{ userAktif?.username }} · {{ userAktif?.email }}</p>
+              <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: #64748b;">{{ userAktif?.username }} · {{ userAktif?.email }}</p>
               <span class="user-role-badge" :class="'role-' + peranAktif.toLowerCase()" style="margin-top: 4px; display: inline-block;">
                 {{ formatPeranLengkap(peranAktif) }}
               </span>
@@ -1971,7 +1971,7 @@
             <span class="server-icon-pulse">🔑</span>
             <div>
               <h3 class="server-m-title">Reset Kata Sandi Pengguna</h3>
-              <p class="server-m-sub">Target: {{ targetResetUser?.nama }} (@{{ targetResetUser?.username }})</p>
+              <p class="server-m-sub">Target: {{ targetResetUser?.nama }} ({{ targetResetUser?.username }})</p>
             </div>
           </div>
           <button type="button" class="btn-close-modal-icon" @click="modalResetSandiBuka = false">✕</button>
@@ -3589,8 +3589,8 @@ const unduhLaporanPanganKabid = () => {
 // ─────────────────────────────────────────────────────────────
 // METODE ADMIN: KELOLA PENGGUNA & MASTER PASAR / WILAYAH
 // ─────────────────────────────────────────────────────────────
-const muatSemuaPengguna = () => {
-  daftarSemuaPengguna.value = penggunaMobileService.ambilSemuaPengguna();
+const muatSemuaPengguna = async () => {
+  daftarSemuaPengguna.value = await penggunaMobileService.ambilSemuaPengguna();
   daftarKecamatan.value = hargaPanganMobileService.ambilKecamatan();
 };
 
@@ -3614,7 +3614,7 @@ const tambahPenggunaBaru = async () => {
       peran: 'Staf',
       bidang: 'Bidang Cadangan dan Distribusi Pangan'
     };
-    muatSemuaPengguna();
+    await muatSemuaPengguna();
     alert('✅ Pengguna baru resmi ditambahkan ke sistem!');
   } catch (e: any) {
     alert('Gagal menambah pengguna: ' + e.message);
@@ -3645,6 +3645,7 @@ const eksekusiResetSandi = async () => {
       inputSandiResetBaru.value
     );
     modalResetSandiBuka.value = false;
+    await muatSemuaPengguna();
     alert(`✅ Kata sandi untuk "${targetResetUser.value.nama}" berhasil diperbarui!`);
   } catch (e: any) {
     alert('Gagal mereset kata sandi: ' + e.message);
@@ -3657,7 +3658,7 @@ const bukaModalUbahUsername = (user: AkunPengguna) => {
   modalUbahUsernameBuka.value = true;
 };
 
-const eksekusiUbahUsername = () => {
+const eksekusiUbahUsername = async () => {
   if (!targetUbahUsername.value) return;
   const baru = inputUsernameBaru.value.trim().toLowerCase();
   if (!baru) {
@@ -3665,48 +3666,48 @@ const eksekusiUbahUsername = () => {
     return;
   }
   try {
-    penggunaMobileService.adminUbahUsername(
+    await penggunaMobileService.adminUbahUsername(
       userAktif.value?.id || 'usr-admin',
       targetUbahUsername.value.id,
       baru
     );
     modalUbahUsernameBuka.value = false;
-    muatSemuaPengguna();
-    alert(`✅ Username berhasil diperbarui menjadi "@${baru}"!`);
+    await muatSemuaPengguna();
+    alert(`✅ Username berhasil diperbarui menjadi "${baru}"!`);
   } catch (e: any) {
     alert('Gagal mengubah username: ' + e.message);
   }
 };
 
-const eksekusiUbahPeran = (user: AkunPengguna, peranBaru: string) => {
+const eksekusiUbahPeran = async (user: AkunPengguna, peranBaru: string) => {
   const ok = confirm(`Ubah peran hak akses "${user.nama}" menjadi "${peranBaru}"?`);
   if (!ok) return;
   try {
-    penggunaMobileService.adminUbahPeran(
+    await penggunaMobileService.adminUbahPeran(
       userAktif.value?.id || 'usr-admin',
       user.id,
       peranBaru
     );
-    muatSemuaPengguna();
+    await muatSemuaPengguna();
     alert(`✅ Hak akses ${user.nama} berhasil diubah menjadi ${peranBaru}.`);
   } catch (e: any) {
     alert('Gagal mengubah peran: ' + e.message);
   }
 };
 
-const eksekusiHapusUser = (user: AkunPengguna) => {
+const eksekusiHapusUser = async (user: AkunPengguna) => {
   if (userAktif.value?.id === user.id) {
     alert('Akses Ditolak: Anda tidak dapat menghapus akun Anda sendiri.');
     return;
   }
-  const ok = confirm(`Apakah Anda yakin ingin menghapus akun "${user.nama}" (@${user.username})?\nTindakan ini tidak dapat dibatalkan.`);
+  const ok = confirm(`Apakah Anda yakin ingin menghapus akun "${user.nama}" (${user.username})?\nTindakan ini tidak dapat dibatalkan.`);
   if (!ok) return;
   try {
-    penggunaMobileService.adminHapusPengguna(
+    await penggunaMobileService.adminHapusPengguna(
       userAktif.value?.id || 'usr-admin',
       user.id
     );
-    muatSemuaPengguna();
+    await muatSemuaPengguna();
     alert(`🗑️ Akun "${user.nama}" berhasil dihapus.`);
   } catch (e: any) {
     alert('Gagal menghapus akun: ' + e.message);

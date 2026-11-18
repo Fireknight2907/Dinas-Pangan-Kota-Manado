@@ -51,7 +51,7 @@ class LaporanMobileService {
     
     if (sumberHarga.length === 0) {
       try {
-        const tersimpan = localStorage.getItem('sipatokean_custom_items');
+        const tersimpan = localStorage.getItem('sipatokaan_custom_items');
         if (tersimpan) sumberHarga = JSON.parse(tersimpan);
       } catch (_) {}
     }
@@ -128,15 +128,15 @@ class LaporanMobileService {
   ambilRekapitulasiGPM(): ItemRekapGPM[] {
     let daftarAcara: any[] = [];
     try {
-      const aktif = localStorage.getItem('sipatokean_daftar_gpm');
-      const riwayat = localStorage.getItem('sipatokean_riwayat_gpm');
+      const aktif = localStorage.getItem('sipatokaan_daftar_gpm');
+      const riwayat = localStorage.getItem('sipatokaan_riwayat_gpm');
       if (aktif) daftarAcara.push(...JSON.parse(aktif));
       if (riwayat) daftarAcara.push(...JSON.parse(riwayat));
     } catch (_) {}
 
     let daftarPendaftar: any[] = [];
     try {
-      const p = localStorage.getItem('sipatokean_pendaftar_gpm_cache');
+      const p = localStorage.getItem('sipatokaan_pendaftar_gpm_cache');
       if (p) daftarPendaftar = JSON.parse(p);
     } catch (_) {}
 

@@ -13,7 +13,7 @@ class HargaPanganApiService {
 
     inisialisasiMasterData() {
         // Master Kecamatan (Ditambah oleh Kepala Bagian/Admin, Staf hanya memilih)
-        if (!localStorage.getItem('sipatokean_master_kecamatan')) {
+        if (!localStorage.getItem('sipatokaan_master_kecamatan')) {
             const defaultKecamatan = [
                 'Wenang',
                 'Tikala',
@@ -27,22 +27,22 @@ class HargaPanganApiService {
                 'Bunaken',
                 'Bunaken Kepulauan'
             ];
-            localStorage.setItem('sipatokean_master_kecamatan', JSON.stringify(defaultKecamatan));
+            localStorage.setItem('sipatokaan_master_kecamatan', JSON.stringify(defaultKecamatan));
         }
 
         // Master Pasar (Ditambah oleh Kepala Bagian/Admin, Staf hanya memilih)
-        if (!localStorage.getItem('sipatokean_master_pasar')) {
+        if (!localStorage.getItem('sipatokaan_master_pasar')) {
             const defaultPasar = [
                 'Pasar Tradisional Bahu',
                 'Pasar Bersehati Karombasan',
                 'Pasar Tradisional Tuminting',
                 'Pasar Bersehati Sario'
             ];
-            localStorage.setItem('sipatokean_master_pasar', JSON.stringify(defaultPasar));
+            localStorage.setItem('sipatokaan_master_pasar', JSON.stringify(defaultPasar));
         }
 
         // Master Notifikasi
-        if (!localStorage.getItem('sipatokean_notifikasi')) {
+        if (!localStorage.getItem('sipatokaan_notifikasi')) {
             const defaultNotif = [
                 {
                     id: 'notif-1',
@@ -69,7 +69,7 @@ class HargaPanganApiService {
                     tipe: 'laporan'
                 }
             ];
-            localStorage.setItem('sipatokean_notifikasi', JSON.stringify(defaultNotif));
+            localStorage.setItem('sipatokaan_notifikasi', JSON.stringify(defaultNotif));
         }
     }
 
@@ -97,7 +97,7 @@ class HargaPanganApiService {
             const dataCloud = await supabaseClient.getHargaPangan();
             if (Array.isArray(dataCloud) && dataCloud.length > 0) {
                 const cleaned = dataCloud.map(i => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
-                localStorage.setItem('sipatokean_custom_items', JSON.stringify(cleaned));
+                localStorage.setItem('sipatokaan_custom_items', JSON.stringify(cleaned));
                 let hasil = [...cleaned];
                 if (status) {
                     hasil = hasil.filter(i => (i.status || 'Terbit').toLowerCase() === status.toLowerCase());
@@ -178,7 +178,7 @@ class HargaPanganApiService {
     // 2. MASTER PASAR (KEPALA BAGIAN & ADMIN BISA ADD)
     // ─────────────────────────────────────────────
     async ambilDaftarPasar() {
-        const tersimpan = localStorage.getItem('sipatokean_master_pasar');
+        const tersimpan = localStorage.getItem('sipatokaan_master_pasar');
         if (tersimpan) {
             try { return JSON.parse(tersimpan); } catch (e) {}
         }
@@ -192,19 +192,19 @@ class HargaPanganApiService {
 
     tambahPasar(namaPasar) {
         if (!namaPasar || !namaPasar.trim()) throw new Error('Nama pasar tidak boleh kosong');
-        const daftar = JSON.parse(localStorage.getItem('sipatokean_master_pasar') || '[]');
+        const daftar = JSON.parse(localStorage.getItem('sipatokaan_master_pasar') || '[]');
         if (daftar.some(p => p.toLowerCase() === namaPasar.trim().toLowerCase())) {
             throw new Error(`Pasar "${namaPasar}" sudah terdaftar.`);
         }
         daftar.push(namaPasar.trim());
-        localStorage.setItem('sipatokean_master_pasar', JSON.stringify(daftar));
+        localStorage.setItem('sipatokaan_master_pasar', JSON.stringify(daftar));
         return daftar;
     }
 
     hapusPasar(namaPasar) {
-        let daftar = JSON.parse(localStorage.getItem('sipatokean_master_pasar') || '[]');
+        let daftar = JSON.parse(localStorage.getItem('sipatokaan_master_pasar') || '[]');
         daftar = daftar.filter(p => p !== namaPasar);
-        localStorage.setItem('sipatokean_master_pasar', JSON.stringify(daftar));
+        localStorage.setItem('sipatokaan_master_pasar', JSON.stringify(daftar));
         return daftar;
     }
 
@@ -212,7 +212,7 @@ class HargaPanganApiService {
     // 3. MASTER KECAMATAN (KEPALA BAGIAN & ADMIN BISA ADD)
     // ─────────────────────────────────────────────
     ambilKecamatan() {
-        const tersimpan = localStorage.getItem('sipatokean_master_kecamatan');
+        const tersimpan = localStorage.getItem('sipatokaan_master_kecamatan');
         if (tersimpan) {
             try { return JSON.parse(tersimpan); } catch (e) {}
         }
@@ -229,14 +229,14 @@ class HargaPanganApiService {
             throw new Error(`Kecamatan "${namaKecamatan}" sudah ada di sistem.`);
         }
         daftar.push(namaKecamatan.trim());
-        localStorage.setItem('sipatokean_master_kecamatan', JSON.stringify(daftar));
+        localStorage.setItem('sipatokaan_master_kecamatan', JSON.stringify(daftar));
         return daftar;
     }
 
     hapusKecamatan(namaKecamatan) {
         let daftar = this.ambilKecamatan();
         daftar = daftar.filter(k => k !== namaKecamatan);
-        localStorage.setItem('sipatokean_master_kecamatan', JSON.stringify(daftar));
+        localStorage.setItem('sipatokaan_master_kecamatan', JSON.stringify(daftar));
         return daftar;
     }
 
@@ -250,7 +250,7 @@ class HargaPanganApiService {
             if (itemMasuk && itemMasuk.id) {
                 const list = this.ambilDataFallback();
                 list.unshift(itemMasuk);
-                localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
+                localStorage.setItem('sipatokaan_custom_items', JSON.stringify(list));
                 return itemMasuk;
             }
         } catch (err) {
@@ -279,7 +279,7 @@ class HargaPanganApiService {
             tanggal_penetapan: dataBaru.tanggal_penetapan || '14 Oktober 2026'
         };
         list.unshift(itemBaru);
-        localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
+        localStorage.setItem('sipatokaan_custom_items', JSON.stringify(list));
         return itemBaru;
     }
 
@@ -295,7 +295,7 @@ class HargaPanganApiService {
                 } else {
                     list.unshift(itemUpdate);
                 }
-                localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
+                localStorage.setItem('sipatokaan_custom_items', JSON.stringify(list));
                 return list[idx] || itemUpdate;
             }
         } catch (err) {
@@ -321,12 +321,12 @@ class HargaPanganApiService {
         const idx = list.findIndex(i => String(i.id) === String(id));
         if (idx !== -1) {
             list[idx] = { ...list[idx], ...dataUpdate };
-            localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
+            localStorage.setItem('sipatokaan_custom_items', JSON.stringify(list));
             return list[idx];
         }
         const itemBaru = { id, ...dataUpdate };
         list.unshift(itemBaru);
-        localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
+        localStorage.setItem('sipatokaan_custom_items', JSON.stringify(list));
         return itemBaru;
     }
 
@@ -336,7 +336,7 @@ class HargaPanganApiService {
             await supabaseClient.hapusHargaPangan(id);
             let list = this.ambilDataFallback();
             list = list.filter(i => String(i.id) !== String(id));
-            localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
+            localStorage.setItem('sipatokaan_custom_items', JSON.stringify(list));
             return { sukses: true };
         } catch (err) {
             console.warn('Supabase hapus offline, beralih ke local / API:', err);
@@ -353,7 +353,7 @@ class HargaPanganApiService {
         // 3. Fallback lokal
         let list = this.ambilDataFallback();
         list = list.filter(i => String(i.id) !== String(id));
-        localStorage.setItem('sipatokean_custom_items', JSON.stringify(list));
+        localStorage.setItem('sipatokaan_custom_items', JSON.stringify(list));
         return { sukses: true };
     }
 
@@ -379,13 +379,13 @@ class HargaPanganApiService {
 
         const dataAman = { ...userCocok };
         delete dataAman.kata_sandi;
-        const mockToken = `token-sipatokean-${dataAman.id}-${Date.now()}`;
+        const mockToken = `token-sipatokaan-${dataAman.id}-${Date.now()}`;
         this.simpanSesi(mockToken, dataAman);
         return { token: mockToken, pengguna: dataAman };
     }
 
     ambilSemuaPengguna() {
-        const tersimpan = localStorage.getItem('sipatokean_master_users');
+        const tersimpan = localStorage.getItem('sipatokaan_master_users');
         if (tersimpan) {
             try { return JSON.parse(tersimpan); } catch (e) {}
         }
@@ -417,7 +417,7 @@ class HargaPanganApiService {
         };
 
         users.push(userBaru);
-        localStorage.setItem('sipatokean_master_users', JSON.stringify(users));
+        localStorage.setItem('sipatokaan_master_users', JSON.stringify(users));
         return userBaru;
     }
 
@@ -426,14 +426,14 @@ class HargaPanganApiService {
         const idx = users.findIndex(u => u.id === id);
         if (idx === -1) throw new Error('Pengguna tidak ditemukan');
         users[idx].peran = peranBaru;
-        localStorage.setItem('sipatokean_master_users', JSON.stringify(users));
+        localStorage.setItem('sipatokaan_master_users', JSON.stringify(users));
         return users[idx];
     }
 
     hapusPengguna(id) {
         let users = this.ambilSemuaPengguna();
         users = users.filter(u => u.id !== id);
-        localStorage.setItem('sipatokean_master_users', JSON.stringify(users));
+        localStorage.setItem('sipatokaan_master_users', JSON.stringify(users));
         return true;
     }
 
@@ -450,7 +450,7 @@ class HargaPanganApiService {
         }
 
         users[idx].kata_sandi = sandiBaru;
-        localStorage.setItem('sipatokean_master_users', JSON.stringify(users));
+        localStorage.setItem('sipatokaan_master_users', JSON.stringify(users));
 
         // Update sesi aktif jika pengguna saat ini yang mengubah
         const aktif = this.ambilUser();
@@ -465,7 +465,7 @@ class HargaPanganApiService {
         const idx = users.findIndex(u => u.id === idPengguna);
         if (idx !== -1) {
             users[idx].foto_profil = fotoUrl;
-            localStorage.setItem('sipatokean_master_users', JSON.stringify(users));
+            localStorage.setItem('sipatokaan_master_users', JSON.stringify(users));
         }
 
         const aktif = this.ambilUser();
@@ -480,7 +480,7 @@ class HargaPanganApiService {
     // 6. NOTIFIKASI
     // ─────────────────────────────────────────────
     ambilNotifikasi() {
-        const tersimpan = localStorage.getItem('sipatokean_notifikasi');
+        const tersimpan = localStorage.getItem('sipatokaan_notifikasi');
         if (tersimpan) {
             try { return JSON.parse(tersimpan); } catch (e) {}
         }
@@ -489,7 +489,7 @@ class HargaPanganApiService {
 
     tandaiSemuaDibaca() {
         const list = this.ambilNotifikasi().map(n => ({ ...n, dibaca: true }));
-        localStorage.setItem('sipatokean_notifikasi', JSON.stringify(list));
+        localStorage.setItem('sipatokaan_notifikasi', JSON.stringify(list));
         return list;
     }
 
@@ -498,24 +498,24 @@ class HargaPanganApiService {
     // ─────────────────────────────────────────────
     simpanSesi(token, pengguna, ingatSaya = false) {
         if (ingatSaya) {
-            localStorage.setItem('sipatokean_token', token);
-            localStorage.setItem('sipatokean_user', JSON.stringify(pengguna));
-            sessionStorage.removeItem('sipatokean_token');
-            sessionStorage.removeItem('sipatokean_user');
+            localStorage.setItem('sipatokaan_token', token);
+            localStorage.setItem('sipatokaan_user', JSON.stringify(pengguna));
+            sessionStorage.removeItem('sipatokaan_token');
+            sessionStorage.removeItem('sipatokaan_user');
         } else {
-            sessionStorage.setItem('sipatokean_token', token);
-            sessionStorage.setItem('sipatokean_user', JSON.stringify(pengguna));
-            localStorage.removeItem('sipatokean_token');
-            localStorage.removeItem('sipatokean_user');
+            sessionStorage.setItem('sipatokaan_token', token);
+            sessionStorage.setItem('sipatokaan_user', JSON.stringify(pengguna));
+            localStorage.removeItem('sipatokaan_token');
+            localStorage.removeItem('sipatokaan_user');
         }
     }
 
     ambilUser() {
-        const dariSession = sessionStorage.getItem('sipatokean_user');
+        const dariSession = sessionStorage.getItem('sipatokaan_user');
         if (dariSession) {
             try { return JSON.parse(dariSession); } catch (e) {}
         }
-        const data = localStorage.getItem('sipatokean_user');
+        const data = localStorage.getItem('sipatokaan_user');
         if (data) {
             try { return JSON.parse(data); } catch (e) { return null; }
         }
@@ -523,19 +523,19 @@ class HargaPanganApiService {
     }
 
     ambilToken() {
-        return sessionStorage.getItem('sipatokean_token') || localStorage.getItem('sipatokean_token');
+        return sessionStorage.getItem('sipatokaan_token') || localStorage.getItem('sipatokaan_token');
     }
 
     keluar() {
-        sessionStorage.removeItem('sipatokean_token');
-        sessionStorage.removeItem('sipatokean_user');
-        localStorage.removeItem('sipatokean_token');
-        localStorage.removeItem('sipatokean_user');
+        sessionStorage.removeItem('sipatokaan_token');
+        sessionStorage.removeItem('sipatokaan_user');
+        localStorage.removeItem('sipatokaan_token');
+        localStorage.removeItem('sipatokaan_user');
     }
 
     // Fallback data bawaan jika server backend offline
     ambilDataFallback(kategori, pasar, cari, status) {
-        const kustom = localStorage.getItem('sipatokean_custom_items');
+        const kustom = localStorage.getItem('sipatokaan_custom_items');
         let items = kustom ? JSON.parse(kustom) : [
             { id: '1', nama_komoditas: 'Beras Medium', kategori: 'Bahan Pokok', satuan: '1 KG', harga: 13500, nama_pasar: 'Pasar Bersehati Karombasan', tanggal_penetapan: '14 Oktober 2026', status: 'Terbit' },
             { id: '2', nama_komoditas: 'Minyak Goreng Kemasan', kategori: 'Bahan Pokok', satuan: '1 KG', harga: 18000, nama_pasar: 'Pasar Tradisional Tuminting', tanggal_penetapan: '14 Oktober 2026', status: 'Draft' },

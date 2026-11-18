@@ -20,7 +20,7 @@
   --card-bg: #ffffff;
 }
 
-.sipatokean-page-wrapper {
+.sipatokaan-page-wrapper {
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   min-height: 100vh;
   background-color: var(--bg-page);
@@ -32,7 +32,7 @@
 /* ─────────────────────────────────────────────
    1. NAVBAR HEADER
    ───────────────────────────────────────────── */
-.sipatokean-navbar {
+.sipatokaan-navbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -212,7 +212,7 @@
 /* ─────────────────────────────────────────────
    3. KONTEN UTAMA & FILTER CHIPS
    ───────────────────────────────────────────── */
-.sipatokean-main-container {
+.sipatokaan-main-container {
   max-width: 1280px;
   width: 100%;
   margin: 0 auto;
@@ -357,12 +357,12 @@
   .commodity-cards-grid {
     grid-template-columns: 1fr;
   }
-  .sipatokean-navbar {
+  .sipatokaan-navbar {
     padding: 14px 20px;
     flex-wrap: wrap;
     gap: 12px;
   }
-  .hero-banner-maroon, .sipatokean-main-container {
+  .hero-banner-maroon, .sipatokaan-main-container {
     padding: 24px 20px;
   }
   .search-filter-card {
@@ -613,7 +613,7 @@
 /* ─────────────────────────────────────────────
    7. FOOTER & ALERTS
    ───────────────────────────────────────────── */
-.sipatokean-footer {
+.sipatokaan-footer {
   text-align: center;
   padding: 24px;
   color: #6b7280;

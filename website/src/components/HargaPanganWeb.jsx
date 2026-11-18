@@ -243,11 +243,11 @@ export default function HargaPanganWeb({ onBukaLogin }) {
   ];
 
   return (
-    <div className="sipatokean-page-wrapper">
+    <div className="sipatokaan-page-wrapper">
       {/* ─────────────────────────────────────────────
           4. HEADER NAVIGASI (Sesuai Gambar 1)
           ───────────────────────────────────────────── */}
-      <header className="sipatokean-navbar">
+      <header className="sipatokaan-navbar">
         <div className="navbar-left">
           {/* Logo SIPATOKAAN */}
           <div className="brand-logo-badge">
@@ -337,7 +337,7 @@ export default function HargaPanganWeb({ onBukaLogin }) {
       </section>
 
       {/* Konten Utama */}
-      <main className="sipatokean-main-container">
+      <main className="sipatokaan-main-container">
         
         {/* ─────────────────────────────────────────────
             6. FILTER KATEGORI (Chips dengan Count Badge)
@@ -611,7 +611,7 @@ export default function HargaPanganWeb({ onBukaLogin }) {
       )}
 
       {/* Footer */}
-      <footer className="sipatokean-footer">
+      <footer className="sipatokaan-footer">
         <p>Sumber Data: Dinas Pangan Kota Manado • Bidang Cadangan dan Distribusi Pangan</p>
       </footer>
         </>

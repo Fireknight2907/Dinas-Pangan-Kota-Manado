@@ -4,7 +4,7 @@
 // Berfungsi untuk sinkronisasi otomatis antara Aplikasi Mobile dan Website
 // ===================================================================================
 
-const KUNCI_STORAGE_SERVER = 'sipatokean_server_url';
+const KUNCI_STORAGE_SERVER = 'sipatokaan_server_url';
 export const DEFAULT_HOST_LAN = '192.168.0.201'; // IP Komputer Anda saat ini
 export const DEFAULT_PORT = '3000';
 export const VERCEL_HOST = 'https://dinas-pangan-kota-manado.vercel.app';

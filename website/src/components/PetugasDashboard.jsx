@@ -193,7 +193,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         : (Array.isArray(pendaftarRes?.data) ? pendaftarRes.data : []);
       setDaftarPendaftarGPM(listPendaftar);
 
-      const users = isAdmin ? penggunaService.ambilSemuaPengguna() : [];
+      const users = isAdmin ? await penggunaService.ambilSemuaPengguna() : [];
       muatNotifikasiDinamis(items, acara, users);
 
       if (isKadis) {
@@ -216,7 +216,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     setDaftarKecamatan(kec);
 
     if (isAdmin) {
-      const users = penggunaService.ambilSemuaPengguna();
+      const users = await penggunaService.ambilSemuaPengguna();
       setDaftarPengguna(users);
       muatNotifikasiDinamis(daftarHarga, daftarAcaraGPM, users);
     }
@@ -590,10 +590,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         username: '',
         email: '',
         peran: 'Staf',
-        bidang: 'Dinas Pangan Kota Manado',
+        bidang: 'Bidang Cadangan dan Distribusi Pangan',
         kata_sandi: ''
       });
-      const users = penggunaService.ambilSemuaPengguna();
+      const users = await penggunaService.ambilSemuaPengguna();
       setDaftarPengguna(users);
       tampilkanPesan('✅ Pengguna baru berhasil didaftarkan ke sistem!');
     } catch (err) {
@@ -601,10 +601,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     }
   };
 
-  const handleUbahPeranUser = (idTarget, peranBaru) => {
+  const handleUbahPeranUser = async (idTarget, peranBaru) => {
     try {
-      penggunaService.adminUbahPeran(userState.id, idTarget, peranBaru);
-      const users = penggunaService.ambilSemuaPengguna();
+      await penggunaService.adminUbahPeran(userState.id, idTarget, peranBaru);
+      const users = await penggunaService.ambilSemuaPengguna();
       setDaftarPengguna(users);
       tampilkanPesan('✅ Peran pengguna berhasil diperbarui.');
     } catch (err) {
@@ -612,11 +612,11 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     }
   };
 
-  const handleHapusUser = (idTarget, nama) => {
+  const handleHapusUser = async (idTarget, nama) => {
     if (window.confirm(`Hapus akun pengguna "${nama}" secara permanen?`)) {
       try {
-        penggunaService.adminHapusPengguna(userState.id, idTarget);
-        const users = penggunaService.ambilSemuaPengguna();
+        await penggunaService.adminHapusPengguna(userState.id, idTarget);
+        const users = await penggunaService.ambilSemuaPengguna();
         setDaftarPengguna(users);
         tampilkanPesan(`Akun pengguna "${nama}" telah dihapus.`);
       } catch (err) {
@@ -639,7 +639,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
     try {
       await penggunaService.adminResetPassword(userState.id, modalResetAdmin.userTarget.id, modalResetAdmin.sandiBaru);
-      tampilkanPesan(`✅ Kata sandi untuk @${modalResetAdmin.userTarget.username} berhasil di-reset.`);
+      const users = await penggunaService.ambilSemuaPengguna();
+      setDaftarPengguna(users);
+      tampilkanPesan(`✅ Kata sandi untuk ${modalResetAdmin.userTarget.username} berhasil di-reset.`);
       setModalResetAdmin({ buka: false, userTarget: null, sandiBaru: '', konfirmasiSandi: '', pesan: '' });
     } catch (err) {
       setModalResetAdmin(prev => ({ ...prev, pesan: err.message }));
@@ -647,7 +649,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   };
 
   // Eksekusi Ubah Username oleh Admin
-  const handleEksekusiUbahUsername = (e) => {
+  const handleEksekusiUbahUsername = async (e) => {
     e.preventDefault();
     if (!modalEditUsername.usernameBaru.trim()) {
       setModalEditUsername(prev => ({ ...prev, pesan: 'Username baru tidak boleh kosong!' }));
@@ -655,10 +657,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     }
 
     try {
-      penggunaService.adminUbahUsername(userState.id, modalEditUsername.userTarget.id, modalEditUsername.usernameBaru.trim());
-      const users = penggunaService.ambilSemuaPengguna();
+      await penggunaService.adminUbahUsername(userState.id, modalEditUsername.userTarget.id, modalEditUsername.usernameBaru.trim());
+      const users = await penggunaService.ambilSemuaPengguna();
       setDaftarPengguna(users);
-      tampilkanPesan(`✅ Username berhasil diperbarui menjadi @${modalEditUsername.usernameBaru.trim()}`);
+      tampilkanPesan(`✅ Username berhasil diperbarui menjadi ${modalEditUsername.usernameBaru.trim()}`);
       setModalEditUsername({ buka: false, userTarget: null, usernameBaru: '', pesan: '' });
     } catch (err) {
       setModalEditUsername(prev => ({ ...prev, pesan: err.message }));
@@ -1804,7 +1806,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                           <strong style={{ fontSize: '0.95rem', color: '#0f172a' }}>{u.nama}</strong>
-                          <span style={{ fontSize: '0.82rem', color: '#64748b', marginLeft: '6px' }}>@{u.username}</span>
+                          <span style={{ fontSize: '0.82rem', color: '#64748b', marginLeft: '6px' }}>({u.username})</span>
                         </div>
                         <span style={{ 
                           fontSize: '0.75rem', 
@@ -2178,7 +2180,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           >
             <h3 style={{ margin: '0 0 8px 0', color: '#8b1e1e' }}>🔒 Hard Reset Kata Sandi (Admin)</h3>
             <p style={{ margin: '0 0 14px 0', fontSize: '0.85rem', color: '#64748b' }}>
-              Target: <strong>{modalResetAdmin.userTarget?.nama}</strong> (@{modalResetAdmin.userTarget?.username})
+              Target: <strong>{modalResetAdmin.userTarget?.nama}</strong> ({modalResetAdmin.userTarget?.username})
             </p>
 
             <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '6px', fontSize: '0.78rem', color: '#475569', marginBottom: '14px', border: '1px solid #e2e8f0' }}>

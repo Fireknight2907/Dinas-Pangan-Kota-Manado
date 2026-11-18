@@ -3,8 +3,10 @@
 // Bidang: Sekretariat & Tim Administrator - Dinas Pangan Kota Manado
 // Berfungsi untuk mengelola autentikasi, pembagian peran, hak akses menu,
 // peremajaan username, serta hard reset kata sandi oleh administrator.
-// Dilengkapi enkripsi hashing SHA-256 (Web Crypto API) untuk proteksi kata sandi.
+// Terintegrasi langsung dengan Supabase Cloud Database + Enkripsi SHA-256.
 // ===================================================================================
+
+import { supabaseClient } from './SupabaseClient';
 
 export async function hitungHashSandi(kataSandi: string): Promise<string> {
   if (!kataSandi) return '';
@@ -32,7 +34,7 @@ export interface AkunPengguna {
   nama: string;
   username: string;
   email: string;
-  kata_sandi: string;
+  kata_sandi?: string;
   peran: PeranPengguna;
   bidang: string;
   foto_profil?: string;
@@ -45,9 +47,9 @@ export interface MenuItemResmi {
 }
 
 class PenggunaMobileService {
-  private kunciMasterUsers = 'sipatokean_master_users';
-  private kunciSesiToken = 'sipatokean_mobile_token';
-  private kunciSesiUser = 'sipatokean_mobile_user';
+  private kunciMasterUsers = 'sipatokaan_master_users';
+  private kunciSesiToken = 'sipatokaan_mobile_token';
+  private kunciSesiUser = 'sipatokaan_mobile_user';
 
   constructor() {
     this.inisialisasiAkunBawaan();
@@ -118,15 +120,21 @@ class PenggunaMobileService {
       }
     ];
 
-    const tersimpan = localStorage.getItem(this.kunciMasterUsers);
+    const tersimpan = localStorage.getItem(this.kunciMasterUsers) || localStorage.getItem('sipatokaan_master_users');
     if (!tersimpan) {
       localStorage.setItem(this.kunciMasterUsers, JSON.stringify(akunBawaanResmi));
       return;
     }
 
     try {
-      const daftar: AkunPengguna[] = JSON.parse(tersimpan);
+      let daftar: AkunPengguna[] = JSON.parse(tersimpan);
       let adaPembaruan = false;
+
+      // Hapus akun roni jika masih ada di local cache
+      if (daftar.some(u => u.username && u.username.toLowerCase() === 'roni')) {
+        daftar = daftar.filter(u => u.username && u.username.toLowerCase() !== 'roni');
+        adaPembaruan = true;
+      }
 
       // Pastikan akun superadmin terdaftar di storage
       if (!daftar.some(u => u.username && u.username.toLowerCase() === 'superadmin')) {
@@ -142,13 +150,16 @@ class PenggunaMobileService {
         adaPembaruan = true;
       }
 
-      // Normalisasi peran lama 'Kepala Bagian' menjadi 'Kabid'
+      // Normalisasi peran lama 'Kepala Bagian' atau 'Petugas'
       daftar.forEach(u => {
         if ((u.peran as string) === 'Kepala Bagian') {
           u.peran = 'Kabid';
           adaPembaruan = true;
         }
-        // Bersihkan teks Superadmin jika akun adalah Admin biasa (misal: Regina, Edrick)
+        if ((u.peran as string) === 'Petugas') {
+          u.peran = 'Staf';
+          adaPembaruan = true;
+        }
         if (u.peran === 'Admin' && (u.bidang?.includes('Superadmin') || u.bidang?.includes('Administrator'))) {
           u.bidang = 'Admin';
           adaPembaruan = true;
@@ -185,7 +196,6 @@ class PenggunaMobileService {
 
     switch (peranBersih) {
       case 'Superadmin':
-        // Superadmin: Akses penuh ke seluruh menu
         return [
           { id: 'dashboard', label: 'Beranda', icon: '📊' },
           { id: 'input-harga', label: 'Masukan Data Pangan', icon: '📝' },
@@ -200,7 +210,6 @@ class PenggunaMobileService {
         ];
 
       case 'Admin':
-        // Admin: Menu edit user, master pasar dan wilayah, dashboard, menu cek gpm
         return [
           { id: 'dashboard', label: 'Beranda', icon: '📊' },
           { id: 'kelola-user', label: 'Kelola Pengguna', icon: '👥' },
@@ -209,7 +218,6 @@ class PenggunaMobileService {
         ];
 
       case 'Kabid':
-        // Kabid: Laporan (khusus bidang ini), menu verif harga pangan, dashboard, menu kelola gpm
         return [
           { id: 'dashboard', label: 'Beranda', icon: '📊' },
           { id: 'verif-harga', label: 'Verifikasi Harga Pangan', icon: '✅' },
@@ -218,7 +226,6 @@ class PenggunaMobileService {
         ];
 
       case 'Staf':
-        // Staf: Menu kelola GPM, dashboard, menu input data pangan
         return [
           { id: 'dashboard', label: 'Beranda', icon: '📊' },
           { id: 'input-harga', label: 'Masukan Data Pangan', icon: '📝' },
@@ -226,7 +233,6 @@ class PenggunaMobileService {
         ];
 
       case 'Kadis':
-        // Kadis: Dashboard dan laporan gpm dan grafik pangan
         return [
           { id: 'dashboard', label: 'Beranda', icon: '📊' },
           { id: 'grafik-pangan', label: 'Grafik Pangan', icon: '📈' },
@@ -246,11 +252,42 @@ class PenggunaMobileService {
     return daftar.some(m => m.id === idMenu);
   }
 
-  // Autentikasi Pengguna saat Login (Aman dengan Verifikasi Hash SHA-256)
+  // Autentikasi Pengguna saat Login (Supabase Cloud Database -> Local Fallback)
   async login(identifier: string, kataSandi: string, ingatSaya: boolean = false): Promise<{ token: string; pengguna: AkunPengguna }> {
     const idBersih = (identifier || '').toLowerCase().trim();
-    const daftar = this.ambilSemuaPengguna();
 
+    // 1. Coba login langsung via Supabase Cloud
+    try {
+      const userCloud = await supabaseClient.loginPengguna(idBersih, kataSandi);
+      if (userCloud) {
+        userCloud.peran = this.normalisasiPeran(userCloud.peran);
+        if (userCloud.peran === 'Admin') userCloud.bidang = 'Admin';
+        if (userCloud.peran === 'Superadmin') {
+          userCloud.nama = 'Superadmin';
+          userCloud.bidang = 'Superadmin';
+        }
+
+        const token = `sipatokaan-mobile-cloud-${userCloud.id}-${Date.now()}`;
+        this.simpanSesi(token, userCloud, ingatSaya);
+
+        // Perbarui cache lokal
+        const lokal = this.ambilSemuaPenggunaLokal();
+        const idx = lokal.findIndex(u => u.id === userCloud.id || u.username === userCloud.username);
+        if (idx !== -1) {
+          lokal[idx] = { ...lokal[idx], ...userCloud };
+        } else {
+          lokal.push(userCloud);
+        }
+        localStorage.setItem(this.kunciMasterUsers, JSON.stringify(lokal));
+
+        return { token, pengguna: userCloud };
+      }
+    } catch (e) {
+      console.warn('Login Supabase Cloud gagal/offline, verifikasi lokal:', e);
+    }
+
+    // 2. Fallback verifikasi lokal jika offline
+    const daftar = this.ambilSemuaPenggunaLokal();
     const userCocok = daftar.find(u =>
       (u.username && u.username.toLowerCase() === idBersih) ||
       (u.email && u.email.toLowerCase() === idBersih)
@@ -281,6 +318,11 @@ class PenggunaMobileService {
     const salinanAman: AkunPengguna = { ...userCocok };
     delete (salinanAman as any).kata_sandi;
     salinanAman.peran = this.normalisasiPeran(salinanAman.peran) as PeranPengguna;
+    if (salinanAman.peran === 'Admin') salinanAman.bidang = 'Admin';
+    if (salinanAman.peran === 'Superadmin') {
+      salinanAman.nama = 'Superadmin';
+      salinanAman.bidang = 'Superadmin';
+    }
     this.simpanSesi(token, salinanAman, ingatSaya);
 
     return {
@@ -289,8 +331,31 @@ class PenggunaMobileService {
     };
   }
 
-  // Mengambil seluruh data pengguna yang tersimpan
-  ambilSemuaPengguna(): AkunPengguna[] {
+  // Mengambil seluruh data pengguna (Langsung dari Supabase Cloud + Cache Sinkron)
+  async ambilSemuaPengguna(): Promise<AkunPengguna[]> {
+    try {
+      const usersCloud = await supabaseClient.getPengguna();
+      if (usersCloud && Array.isArray(usersCloud) && usersCloud.length > 0) {
+        const daftarBersih: AkunPengguna[] = usersCloud.map(u => ({
+          id: u.id,
+          nama: (u.peran === 'Superadmin' || u.username === 'superadmin') ? 'Superadmin' : u.nama,
+          username: u.username,
+          email: u.email,
+          peran: this.normalisasiPeran(u.peran) as PeranPengguna,
+          bidang: u.peran === 'Superadmin' ? 'Superadmin' : (u.peran === 'Admin' ? 'Admin' : (u.bidang || 'Dinas Pangan Kota Manado')),
+          foto_profil: u.foto_profil || ''
+        }));
+        localStorage.setItem(this.kunciMasterUsers, JSON.stringify(daftarBersih));
+        return daftarBersih;
+      }
+    } catch (e) {
+      console.warn('Gagal memuat pengguna dari Supabase Cloud, fallback ke lokal:', e);
+    }
+    return this.ambilSemuaPenggunaLokal();
+  }
+
+  // Mengambil seluruh data pengguna dari penyimpanan lokal secara sinkron
+  ambilSemuaPenggunaLokal(): AkunPengguna[] {
     const tersimpan = localStorage.getItem(this.kunciMasterUsers);
     if (tersimpan) {
       try {
@@ -300,9 +365,9 @@ class PenggunaMobileService {
     return [];
   }
 
-  // Reset kata sandi pengguna oleh Admin / Superadmin
+  // Reset kata sandi pengguna oleh Admin / Superadmin (Supabase Cloud + Local Sync)
   async adminResetPassword(idAdmin: string, idTarget: string, passwordBaru: string): Promise<boolean> {
-    const daftar = this.ambilSemuaPengguna();
+    const daftar = this.ambilSemuaPenggunaLokal();
     const adminAktif = daftar.find(u => u.id === idAdmin);
     const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
 
@@ -319,15 +384,24 @@ class PenggunaMobileService {
       throw new Error('Pengguna target tidak ditemukan!');
     }
 
+    const targetUser = daftar[idxTarget];
     const hashBaru = await hitungHashSandi(passwordBaru);
-    daftar[idxTarget].kata_sandi = hashBaru;
+    targetUser.kata_sandi = hashBaru;
     localStorage.setItem(this.kunciMasterUsers, JSON.stringify(daftar));
+
+    // Sinkronisasi ke Supabase Cloud
+    try {
+      await supabaseClient.ubahPasswordPengguna(idTarget, passwordBaru, targetUser.username);
+    } catch (e) {
+      console.warn('Gagal sinkronisasi reset kata sandi ke Supabase Cloud:', e);
+    }
+
     return true;
   }
 
-  // Ubah username pengguna oleh Admin / Superadmin
-  adminUbahUsername(idAdmin: string, idTarget: string, usernameBaru: string): AkunPengguna {
-    const daftar = this.ambilSemuaPengguna();
+  // Ubah username pengguna oleh Admin / Superadmin (Supabase Cloud + Local Sync)
+  async adminUbahUsername(idAdmin: string, idTarget: string, usernameBaru: string): Promise<AkunPengguna> {
+    const daftar = this.ambilSemuaPenggunaLokal();
     const adminAktif = daftar.find(u => u.id === idAdmin);
     const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
 
@@ -350,12 +424,23 @@ class PenggunaMobileService {
       throw new Error('Pengguna target tidak ditemukan!');
     }
 
+    const usernameLama = daftar[idxTarget].username;
     daftar[idxTarget].username = usernameBersih;
     daftar[idxTarget].email = `${usernameBersih}@manado.go.id`;
     localStorage.setItem(this.kunciMasterUsers, JSON.stringify(daftar));
 
+    // Sinkronisasi ke Supabase Cloud
+    try {
+      await supabaseClient.updatePengguna(idTarget, {
+        username: usernameBersih,
+        email: daftar[idxTarget].email
+      }, usernameLama);
+    } catch (e) {
+      console.warn('Gagal sinkronisasi username ke Supabase Cloud:', e);
+    }
+
     const userSesi = this.ambilUserSesi();
-    if (userSesi && userSesi.id === idTarget) {
+    if (userSesi && (userSesi.id === idTarget || userSesi.username === usernameLama)) {
       userSesi.username = usernameBersih;
       userSesi.email = daftar[idxTarget].email;
       this.simpanSesi(this.ambilToken() || '', userSesi);
@@ -364,9 +449,9 @@ class PenggunaMobileService {
     return daftar[idxTarget];
   }
 
-  // Ubah peran pengguna oleh Admin / Superadmin
-  adminUbahPeran(idAdmin: string, idTarget: string, peranBaru: string): AkunPengguna {
-    const daftar = this.ambilSemuaPengguna();
+  // Ubah peran pengguna oleh Admin / Superadmin (Supabase Cloud + Local Sync)
+  async adminUbahPeran(idAdmin: string, idTarget: string, peranBaru: string): Promise<AkunPengguna> {
+    const daftar = this.ambilSemuaPenggunaLokal();
     const adminAktif = daftar.find(u => u.id === idAdmin);
     const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
 
@@ -380,34 +465,53 @@ class PenggunaMobileService {
       throw new Error('Pengguna target tidak ditemukan!');
     }
 
-    daftar[idxTarget].peran = peranValid;
+    const targetUser = daftar[idxTarget];
+    targetUser.peran = peranValid;
+    if (peranValid === 'Admin') targetUser.bidang = 'Admin';
+    if (peranValid === 'Superadmin') {
+      targetUser.nama = 'Superadmin';
+      targetUser.bidang = 'Superadmin';
+    }
     localStorage.setItem(this.kunciMasterUsers, JSON.stringify(daftar));
 
+    // Sinkronisasi ke Supabase Cloud
+    try {
+      await supabaseClient.updatePengguna(idTarget, {
+        peran: peranValid,
+        bidang: targetUser.bidang
+      }, targetUser.username);
+    } catch (e) {
+      console.warn('Gagal sinkronisasi peran ke Supabase Cloud:', e);
+    }
+
     const userSesi = this.ambilUserSesi();
-    if (userSesi && userSesi.id === idTarget) {
+    if (userSesi && (userSesi.id === idTarget || userSesi.username === targetUser.username)) {
       userSesi.peran = peranValid;
+      userSesi.bidang = targetUser.bidang;
       this.simpanSesi(this.ambilToken() || '', userSesi);
     }
 
-    return daftar[idxTarget];
+    return targetUser;
   }
 
-  // Tambah pengguna baru oleh Admin / Superadmin
+  // Tambah pengguna baru oleh Admin / Superadmin (Supabase Cloud + Local Sync)
   async adminTambahPengguna(idAdmin: string, dataBaru: Partial<AkunPengguna>): Promise<AkunPengguna> {
-    const daftar = this.ambilSemuaPengguna();
+    const daftar = this.ambilSemuaPenggunaLokal();
     const adminAktif = daftar.find(u => u.id === idAdmin);
     const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
 
     if (!adminAktif || (peranAdmin !== 'Admin' && peranAdmin !== 'Superadmin')) {
-      throw new Error('Akses ditolak: Hanya role Admin atau Superadmin yang dapat mendaftarkan akun baru!');
+      throw new Error('Akses ditolak: Hanya role Admin atau Superadmin yang dapat menambah pengguna!');
     }
 
     const usernameBersih = (dataBaru.username || '').toLowerCase().trim();
-    if (!usernameBersih || !dataBaru.nama || !dataBaru.kata_sandi) {
-      throw new Error('Nama, username, dan kata sandi wajib diisi lengkap!');
+    if (!dataBaru.nama || !dataBaru.nama.trim()) {
+      throw new Error('Nama lengkap pengguna wajib diisi!');
     }
-
-    if (dataBaru.kata_sandi.length < 8) {
+    if (!usernameBersih) {
+      throw new Error('Username pengguna wajib diisi!');
+    }
+    if (!dataBaru.kata_sandi || dataBaru.kata_sandi.length < 8) {
       throw new Error('Kata sandi awal minimal 8 karakter demi keamanan!');
     }
 
@@ -415,28 +519,51 @@ class PenggunaMobileService {
       throw new Error(`Username "${usernameBersih}" sudah terdaftar di sistem!`);
     }
 
-    const peranValid = this.normalisasiPeran(dataBaru.peran) as PeranPengguna;
+    const peranValid = this.normalisasiPeran(dataBaru.peran);
     const hashKataSandi = await hitungHashSandi(dataBaru.kata_sandi);
 
-    const akunBaru: AkunPengguna = {
-      id: 'usr-' + Date.now(),
-      nama: dataBaru.nama.trim(),
+    const bidangBersih = peranValid === 'Admin' ? 'Admin' : (peranValid === 'Superadmin' ? 'Superadmin' : (dataBaru.bidang || 'Dinas Pangan Kota Manado'));
+
+    const payloadAkun: any = {
+      nama: (peranValid === 'Superadmin' || usernameBersih === 'superadmin') ? 'Superadmin' : dataBaru.nama.trim(),
       username: usernameBersih,
       email: dataBaru.email || `${usernameBersih}@manado.go.id`,
       kata_sandi: hashKataSandi,
       peran: peranValid,
-      bidang: dataBaru.bidang || 'Dinas Pangan Kota Manado',
+      bidang: bidangBersih,
       foto_profil: ''
     };
 
-    daftar.push(akunBaru);
+    // Simpan langsung ke Supabase Cloud
+    let akunBaru: AkunPengguna | null = null;
+    try {
+      const resCloud = await supabaseClient.tambahPengguna(payloadAkun);
+      if (resCloud && resCloud.id) {
+        akunBaru = {
+          ...resCloud,
+          peran: peranValid,
+          bidang: bidangBersih
+        };
+      }
+    } catch (e) {
+      console.warn('Gagal menambah pengguna ke Supabase Cloud, simpan ke lokal:', e);
+    }
+
+    if (!akunBaru) {
+      akunBaru = {
+        id: 'usr-' + Date.now(),
+        ...payloadAkun
+      };
+    }
+
+    daftar.push(akunBaru!);
     localStorage.setItem(this.kunciMasterUsers, JSON.stringify(daftar));
-    return akunBaru;
+    return akunBaru!;
   }
 
-  // Hapus pengguna oleh Admin / Superadmin
-  adminHapusPengguna(idAdmin: string, idTarget: string): boolean {
-    const daftar = this.ambilSemuaPengguna();
+  // Hapus akun pengguna oleh Admin / Superadmin (Supabase Cloud + Local Sync)
+  async adminHapusPengguna(idAdmin: string, idTarget: string): Promise<boolean> {
+    const daftar = this.ambilSemuaPenggunaLokal();
     const adminAktif = daftar.find(u => u.id === idAdmin);
     const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
 
@@ -448,18 +575,27 @@ class PenggunaMobileService {
       throw new Error('Akun admin yang sedang aktif tidak dapat menghapus dirinya sendiri!');
     }
 
+    const targetUser = daftar.find(u => u.id === idTarget);
     const disaring = daftar.filter(u => u.id !== idTarget);
     localStorage.setItem(this.kunciMasterUsers, JSON.stringify(disaring));
+
+    // Hapus dari Supabase Cloud
+    try {
+      await supabaseClient.hapusPengguna(idTarget, targetUser?.username);
+    } catch (e) {
+      console.warn('Gagal menghapus pengguna di Supabase Cloud:', e);
+    }
+
     return true;
   }
 
-  // Ubah kata sandi pribadi oleh pengguna yang sedang login
+  // Ubah kata sandi pribadi oleh pengguna yang sedang login (Supabase Cloud + Local Sync)
   async ubahKataSandiPribadi(idUser: string, kataSandiLama: string, kataSandiBaru: string): Promise<boolean> {
     if (!kataSandiBaru || kataSandiBaru.length < 8) {
       throw new Error('Kata sandi baru minimal 8 karakter!');
     }
 
-    const daftar = this.ambilSemuaPengguna();
+    const daftar = this.ambilSemuaPenggunaLokal();
     const target = daftar.find(u => u.id === idUser);
 
     if (!target) {
@@ -473,18 +609,33 @@ class PenggunaMobileService {
       throw new Error('Kata sandi lama yang Anda masukkan salah!');
     }
 
-    target.kata_sandi = await hitungHashSandi(kataSandiBaru);
+    const hashBaru = await hitungHashSandi(kataSandiBaru);
+    target.kata_sandi = hashBaru;
     localStorage.setItem(this.kunciMasterUsers, JSON.stringify(daftar));
+
+    // Sinkronkan ke Supabase Cloud
+    try {
+      await supabaseClient.ubahPasswordPengguna(idUser, kataSandiBaru, target.username);
+    } catch (e) {
+      console.warn('Gagal sinkronisasi ganti sandi ke Supabase Cloud:', e);
+    }
+
     return true;
   }
 
   // Ubah foto profil pribadi
-  ubahFotoProfil(idUser: string, urlFoto: string): boolean {
-    const daftar = this.ambilSemuaPengguna();
+  async ubahFotoProfil(idUser: string, urlFoto: string): Promise<boolean> {
+    const daftar = this.ambilSemuaPenggunaLokal();
     const target = daftar.find(u => u.id === idUser);
     if (target) {
       target.foto_profil = urlFoto;
       localStorage.setItem(this.kunciMasterUsers, JSON.stringify(daftar));
+
+      try {
+        await supabaseClient.updatePengguna(idUser, { foto_profil: urlFoto }, target.username);
+      } catch (e) {
+        console.warn('Gagal sinkronisasi foto profil ke Supabase Cloud:', e);
+      }
     }
 
     const userSesi = this.ambilUserSesi();
@@ -511,16 +662,13 @@ class PenggunaMobileService {
   }
 
   ambilUserSesi(): AkunPengguna | null {
-    // Cek sessionStorage terlebih dahulu
     const dariSession = sessionStorage.getItem(this.kunciSesiUser);
     if (dariSession) {
       try {
         const u = JSON.parse(dariSession);
         if (u && (u.peran === 'Admin' || u.username === 'regina' || u.username === 'edrick')) {
-          if (u.bidang && (u.bidang.includes('Superadmin') || u.bidang.includes('Administrator'))) {
-            u.bidang = 'Admin';
-            sessionStorage.setItem(this.kunciSesiUser, JSON.stringify(u));
-          }
+          u.bidang = 'Admin';
+          sessionStorage.setItem(this.kunciSesiUser, JSON.stringify(u));
         }
         if (u && (u.peran === 'Superadmin' || u.username === 'superadmin')) {
           u.nama = 'Superadmin';
@@ -530,16 +678,13 @@ class PenggunaMobileService {
       } catch (e) {}
     }
 
-    // Cek localStorage jika sebelumnya mencentang Ingat Saya
     const data = localStorage.getItem(this.kunciSesiUser);
     if (data) {
       try {
         const u = JSON.parse(data);
         if (u && (u.peran === 'Admin' || u.username === 'regina' || u.username === 'edrick')) {
-          if (u.bidang && (u.bidang.includes('Superadmin') || u.bidang.includes('Administrator'))) {
-            u.bidang = 'Admin';
-            localStorage.setItem(this.kunciSesiUser, JSON.stringify(u));
-          }
+          u.bidang = 'Admin';
+          localStorage.setItem(this.kunciSesiUser, JSON.stringify(u));
         }
         if (u && (u.peran === 'Superadmin' || u.username === 'superadmin')) {
           u.nama = 'Superadmin';
@@ -572,4 +717,3 @@ class PenggunaMobileService {
 }
 
 export const penggunaMobileService = new PenggunaMobileService();
-

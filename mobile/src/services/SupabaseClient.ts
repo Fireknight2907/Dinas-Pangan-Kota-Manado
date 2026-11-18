@@ -198,6 +198,65 @@ export class SupabaseRestClient {
     return kataSandi;
   }
 
+  // --- PENGGUNA ---
+  async getPengguna(): Promise<any[]> {
+    return this.request<any[]>('pengguna?select=id,nama,username,email,peran,bidang,foto_profil,dibuat_pada&order=nama.asc');
+  }
+
+  async tambahPengguna(item: any): Promise<any> {
+    const hash = item.kata_sandi ? await this.hitungHashSandi(item.kata_sandi) : 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481';
+    const payload = {
+      nama: item.nama ? item.nama.trim() : '',
+      username: item.username ? item.username.trim().toLowerCase() : '',
+      email: item.email || `${(item.username || '').trim().toLowerCase()}@manado.go.id`,
+      kata_sandi: hash,
+      peran: item.peran || 'Staf',
+      bidang: item.bidang || 'Dinas Pangan Kota Manado',
+      foto_profil: item.foto_profil || ''
+    };
+    const res = await this.request<any[]>('pengguna', 'POST', payload);
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async updatePengguna(id: string, data: any, fallbackUsername?: string): Promise<any> {
+    const payload: any = {};
+    if (data.nama !== undefined) payload.nama = data.nama;
+    if (data.username !== undefined) payload.username = data.username.toLowerCase().trim();
+    if (data.email !== undefined) payload.email = data.email;
+    if (data.peran !== undefined) payload.peran = data.peran;
+    if (data.bidang !== undefined) payload.bidang = data.bidang;
+    if (data.foto_profil !== undefined) payload.foto_profil = data.foto_profil;
+    if (data.kata_sandi !== undefined) {
+      payload.kata_sandi = await this.hitungHashSandi(data.kata_sandi);
+    }
+
+    let filter = `id=eq.${encodeURIComponent(id)}`;
+    if (fallbackUsername) {
+      filter = `or=(id.eq.${encodeURIComponent(id)},username.eq.${encodeURIComponent(fallbackUsername)})`;
+    }
+    const res = await this.request<any[]>(`pengguna?${filter}`, 'PATCH', payload);
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async ubahPasswordPengguna(id: string, kataSandiBaru: string, fallbackUsername?: string): Promise<any> {
+    const hash = await this.hitungHashSandi(kataSandiBaru);
+    let filter = `id=eq.${encodeURIComponent(id)}`;
+    if (fallbackUsername) {
+      filter = `or=(id.eq.${encodeURIComponent(id)},username.eq.${encodeURIComponent(fallbackUsername)})`;
+    }
+    const res = await this.request<any[]>(`pengguna?${filter}`, 'PATCH', { kata_sandi: hash });
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async hapusPengguna(id: string, fallbackUsername?: string): Promise<boolean> {
+    let filter = `id=eq.${encodeURIComponent(id)}`;
+    if (fallbackUsername) {
+      filter = `or=(id.eq.${encodeURIComponent(id)},username.eq.${encodeURIComponent(fallbackUsername)})`;
+    }
+    await this.request(`pengguna?${filter}`, 'DELETE');
+    return true;
+  }
+
   // --- LOGIN PENGGUNA ---
   async loginPengguna(identifier: string, kata_sandi: string): Promise<any | null> {
     const idClean = identifier.toLowerCase().trim();
