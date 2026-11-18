@@ -257,23 +257,37 @@ export class SupabaseRestClient {
     return true;
   }
 
-  // --- LOGIN PENGGUNA ---
+  // --- LOGIN PENGGUNA (via RPC aman — CEK-08 FIX) ---
   async loginPengguna(identifier: string, kata_sandi: string): Promise<any | null> {
+    // [CEK-08 FIX] Gunakan RPC server-side — anon tidak perlu SELECT langsung dari tabel pengguna.
+    // Hash dihitung di client lalu dikirim ke RPC; RPC mencocokkan di server dan hanya
+    // mengembalikan data user TANPA kolom kata_sandi jika cocok.
     const idClean = identifier.toLowerCase().trim();
-    const query = `pengguna?or=(email.eq.${encodeURIComponent(idClean)},username.eq.${encodeURIComponent(idClean)})&limit=1`;
-    const users = await this.request<any[]>(query);
-    if (!users || users.length === 0) return null;
-
-    const user = users[0];
     const hashInput = await this.hitungHashSandi(kata_sandi);
-    // Verifikasi pencocokan hash aman atau plaintext migrasi (tanpa backdoor)
-    const cocok = (user.kata_sandi === hashInput) || (user.kata_sandi === kata_sandi);
-    if (cocok) {
-      const copy = { ...user };
-      delete copy.kata_sandi;
-      return copy;
+
+    const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/rpc/rpc_login_pengguna`, {
+      method: 'POST',
+      headers: {
+        'apikey': this.apikey,
+        'Authorization': `Bearer ${this.apikey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        p_identifier: idClean,
+        p_hash_sandi: hashInput
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Login error: ${res.status}`);
     }
-    return null;
+
+    const data = await res.json();
+    // RPC mengembalikan array; kosong = sandi salah/user tidak ada
+    if (!data || data.length === 0) return null;
+    // kata_sandi TIDAK ADA dalam respons (RPC tidak return kolom itu)
+    return data[0];
   }
 }
 
