@@ -42,7 +42,7 @@ Buka dan sesuaikan kredensial di file `.env` masing-masing modul:
   PORT=3000
   URL_SUPABASE=https://PROYEK_ANDA.supabase.co
   KUNCI_SUPABASE=sb_publishable_KUNCI_ANON_ANDA
-  KUNCI_JWT=kunci_rahasia_dinas_pangan_manado_2026
+  KUNCI_JWT=kunci_rahasia
   ```
 
 ---
@@ -84,7 +84,7 @@ Gunakan panduan ini jika aplikasi hendak diserahkan ke pihak klien / Dinas Panga
      npm install
      node server.js
      ```
-   * Server API backend akan aktif berjalan di `http://localhost:3000` (atau IP jaringan kantor, misal: `http://192.168.1.100:3000`).
+   * Server API backend akan aktif berjalan di `http://localhost:3000` (atau IP jaringan kantor, misal: `http://192.168.1....`).
 
 ---
 
@@ -93,7 +93,7 @@ Gunakan panduan ini jika aplikasi hendak diserahkan ke pihak klien / Dinas Panga
    ```env
    VITE_API_ROOT=http://localhost:3000/api
    ```
-   *(Jika website dibuka dari komputer lain di jaringan LAN kantor, ganti `localhost` dengan IP komputer server, misal: `http://192.168.1.100:3000/api`)*.
+   *(Jika website dibuka dari komputer lain di jaringan LAN kantor, ganti `localhost` dengan IP komputer server, misal: `http://192.168.1.....`)*.
 2. Kompilasi aset website siap saji:
    ```bash
    cd website
@@ -110,13 +110,13 @@ Ada 2 cara mudah untuk menghubungkan aplikasi Android ke server lokal kantor:
   1. Buka aplikasi SI PATOKAAN di HP Android.
   2. Klik ikon atau menu **Pengaturan Server** (di beranda / pojok layar).
   3. Masukkan alamat IP komputer server kantor Anda, contoh:
-     `http://192.168.1.100:3000`
+     `http://192.168.1.....`
   4. Klik **Simpan & Uji Koneksi**. Aplikasi HP akan langsung terhubung ke database lokal kantor secara real-time!
 
 * **Cara B (Build Ulang APK dengan Default IP Server Kantor Baru):**
   1. Buka berkas `mobile/src/services/ServerConfig.ts`, sesuaikan IP bawaan:
      ```typescript
-     export const DEFAULT_HOST_LAN = '192.168.1.100'; // Ganti dengan IP komputer server Anda
+     export const DEFAULT_HOST_LAN = '192.168.1.....'; // Ganti dengan IP komputer server Anda
      export const DEFAULT_PORT = '3000';
      ```
   2. Buka terminal dan kompilasi APK baru:
@@ -134,32 +134,12 @@ Ada 2 cara mudah untuk menghubungkan aplikasi Android ke server lokal kantor:
 
 ## 👥 AKUN BAWAAN RESMI (LOGIN SISTEM)
 
-Semua akun dinas di bawah ini memiliki kata sandi awal default: **`12345678`**
+Akun dinas default memiliki username admin dan memiliki kata sandi awal default: **`admin`**
 
-| Peran | Nama Akun | Username | Hak Akses Utama |
-|---|---|---|---|
-| **Superadmin** | Super Administrator | `superadmin` | Akses penuh seluruh modul, kelola master pasar/wilayah, tambah/hapus pengguna, hard reset sandi. |
-| **Administrator** | Regina / Edrick | `regina` / `edrick` | Kelola master data, kelola pengguna dinas, monitoring kegiatan GPM. |
-| **Kepala Bidang** | Mareta | `mareta` | **Verifikasi Harga Pangan**, persetujuan/penerbitan draf dari staf, penyelesaian & arsip acara GPM. |
-| **Staf Petugas** | Effrend | `effrend` | **Input Data Harga Pangan Harian** (mengajukan draf ke Kabid), verifikasi pendaftaran tiket GPM warga. |
-| **Kepala Dinas** | Pimpinan Dinas Pangan | `kadis` | Monitoring visual eksekutif, grafik tren fluktuasi komoditas pangan, laporan rekapitulasi inflasi. |
 
 ---
 
-## 🔒 FITUR KEAMANAN & KEPATUHAN PRIVASI (UU PDP NO. 27 TAHUN 2022)
 
-Sistem telah dilengkapi modul penguatan keamanan yang tetap aktif baik di Cloud maupun On-Premise:
-1. **Perlindungan Data Pribadi NIK (Zero-Data Exposure):**
-   - Saat masyarakat mendaftar tiket GPM, formulir input NIK **tetap terbuka dan jelas** agar warga tidak salah ketik.
-   - Pengecekan duplikasi NIK dilakukan secara terisolasi (`cekNikTerdaftar`), sehingga **tidak pernah mengunduh daftar NIK warga lain** ke memori browser atau log jaringan.
-2. **Perlindungan Brute-Force (Rate Limiting):**
-   - Batas toleransi maksimal 5 kali percobaan login gagal. Jika dilanggar, form login terkunci selama 5 menit secara otomatis.
-3. **Pencegahan Pemalsuan Hak Akses (Role Double-Check):**
-   - Sistem selalu memvalidasi status hak akses ke server (`verifikasiHakAdminServer()`) sebelum mengizinkan aksi administratif, mencegah manipulasi peran melalui DevTools.
-4. **Masa Berlaku Sesi (Token Expiry):**
-   - Sesi login memiliki batas kedaluwarsa 8 jam dan otomatis membersihkan penyimpanan saat habis masa berlakunya.
-
----
 
 ## ☁️ PANDUAN 3: DEPLOYMENT SERVER PEMERINTAH / KOMINFO (AZURE / CLOUD / DOMAIN RESMI .GO.ID)
 
@@ -169,11 +149,11 @@ Di mana saja alamat server, IP, dan domain harus diganti? Berikut rincian berkas
 
 ### 1. Di Sisi Server Backend API (Azure / VPS Kominfo):
 1. Pasang Node.js dan PostgreSQL di VPS / Azure Linux VM / Azure App Service.
-2. Impor database master: [`backend/database/setup_postgresql_mandiri.sql`](file:///k:/Proyek%20MPPL/backend/database/setup_postgresql_mandiri.sql).
+2. Impor database master: [`backend/database/setup_postgresql_mandiri.sql`](file:backend/database/setup_postgresql_mandiri.sql).
 3. Buka berkas konfigurasi **`backend/.env`**:
    ```env
    PORT=3000
-   KUNCI_JWT=kunci_rahasia_resmi_pemerintah_2026
+   KUNCI_JWT=kunci_rahasia
    ```
 4. Pasang reverse proxy Nginx / Apache dengan sertifikat SSL (HTTPS) agar API dapat diakses melalui domain dinas, misalnya:
    `https://pangan.manadokota.go.id/api` atau `https://api-pangan.manadokota.go.id`
@@ -220,3 +200,5 @@ Ada 2 pilihan untuk mengarahkan aplikasi Android petugas ke server Kominfo:
      ```
   4. Berkas APK resmi siap dibagikan ke seluruh petugas lapangan Dinas Pangan:
      `mobile/android/app/build/outputs/apk/debug/app-debug.apk` (atau file di root `DinasPanganManado.apk`).
+
+Kunci JWT diisi dengan bebas (cuman sebagai kunci rahasia acak oleh server backend nodejs)
