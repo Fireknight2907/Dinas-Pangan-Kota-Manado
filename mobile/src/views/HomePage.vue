@@ -1223,6 +1223,9 @@
                 <button type="button" class="btn-m-u-edit" @click="bukaModalUbahUsername(user)">
                   ✏️ Username
                 </button>
+                <button type="button" class="btn-m-u-edit" @click="bukaModalUbahEmail(user)">
+                  ✉️ Email
+                </button>
                 <button 
                   v-if="userAktif?.id !== user.id" 
                   type="button" 
@@ -2043,6 +2046,38 @@
     </div>
 
     <!-- ===============================================================================
+         MODAL 4B: UBAH EMAIL OLEH ADMIN (KHUSUS ADMIN)
+         =============================================================================== -->
+    <div v-if="modalUbahEmailBuka" class="server-config-modal-overlay" @click.self="modalUbahEmailBuka = false">
+      <div class="server-config-modal-card">
+        <div class="server-modal-header">
+          <div class="server-modal-title-wrap">
+            <span class="server-icon-pulse">✉️</span>
+            <div>
+              <h3 class="server-m-title">Ubah Email Pengguna</h3>
+              <p class="server-m-sub">Target: {{ targetUbahEmail?.nama }} ({{ targetUbahEmail?.username }})</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal-icon" @click="modalUbahEmailBuka = false">✕</button>
+        </div>
+
+        <div class="server-modal-body">
+          <div class="s-field">
+            <label>Alamat Email Baru</label>
+            <input type="email" v-model="inputEmailBaru" placeholder="contoh@manado.go.id" />
+          </div>
+        </div>
+
+        <div class="server-modal-footer">
+          <button type="button" class="btn-cancel-server" @click="modalUbahEmailBuka = false">Batal</button>
+          <button type="button" class="btn-save-server" @click="eksekusiUbahEmail">
+            ✓ Simpan Email
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===============================================================================
          MODAL 5: EDIT HARGA OLEH KABID (KHUSUS KABID)
          =============================================================================== -->
     <div v-if="modalEditKabidBuka" class="server-config-modal-overlay" @click.self="modalEditKabidBuka = false">
@@ -2775,6 +2810,10 @@ const konfirmasiSandiResetBaru = ref('');
 const modalUbahUsernameBuka = ref(false);
 const targetUbahUsername = ref<AkunPengguna | null>(null);
 const inputUsernameBaru = ref('');
+
+const modalUbahEmailBuka = ref(false);
+const targetUbahEmail = ref<AkunPengguna | null>(null);
+const inputEmailBaru = ref('');
 
 const inputPasarBaru = ref('');
 const inputKecamatanBaru = ref('');
@@ -3743,6 +3782,33 @@ const eksekusiUbahUsername = async () => {
     alert(`✅ Username berhasil diperbarui menjadi "${baru}"!`);
   } catch (e: any) {
     alert('Gagal mengubah username: ' + e.message);
+  }
+};
+
+const bukaModalUbahEmail = (user: AkunPengguna) => {
+  targetUbahEmail.value = user;
+  inputEmailBaru.value = user.email || `${user.username}@manado.go.id`;
+  modalUbahEmailBuka.value = true;
+};
+
+const eksekusiUbahEmail = async () => {
+  if (!targetUbahEmail.value) return;
+  const baru = inputEmailBaru.value.trim().toLowerCase();
+  if (!baru) {
+    alert('Alamat email baru tidak boleh kosong!');
+    return;
+  }
+  try {
+    await penggunaMobileService.adminUbahEmail(
+      userAktif.value?.id || 'usr-admin',
+      targetUbahEmail.value.id,
+      baru
+    );
+    modalUbahEmailBuka.value = false;
+    await muatSemuaPengguna();
+    alert(`✅ Email berhasil diperbarui menjadi "${baru}"!`);
+  } catch (e: any) {
+    alert('Gagal mengubah email: ' + e.message);
   }
 };
 

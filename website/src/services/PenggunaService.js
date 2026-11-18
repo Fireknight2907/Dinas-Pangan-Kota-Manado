@@ -392,6 +392,58 @@ class PenggunaService {
         return daftar[idxTarget];
     }
 
+    // Pengubahan email oleh Admin (Supabase Cloud + Local Sync)
+    async adminUbahEmail(idAdmin, idTarget, emailBaru) {
+        const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
+        if (!isAuthorized) {
+            throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak berwenang mengubah email pengguna!');
+        }
+
+        const emailBersih = (emailBaru || '').toLowerCase().trim();
+        if (!emailBersih) {
+            throw new Error('Alamat email baru tidak boleh kosong!');
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(emailBersih)) {
+            throw new Error('Format alamat email tidak valid!');
+        }
+
+        const daftar = this.ambilSemuaPenggunaLokal();
+
+        // Cek apakah email sudah digunakan akun lain
+        const sudahAda = daftar.some(u => u.id !== idTarget && u.email && u.email.toLowerCase() === emailBersih);
+        if (sudahAda) {
+            throw new Error(`Email "${emailBersih}" sudah digunakan oleh akun lain!`);
+        }
+
+        const idxTarget = daftar.findIndex(u => u.id === idTarget);
+        if (idxTarget === -1) {
+            throw new Error('Pengguna target tidak ditemukan!');
+        }
+
+        daftar[idxTarget].email = emailBersih;
+        localStorage.setItem(this.kunciMasterUsers, JSON.stringify(daftar));
+
+        // Sinkronisasi ke Supabase Cloud
+        try {
+            await supabaseClient.updatePengguna(idTarget, {
+                email: emailBersih
+            }, daftar[idxTarget].username);
+        } catch (e) {
+            console.warn('Gagal sinkronisasi email ke Supabase Cloud:', e);
+        }
+
+        // Jika mengubah email akun yang sedang login, update sesi
+        const userSesi = this.ambilUserSesi();
+        if (userSesi && (userSesi.id === idTarget || userSesi.username === daftar[idxTarget].username)) {
+            userSesi.email = emailBersih;
+            this.simpanSesi(this.ambilToken(), userSesi);
+        }
+
+        return daftar[idxTarget];
+    }
+
     // Pengubahan role pengguna oleh Admin / Superadmin (Supabase Cloud + Local Sync)
     async adminUbahPeran(idAdmin, idTarget, peranBaru) {
         const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);

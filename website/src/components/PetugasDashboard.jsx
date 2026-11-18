@@ -126,6 +126,14 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     pesan: ''
   });
 
+  // Modal Edit Email oleh Admin
+  const [modalEditEmail, setModalEditEmail] = useState({
+    buka: false,
+    userTarget: null,
+    emailBaru: '',
+    pesan: ''
+  });
+
   // State Grafik Pangan (Khusus Kadis)
   const [komoditasTren, setKomoditasTren] = useState('Beras Medium');
   const [periodeTren, setPeriodeTren] = useState('7hari');
@@ -664,6 +672,25 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       setModalEditUsername({ buka: false, userTarget: null, usernameBaru: '', pesan: '' });
     } catch (err) {
       setModalEditUsername(prev => ({ ...prev, pesan: err.message }));
+    }
+  };
+
+  // Eksekusi Ubah Email oleh Admin
+  const handleEksekusiUbahEmail = async (e) => {
+    e.preventDefault();
+    if (!modalEditEmail.emailBaru.trim()) {
+      setModalEditEmail(prev => ({ ...prev, pesan: 'Alamat email baru tidak boleh kosong!' }));
+      return;
+    }
+
+    try {
+      await penggunaService.adminUbahEmail(userState.id, modalEditEmail.userTarget.id, modalEditEmail.emailBaru.trim());
+      const users = await penggunaService.ambilSemuaPengguna();
+      setDaftarPengguna(users);
+      tampilkanPesan(`✅ Alamat email berhasil diperbarui menjadi ${modalEditEmail.emailBaru.trim()}`);
+      setModalEditEmail({ buka: false, userTarget: null, emailBaru: '', pesan: '' });
+    } catch (err) {
+      setModalEditEmail(prev => ({ ...prev, pesan: err.message }));
     }
   };
 
@@ -1818,6 +1845,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                         <div>
                           <strong style={{ fontSize: '0.95rem', color: '#0f172a' }}>{u.nama}</strong>
                           <span style={{ fontSize: '0.82rem', color: '#64748b', marginLeft: '6px' }}>({u.username})</span>
+                          <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '3px' }}>
+                            ✉️ {u.email || `${u.username}@manado.go.id`}
+                          </div>
                         </div>
                         <span style={{ 
                           fontSize: '0.75rem', 
@@ -1860,6 +1890,24 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                           title="Ganti nama pengguna akun ini"
                         >
                           ✏️ Ganti Nama Pengguna
+                        </button>
+
+                        {/* Tombol Ubah Email */}
+                        <button
+                          onClick={() => setModalEditEmail({ buka: true, userTarget: u, emailBaru: u.email || `${u.username}@manado.go.id`, pesan: '' })}
+                          style={{
+                            background: '#e0f2fe',
+                            color: '#0369a1',
+                            border: 'none',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                          title="Ganti alamat email akun ini"
+                        >
+                          ✉️ Ganti Email
                         </button>
 
                         {/* Tombol Atur Ulang Kata Sandi */}
@@ -2316,6 +2364,78 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   style={{ background: '#8b1e1e', color: '#ffffff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 800, cursor: 'pointer' }}
                 >
                   Simpan Username
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────
+          20B. MODAL KHUSUS ADMIN: UBAH EMAIL
+          ───────────────────────────────────────────── */}
+      {modalEditEmail.buka && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 110,
+            padding: '16px'
+          }}
+          onClick={() => setModalEditEmail({ buka: false, userTarget: null, emailBaru: '', pesan: '' })}
+        >
+          <div 
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '420px',
+              width: '100%',
+              padding: '24px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: '0 0 8px 0', color: '#8b1e1e' }}>✉️ Ubah Email Pengguna (Admin)</h3>
+            <p style={{ margin: '0 0 14px 0', fontSize: '0.85rem', color: '#64748b' }}>
+              Pengguna: <strong>{modalEditEmail.userTarget?.nama}</strong> ({modalEditEmail.userTarget?.username})
+            </p>
+
+            {modalEditEmail.pesan && (
+              <div style={{ padding: '8px 12px', borderRadius: '6px', background: '#fee2e2', color: '#991b1b', fontSize: '0.82rem', marginBottom: '12px' }}>
+                ⚠️ {modalEditEmail.pesan}
+              </div>
+            )}
+
+            <form onSubmit={handleEksekusiUbahEmail} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px' }}>Alamat Email Baru</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="contoh@manado.go.id"
+                  className="field-input-box"
+                  value={modalEditEmail.emailBaru}
+                  onChange={(e) => setModalEditEmail({ ...modalEditEmail, emailBaru: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setModalEditEmail({ buka: false, userTarget: null, emailBaru: '', pesan: '' })}
+                  style={{ background: '#e2e8f0', color: '#475569', border: 'none', padding: '10px 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  style={{ background: '#8b1e1e', color: '#ffffff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 800, cursor: 'pointer' }}
+                >
+                  Simpan Email
                 </button>
               </div>
             </form>
