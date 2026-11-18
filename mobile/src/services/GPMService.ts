@@ -184,7 +184,7 @@ class GPMMobileApiService {
         try {
             const [dataCloud, pendaftarCloud] = await Promise.all([
                 supabaseClient.getAcaraGPM(),
-                supabaseClient.getPendaftarGPM().catch(() => [])
+                supabaseClient.getHitungPendaftarGPM().catch(() => [])
             ]);
 
             const MAP_ID: Record<string, string> = {
@@ -342,16 +342,16 @@ class GPMMobileApiService {
 
         // 1. Simpan langsung ke Supabase Cloud
         try {
-            const pendaftarEksis = await supabaseClient.getPendaftarGPM(validAcaraId);
-            
-            // Pengecekan Keamanan: Cegah pendaftaran ganda NIK pada kegiatan GPM yang sama
-            const daftarParsed = (Array.isArray(pendaftarEksis) ? pendaftarEksis : []).map((p: any) => this.parseDataPendaftar(p));
-            const sudahAdaNIK = daftarParsed.some(p => p.nik === nikBersih);
+            // [UU PDP & ZERO DATA LEAKAGE] Hanya cek apakah NIK pendaftar ini sudah terdaftar
+            // TIDAK PERNAH mendownload seluruh daftar warga atau NIK warga lain ke HP!
+            const sudahAdaNIK = await supabaseClient.cekNikTerdaftar(validAcaraId, nikBersih);
             if (sudahAdaNIK) {
                 throw new Error(`Pendaftaran ditolak: NIK (${nikBersih}) sudah terdaftar pada kegiatan GPM ini! Satu NIK hanya dapat digunakan untuk 1 nomor antrean pada kegiatan yang sama.`);
             }
 
-            const nomorBaru = (Array.isArray(pendaftarEksis) ? pendaftarEksis.length : 0) + 1;
+            // Ambil nomor antrean terakhir dari server (hanya 1 angka integer)
+            const nomorTerakhir = await supabaseClient.getNomorAntreanTerakhir(validAcaraId);
+            const nomorBaru = nomorTerakhir + 1;
             const prefixKode = jalur_pendaftaran === 'Langsung' ? 'GPM-DIR' : 'GPM-MOB';
             const kodeBarcode = `${prefixKode}-${String(nomorBaru).padStart(3, '0')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 

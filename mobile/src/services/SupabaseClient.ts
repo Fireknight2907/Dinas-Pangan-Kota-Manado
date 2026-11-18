@@ -147,6 +147,16 @@ export class SupabaseRestClient {
     return this.request<any[]>(endpoint);
   }
 
+  // [UU PDP FIX] Hitung pendaftar untuk publik hanya menarik acara_id (TIDAK ADA NIK, NAMA, atau HP)
+  async getHitungPendaftarGPM(): Promise<any[]> {
+    try {
+      const res = await this.request<any[]>('pendaftar_gpm?select=acara_id');
+      return Array.isArray(res) ? res : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
   async daftarAntreanGPM(data: any): Promise<any> {
     const payload: any = {
       acara_id: data.acara_id,
@@ -179,6 +189,27 @@ export class SupabaseRestClient {
   async hapusPendaftarGPM(id: string): Promise<boolean> {
     await this.request(`pendaftar_gpm?id=eq.${encodeURIComponent(id)}`, 'DELETE');
     return true;
+  }
+
+  // [UU PDP & PRIVACY FIX] Hanya cek NIK tunggal tanpa menarik data pendaftar lain
+  async cekNikTerdaftar(acaraId: string, nik: string): Promise<boolean> {
+    try {
+      const res = await this.request<any[]>(`pendaftar_gpm?acara_id=eq.${encodeURIComponent(acaraId)}&nik=eq.${encodeURIComponent(nik)}&select=id&limit=1`);
+      return Array.isArray(res) && res.length > 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // [UU PDP & PRIVACY FIX] Hanya mengambil nomor antrean terbesar saat ini tanpa menarik data warga
+  async getNomorAntreanTerakhir(acaraId: string): Promise<number> {
+    try {
+      const res = await this.request<any[]>(`pendaftar_gpm?acara_id=eq.${encodeURIComponent(acaraId)}&select=nomor_antrean&order=nomor_antrean.desc&limit=1`);
+      if (Array.isArray(res) && res.length > 0 && res[0].nomor_antrean) {
+        return Number(res[0].nomor_antrean);
+      }
+    } catch (_) {}
+    return 0;
   }
 
   // Fungsi Kriptografi SHA-256 untuk Keamanan Kata Sandi

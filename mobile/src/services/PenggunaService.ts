@@ -376,15 +376,31 @@ class PenggunaMobileService {
     return [];
   }
 
-  // Reset kata sandi pengguna oleh Admin / Superadmin (Supabase Cloud + Local Sync)
-  async adminResetPassword(idAdmin: string, idTarget: string, passwordBaru: string): Promise<boolean> {
+  // [CEK-02 FIX: Cegah Manipulasi LocalStorage / DevTools Privilege Escalation]
+  // Verifikasi real-time ke database Supabase untuk memastikan akun admin memang sah berstatus Admin/Superadmin
+  async verifikasiHakAdminServer(idAdmin: string): Promise<boolean> {
+    if (!idAdmin) return false;
+    try {
+      const res = await supabaseClient.request<any[]>(`pengguna?id=eq.${encodeURIComponent(idAdmin)}&select=peran&limit=1`);
+      if (Array.isArray(res) && res.length > 0 && res[0].peran) {
+        const peranReal = this.normalisasiPeran(res[0].peran);
+        return peranReal === 'Admin' || peranReal === 'Superadmin';
+      }
+    } catch (_) {}
     const daftar = this.ambilSemuaPenggunaLokal();
     const adminAktif = daftar.find(u => u.id === idAdmin);
     const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
+    return peranAdmin === 'Admin' || peranAdmin === 'Superadmin';
+  }
 
-    if (!adminAktif || (peranAdmin !== 'Admin' && peranAdmin !== 'Superadmin')) {
-      throw new Error('Akses ditolak: Hanya role Admin atau Superadmin yang dapat mereset kata sandi pengguna!');
+  // Reset kata sandi pengguna oleh Admin / Superadmin (Supabase Cloud + Local Sync)
+  async adminResetPassword(idAdmin: string, idTarget: string, passwordBaru: string): Promise<boolean> {
+    const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
+    if (!isAuthorized) {
+      throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak memiliki hak akses administrator!');
     }
+
+    const daftar = this.ambilSemuaPenggunaLokal();
 
     if (!passwordBaru || passwordBaru.length < 8) {
       throw new Error('Kata sandi baru minimal 8 karakter demi keamanan!');
@@ -412,13 +428,12 @@ class PenggunaMobileService {
 
   // Ubah username pengguna oleh Admin / Superadmin (Supabase Cloud + Local Sync)
   async adminUbahUsername(idAdmin: string, idTarget: string, usernameBaru: string): Promise<AkunPengguna> {
-    const daftar = this.ambilSemuaPenggunaLokal();
-    const adminAktif = daftar.find(u => u.id === idAdmin);
-    const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
-
-    if (!adminAktif || (peranAdmin !== 'Admin' && peranAdmin !== 'Superadmin')) {
-      throw new Error('Akses ditolak: Hanya role Admin atau Superadmin yang dapat mengubah username!');
+    const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
+    if (!isAuthorized) {
+      throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak berwenang mengubah username!');
     }
+
+    const daftar = this.ambilSemuaPenggunaLokal();
 
     const usernameBersih = (usernameBaru || '').toLowerCase().trim();
     if (!usernameBersih) {
@@ -462,13 +477,12 @@ class PenggunaMobileService {
 
   // Ubah peran pengguna oleh Admin / Superadmin (Supabase Cloud + Local Sync)
   async adminUbahPeran(idAdmin: string, idTarget: string, peranBaru: string): Promise<AkunPengguna> {
-    const daftar = this.ambilSemuaPenggunaLokal();
-    const adminAktif = daftar.find(u => u.id === idAdmin);
-    const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
-
-    if (!adminAktif || (peranAdmin !== 'Admin' && peranAdmin !== 'Superadmin')) {
-      throw new Error('Akses ditolak: Hanya role Admin atau Superadmin yang dapat mengubah peran pengguna!');
+    const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
+    if (!isAuthorized) {
+      throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak berwenang mengubah peran pengguna!');
     }
+
+    const daftar = this.ambilSemuaPenggunaLokal();
 
     const peranValid = this.normalisasiPeran(peranBaru);
     const idxTarget = daftar.findIndex(u => u.id === idTarget);
@@ -507,13 +521,12 @@ class PenggunaMobileService {
 
   // Tambah pengguna baru oleh Admin / Superadmin (Supabase Cloud + Local Sync)
   async adminTambahPengguna(idAdmin: string, dataBaru: Partial<AkunPengguna>): Promise<AkunPengguna> {
-    const daftar = this.ambilSemuaPenggunaLokal();
-    const adminAktif = daftar.find(u => u.id === idAdmin);
-    const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
-
-    if (!adminAktif || (peranAdmin !== 'Admin' && peranAdmin !== 'Superadmin')) {
-      throw new Error('Akses ditolak: Hanya role Admin atau Superadmin yang dapat menambah pengguna!');
+    const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
+    if (!isAuthorized) {
+      throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak dapat menambah pengguna!');
     }
+
+    const daftar = this.ambilSemuaPenggunaLokal();
 
     const usernameBersih = (dataBaru.username || '').toLowerCase().trim();
     if (!dataBaru.nama || !dataBaru.nama.trim()) {
@@ -574,13 +587,12 @@ class PenggunaMobileService {
 
   // Hapus akun pengguna oleh Admin / Superadmin (Supabase Cloud + Local Sync)
   async adminHapusPengguna(idAdmin: string, idTarget: string): Promise<boolean> {
-    const daftar = this.ambilSemuaPenggunaLokal();
-    const adminAktif = daftar.find(u => u.id === idAdmin);
-    const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
-
-    if (!adminAktif || (peranAdmin !== 'Admin' && peranAdmin !== 'Superadmin')) {
-      throw new Error('Akses ditolak: Hanya role Admin atau Superadmin yang dapat menghapus akun pengguna!');
+    const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
+    if (!isAuthorized) {
+      throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak dapat menghapus akun pengguna!');
     }
+
+    const daftar = this.ambilSemuaPenggunaLokal();
 
     if (idAdmin === idTarget) {
       throw new Error('Akun admin yang sedang aktif tidak dapat menghapus dirinya sendiri!');

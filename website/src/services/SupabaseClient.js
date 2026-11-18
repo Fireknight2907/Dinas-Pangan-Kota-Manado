@@ -147,6 +147,16 @@ class SupabaseRestClient {
     return this.request(endpoint);
   }
 
+  // [UU PDP FIX] Hitung pendaftar untuk publik hanya menarik acara_id (TIDAK ADA NIK, NAMA, atau HP)
+  async getHitungPendaftarGPM() {
+    try {
+      const res = await this.request('pendaftar_gpm?select=acara_id');
+      return Array.isArray(res) ? res : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
   async daftarAntreanGPM(data) {
     const payload = {
       acara_id: data.acara_id,
@@ -179,6 +189,27 @@ class SupabaseRestClient {
   async hapusPendaftarGPM(id) {
     await this.request(`pendaftar_gpm?id=eq.${encodeURIComponent(id)}`, 'DELETE');
     return true;
+  }
+
+  // [UU PDP & PRIVACY FIX] Hanya cek NIK tunggal tanpa menarik data pendaftar lain
+  async cekNikTerdaftar(acaraId, nik) {
+    try {
+      const res = await this.request(`pendaftar_gpm?acara_id=eq.${encodeURIComponent(acaraId)}&nik=eq.${encodeURIComponent(nik)}&select=id&limit=1`);
+      return Array.isArray(res) && res.length > 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // [UU PDP & PRIVACY FIX] Hanya mengambil nomor antrean terbesar saat ini tanpa menarik data warga
+  async getNomorAntreanTerakhir(acaraId) {
+    try {
+      const res = await this.request(`pendaftar_gpm?acara_id=eq.${encodeURIComponent(acaraId)}&select=nomor_antrean&order=nomor_antrean.desc&limit=1`);
+      if (Array.isArray(res) && res.length > 0 && res[0].nomor_antrean) {
+        return Number(res[0].nomor_antrean);
+      }
+    } catch (_) {}
+    return 0;
   }
 
   // Fungsi Kriptografi SHA-256 untuk Keamanan Kata Sandi

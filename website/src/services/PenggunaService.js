@@ -358,15 +358,32 @@ class PenggunaService {
         return [];
     }
 
-    // Hard reset kata sandi oleh Admin / Superadmin (Supabase Cloud + Local Sync)
-    async adminResetPassword(idAdmin, idTarget, passwordBaru) {
+    // [CEK-02 FIX: Cegah Manipulasi LocalStorage / DevTools Privilege Escalation]
+    // Verifikasi real-time ke database Supabase untuk memastikan akun admin memang sah berstatus Admin/Superadmin
+    async verifikasiHakAdminServer(idAdmin) {
+        if (!idAdmin) return false;
+        try {
+            const res = await supabaseClient.request(`pengguna?id=eq.${encodeURIComponent(idAdmin)}&select=peran&limit=1`);
+            if (Array.isArray(res) && res.length > 0 && res[0].peran) {
+                const peranReal = this.normalisasiPeran(res[0].peran);
+                return peranReal === 'Admin' || peranReal === 'Superadmin';
+            }
+        } catch (_) {}
+        // Fallback jika offline
         const daftar = this.ambilSemuaPenggunaLokal();
         const adminAktif = daftar.find(u => u.id === idAdmin);
         const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
+        return peranAdmin === 'Admin' || peranAdmin === 'Superadmin';
+    }
 
-        if (!adminAktif || (peranAdmin !== 'Admin' && peranAdmin !== 'Superadmin')) {
-            throw new Error('Akses ditolak: Hanya akun dengan role Admin atau Superadmin yang berhak melakukan reset kata sandi!');
+    // Hard reset kata sandi oleh Admin / Superadmin (Supabase Cloud + Local Sync)
+    async adminResetPassword(idAdmin, idTarget, passwordBaru) {
+        const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
+        if (!isAuthorized) {
+            throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak memiliki hak akses administrator!');
         }
+
+        const daftar = this.ambilSemuaPenggunaLokal();
 
         if (!passwordBaru || passwordBaru.length < 8) {
             throw new Error('Kata sandi baru minimal harus 8 karakter demi standar keamanan!');
@@ -394,13 +411,12 @@ class PenggunaService {
 
     // Pengubahan username oleh Admin / Superadmin (Supabase Cloud + Local Sync)
     async adminUbahUsername(idAdmin, idTarget, usernameBaru) {
-        const daftar = this.ambilSemuaPenggunaLokal();
-        const adminAktif = daftar.find(u => u.id === idAdmin);
-        const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
-
-        if (!adminAktif || (peranAdmin !== 'Admin' && peranAdmin !== 'Superadmin')) {
-            throw new Error('Akses ditolak: Hanya role Admin atau Superadmin yang berwenang mengganti username pengguna!');
+        const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
+        if (!isAuthorized) {
+            throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak berwenang mengubah username!');
         }
+
+        const daftar = this.ambilSemuaPenggunaLokal();
 
         const usernameBersih = (usernameBaru || '').toLowerCase().trim();
         if (!usernameBersih) {
@@ -446,13 +462,12 @@ class PenggunaService {
 
     // Pengubahan role pengguna oleh Admin / Superadmin (Supabase Cloud + Local Sync)
     async adminUbahPeran(idAdmin, idTarget, peranBaru) {
-        const daftar = this.ambilSemuaPenggunaLokal();
-        const adminAktif = daftar.find(u => u.id === idAdmin);
-        const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
-
-        if (!adminAktif || (peranAdmin !== 'Admin' && peranAdmin !== 'Superadmin')) {
-            throw new Error('Akses ditolak: Hanya role Admin atau Superadmin yang berwenang mengubah peran pengguna!');
+        const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
+        if (!isAuthorized) {
+            throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak berwenang mengubah peran pengguna!');
         }
+
+        const daftar = this.ambilSemuaPenggunaLokal();
 
         const peranValid = this.normalisasiPeran(peranBaru);
         const idxTarget = daftar.findIndex(u => u.id === idTarget);
@@ -491,13 +506,12 @@ class PenggunaService {
 
     // Tambah pengguna baru oleh Admin / Superadmin (Supabase Cloud + Local Sync)
     async adminTambahPengguna(idAdmin, dataBaru) {
-        const daftar = this.ambilSemuaPenggunaLokal();
-        const adminAktif = daftar.find(u => u.id === idAdmin);
-        const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
-
-        if (!adminAktif || (peranAdmin !== 'Admin' && peranAdmin !== 'Superadmin')) {
-            throw new Error('Akses ditolak: Hanya role Admin atau Superadmin yang dapat menambahkan pengguna!');
+        const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
+        if (!isAuthorized) {
+            throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak dapat menambahkan pengguna!');
         }
+
+        const daftar = this.ambilSemuaPenggunaLokal();
 
         const usernameBersih = (dataBaru.username || '').toLowerCase().trim();
         if (!dataBaru.nama || !dataBaru.nama.trim()) {
@@ -558,13 +572,12 @@ class PenggunaService {
 
     // Hapus pengguna oleh Admin / Superadmin (Supabase Cloud + Local Sync)
     async adminHapusPengguna(idAdmin, idTarget) {
-        const daftar = this.ambilSemuaPenggunaLokal();
-        const adminAktif = daftar.find(u => u.id === idAdmin);
-        const peranAdmin = adminAktif ? this.normalisasiPeran(adminAktif.peran) : '';
-
-        if (!adminAktif || (peranAdmin !== 'Admin' && peranAdmin !== 'Superadmin')) {
-            throw new Error('Akses ditolak: Hanya role Admin atau Superadmin yang dapat menghapus akun pengguna!');
+        const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
+        if (!isAuthorized) {
+            throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak dapat menghapus akun pengguna!');
         }
+
+        const daftar = this.ambilSemuaPenggunaLokal();
 
         if (idAdmin === idTarget) {
             throw new Error('Akun admin yang sedang aktif tidak dapat menghapus dirinya sendiri!');
