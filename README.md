@@ -158,3 +158,65 @@ Sistem telah dilengkapi modul penguatan keamanan yang tetap aktif baik di Cloud 
    - Sistem selalu memvalidasi status hak akses ke server (`verifikasiHakAdminServer()`) sebelum mengizinkan aksi administratif, mencegah manipulasi peran melalui DevTools.
 4. **Masa Berlaku Sesi (Token Expiry):**
    - Sesi login memiliki batas kedaluwarsa 8 jam dan otomatis membersihkan penyimpanan saat habis masa berlakunya.
+
+---
+
+## ☁️ PANDUAN 3: DEPLOYMENT SERVER PEMERINTAH / KOMINFO (AZURE / CLOUD / DOMAIN RESMI .GO.ID)
+
+Jika dinas hendak meng-hosting aplikasi ini di infrastruktur resmi pemerintah daerah (seperti **Microsoft Azure Kominfo**, **Pusat Data Nasional / PDN**, atau **VPS Server Diskominfo**) menggunakan domain resmi kedinasan berakhiran **`.go.id`** (contoh: `https://pangan.manadokota.go.id` atau `https://sipatokaan.manadokota.go.id`):
+
+Di mana saja alamat server, IP, dan domain harus diganti? Berikut rincian berkasnya:
+
+### 1. Di Sisi Server Backend API (Azure / VPS Kominfo):
+1. Pasang Node.js dan PostgreSQL di VPS / Azure Linux VM / Azure App Service.
+2. Impor database master: [`backend/database/setup_postgresql_mandiri.sql`](file:///k:/Proyek%20MPPL/backend/database/setup_postgresql_mandiri.sql).
+3. Buka berkas konfigurasi **`backend/.env`**:
+   ```env
+   PORT=3000
+   KUNCI_JWT=kunci_rahasia_resmi_pemerintah_2026
+   ```
+4. Pasang reverse proxy Nginx / Apache dengan sertifikat SSL (HTTPS) agar API dapat diakses melalui domain dinas, misalnya:
+   `https://pangan.manadokota.go.id/api` atau `https://api-pangan.manadokota.go.id`
+
+### 2. Di Sisi Website Portal (React / Vite):
+1. Buka berkas **`website/.env`**, arahkan ke domain resmi Kominfo:
+   ```env
+   VITE_API_ROOT=https://pangan.manadokota.go.id/api
+   ```
+2. Kompilasi aset website:
+   ```bash
+   cd website
+   npm run build
+   ```
+3. Seluruh isi folder **`website/dist/`** siap diunggah ke web server Kominfo (`/var/www/html/` atau Azure App Service).
+
+### 3. Di Sisi Aplikasi Mobile Android (APK):
+Ada 2 pilihan untuk mengarahkan aplikasi Android petugas ke server Kominfo:
+
+* **Opsi 1 (Langsung dari Layar HP — Tanpa Koding / Build Ulang):**
+  1. Buka aplikasi di HP Android.
+  2. Buka menu **Pengaturan Server** (ada di beranda aplikasi).
+  3. Masukkan domain resmi dinas: `https://pangan.manadokota.go.id`
+  4. Klik **Simpan & Uji Koneksi**. HP akan langsung terhubung ke server Azure / Kominfo secara instan!
+
+* **Opsi 2 (Build Ulang APK dengan Default Domain .go.id Bawaan):**
+  1. Buka berkas `mobile/src/services/ServerConfig.ts`, sesuaikan konstanta domain resmi:
+     ```typescript
+     export const VERCEL_HOST = 'https://pangan.manadokota.go.id'; // Domain resmi dinas
+     export const DEFAULT_HOST_LAN = 'pangan.manadokota.go.id';     // Hostname server
+     export const DEFAULT_PORT = '443';                           // Port HTTPS standar
+     ```
+  2. Buka berkas `mobile/.env`, sesuaikan API root:
+     ```env
+     VITE_API_ROOT=https://pangan.manadokota.go.id/api
+     ```
+  3. Kompilasi APK baru:
+     ```bash
+     cd mobile
+     npm run build
+     npx cap copy android
+     cd android
+     ./gradlew.bat assembleDebug
+     ```
+  4. Berkas APK resmi siap dibagikan ke seluruh petugas lapangan Dinas Pangan:
+     `mobile/android/app/build/outputs/apk/debug/app-debug.apk` (atau file di root `DinasPanganManado.apk`).
