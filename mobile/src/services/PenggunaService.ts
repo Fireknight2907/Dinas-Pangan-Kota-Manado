@@ -242,7 +242,7 @@ class PenggunaMobileService {
   }
 
   // Autentikasi Pengguna saat Login (Aman dengan Verifikasi Hash SHA-256)
-  async login(identifier: string, kataSandi: string): Promise<{ token: string; pengguna: AkunPengguna }> {
+  async login(identifier: string, kataSandi: string, ingatSaya: boolean = false): Promise<{ token: string; pengguna: AkunPengguna }> {
     const idBersih = (identifier || '').toLowerCase().trim();
     const daftar = this.ambilSemuaPengguna();
 
@@ -276,7 +276,7 @@ class PenggunaMobileService {
     const salinanAman: AkunPengguna = { ...userCocok };
     delete (salinanAman as any).kata_sandi;
     salinanAman.peran = this.normalisasiPeran(salinanAman.peran) as PeranPengguna;
-    this.simpanSesi(token, salinanAman);
+    this.simpanSesi(token, salinanAman, ingatSaya);
 
     return {
       token,
@@ -490,13 +490,38 @@ class PenggunaMobileService {
     return true;
   }
 
-  // Manajemen Sesi Login
-  simpanSesi(token: string, pengguna: AkunPengguna): void {
-    localStorage.setItem(this.kunciSesiToken, token);
-    localStorage.setItem(this.kunciSesiUser, JSON.stringify(pengguna));
+  // Manajemen Sesi Login (Sesi Sementara sessionStorage & Sesi Permanen localStorage)
+  simpanSesi(token: string, pengguna: AkunPengguna, ingatSaya: boolean = false): void {
+    if (ingatSaya) {
+      localStorage.setItem(this.kunciSesiToken, token);
+      localStorage.setItem(this.kunciSesiUser, JSON.stringify(pengguna));
+      sessionStorage.removeItem(this.kunciSesiToken);
+      sessionStorage.removeItem(this.kunciSesiUser);
+    } else {
+      sessionStorage.setItem(this.kunciSesiToken, token);
+      sessionStorage.setItem(this.kunciSesiUser, JSON.stringify(pengguna));
+      localStorage.removeItem(this.kunciSesiToken);
+      localStorage.removeItem(this.kunciSesiUser);
+    }
   }
 
   ambilUserSesi(): AkunPengguna | null {
+    // Cek sessionStorage terlebih dahulu
+    const dariSession = sessionStorage.getItem(this.kunciSesiUser);
+    if (dariSession) {
+      try {
+        const u = JSON.parse(dariSession);
+        if (u && (u.peran === 'Admin' || u.username === 'regina' || u.username === 'edrick')) {
+          if (u.bidang && u.bidang.includes('Superadmin')) {
+            u.bidang = 'Administrator Sistem';
+            sessionStorage.setItem(this.kunciSesiUser, JSON.stringify(u));
+          }
+        }
+        return u;
+      } catch (e) {}
+    }
+
+    // Cek localStorage jika sebelumnya mencentang Ingat Saya
     const data = localStorage.getItem(this.kunciSesiUser);
     if (data) {
       try {
@@ -518,10 +543,12 @@ class PenggunaMobileService {
   }
 
   ambilToken(): string | null {
-    return localStorage.getItem(this.kunciSesiToken);
+    return sessionStorage.getItem(this.kunciSesiToken) || localStorage.getItem(this.kunciSesiToken);
   }
 
   logout(): void {
+    sessionStorage.removeItem(this.kunciSesiToken);
+    sessionStorage.removeItem(this.kunciSesiUser);
     localStorage.removeItem(this.kunciSesiToken);
     localStorage.removeItem(this.kunciSesiUser);
   }

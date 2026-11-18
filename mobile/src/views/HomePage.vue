@@ -2850,7 +2850,7 @@ const inputFotoProfilUrl = ref('');
 const loginInput = ref({
   email: 'effrend',
   password: '',
-  ingatSaya: true
+  ingatSaya: false // Default: Centang MATI sesuai instruksi pimpinan
 });
 const lihatPassword = ref(false);
 const sedangLogin = ref(false);
@@ -3299,7 +3299,7 @@ const bukaLoginMobile = () => {
 const eksekusiLogin = async () => {
   sedangLogin.value = true;
   try {
-    const hasil = await hargaPanganMobileService.login(loginInput.value.email, loginInput.value.password);
+    const hasil = await hargaPanganMobileService.login(loginInput.value.email, loginInput.value.password, loginInput.value.ingatSaya);
     userAktif.value = hasil.pengguna;
     tampilanMode.value = 'petugas';
 

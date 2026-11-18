@@ -220,7 +220,7 @@ class PenggunaService {
     }
 
     // Autentikasi Pengguna saat Login (Aman dengan Verifikasi Hash SHA-256)
-    async login(identifier, kataSandi) {
+    async login(identifier, kataSandi, ingatSaya = false) {
         const inputBersih = (identifier || '').toLowerCase().trim();
         const daftarUsers = this.ambilSemuaPengguna();
 
@@ -255,7 +255,7 @@ class PenggunaService {
         dataPenggunaAman.peran = this.normalisasiPeran(dataPenggunaAman.peran);
 
         const token = `sipatokean-auth-${dataPenggunaAman.id}-${Date.now()}`;
-        this.simpanSesi(token, dataPenggunaAman);
+        this.simpanSesi(token, dataPenggunaAman, ingatSaya);
 
         return { token, pengguna: dataPenggunaAman };
     }
@@ -471,13 +471,40 @@ class PenggunaService {
         return true;
     }
 
-    // Manajemen Sesi Login
-    simpanSesi(token, pengguna) {
-        localStorage.setItem(this.kunciSesiToken, token);
-        localStorage.setItem(this.kunciSesiUser, JSON.stringify(pengguna));
+    // Manajemen Sesi Login (Mendukung Sesi Sementara sessionStorage dan Sesi Permanen localStorage)
+    simpanSesi(token, pengguna, ingatSaya = false) {
+        if (ingatSaya) {
+            // Pengguna mencentang 'Ingat Saya' -> Simpan permanen di localStorage
+            localStorage.setItem(this.kunciSesiToken, token);
+            localStorage.setItem(this.kunciSesiUser, JSON.stringify(pengguna));
+            sessionStorage.removeItem(this.kunciSesiToken);
+            sessionStorage.removeItem(this.kunciSesiUser);
+        } else {
+            // Default: 'Ingat Saya' MATI -> Hanya simpan sementara di sessionStorage (hilang saat browser ditutup)
+            sessionStorage.setItem(this.kunciSesiToken, token);
+            sessionStorage.setItem(this.kunciSesiUser, JSON.stringify(pengguna));
+            localStorage.removeItem(this.kunciSesiToken);
+            localStorage.removeItem(this.kunciSesiUser);
+        }
     }
 
     ambilUserSesi() {
+        // Cek sesi sementara (sessionStorage) terlebih dahulu
+        const dariSession = sessionStorage.getItem(this.kunciSesiUser);
+        if (dariSession) {
+            try {
+                const u = JSON.parse(dariSession);
+                if (u && (u.peran === 'Admin' || u.username === 'regina' || u.username === 'edrick')) {
+                    if (u.bidang && u.bidang.includes('Superadmin')) {
+                        u.bidang = 'Administrator Sistem';
+                        sessionStorage.setItem(this.kunciSesiUser, JSON.stringify(u));
+                    }
+                }
+                return u;
+            } catch (e) {}
+        }
+
+        // Cek sesi permanen (localStorage jika sebelumnya mencentang Ingat Saya)
         const data = localStorage.getItem(this.kunciSesiUser);
         if (data) {
             try {
@@ -499,10 +526,12 @@ class PenggunaService {
     }
 
     ambilToken() {
-        return localStorage.getItem(this.kunciSesiToken);
+        return sessionStorage.getItem(this.kunciSesiToken) || localStorage.getItem(this.kunciSesiToken);
     }
 
     logout() {
+        sessionStorage.removeItem(this.kunciSesiToken);
+        sessionStorage.removeItem(this.kunciSesiUser);
         localStorage.removeItem(this.kunciSesiToken);
         localStorage.removeItem(this.kunciSesiUser);
     }

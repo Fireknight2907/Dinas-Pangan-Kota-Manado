@@ -451,7 +451,7 @@ export class HargaPanganMobileService {
   }
 
   // 7. Login Petugas Mobile (Supabase Cloud -> Local)
-  async login(emailOrUsername: string, kata_sandi: string): Promise<any> {
+  async login(emailOrUsername: string, kata_sandi: string, ingatSaya: boolean = false): Promise<any> {
     const input = (emailOrUsername || '').toLowerCase().trim();
 
     // 1. Coba login via Supabase Cloud Database
@@ -459,7 +459,8 @@ export class HargaPanganMobileService {
       const userCloud = await supabaseClient.loginPengguna(input, kata_sandi);
       if (userCloud) {
         const tokenCloud = `cloud-token-${userCloud.id}-${Date.now()}`;
-        this.simpanSesi(tokenCloud, userCloud);
+        this.simpanSesi(tokenCloud, userCloud, ingatSaya);
+        penggunaMobileService.simpanSesi(tokenCloud, userCloud, ingatSaya);
         return { token: tokenCloud, pengguna: userCloud };
       }
     } catch (e) {
@@ -481,15 +482,16 @@ export class HargaPanganMobileService {
 
       const hasil = await respon.json();
       if (respon.ok && hasil.sukses) {
-        this.simpanSesi(hasil.data.token, hasil.data.pengguna);
+        this.simpanSesi(hasil.data.token, hasil.data.pengguna, ingatSaya);
+        penggunaMobileService.simpanSesi(hasil.data.token, hasil.data.pengguna, ingatSaya);
         return hasil.data;
       }
     } catch (e) {}
 
     // 3. Local fallback via PenggunaMobileService (sipatokean_master_users)
     try {
-      const auth = await penggunaMobileService.login(input, kata_sandi);
-      this.simpanSesi(auth.token, auth.pengguna);
+      const auth = await penggunaMobileService.login(input, kata_sandi, ingatSaya);
+      this.simpanSesi(auth.token, auth.pengguna, ingatSaya);
       return auth;
     } catch (errFallback: any) {
       // Jika belum terdaftar tetapi ada input nama darurat
@@ -517,17 +519,31 @@ export class HargaPanganMobileService {
         foto_profil: ''
       };
       const mockToken = 'mock-jwt-token-mobile-' + Date.now();
-      this.simpanSesi(mockToken, mockPengguna);
+      this.simpanSesi(mockToken, mockPengguna, ingatSaya);
+      penggunaMobileService.simpanSesi(mockToken, mockPengguna as any, ingatSaya);
       return { token: mockToken, pengguna: mockPengguna };
     }
   }
 
-  simpanSesi(token: string, user: any) {
-    localStorage.setItem('sipatokean_mobile_token', token);
-    localStorage.setItem('sipatokean_mobile_user', JSON.stringify(user));
+  simpanSesi(token: string, user: any, ingatSaya: boolean = false) {
+    if (ingatSaya) {
+      localStorage.setItem('sipatokean_mobile_token', token);
+      localStorage.setItem('sipatokean_mobile_user', JSON.stringify(user));
+      sessionStorage.removeItem('sipatokean_mobile_token');
+      sessionStorage.removeItem('sipatokean_mobile_user');
+    } else {
+      sessionStorage.setItem('sipatokean_mobile_token', token);
+      sessionStorage.setItem('sipatokean_mobile_user', JSON.stringify(user));
+      localStorage.removeItem('sipatokean_mobile_token');
+      localStorage.removeItem('sipatokean_mobile_user');
+    }
   }
 
   ambilUser(): any {
+    const dariSession = sessionStorage.getItem('sipatokean_mobile_user');
+    if (dariSession) {
+      try { return JSON.parse(dariSession); } catch (e) {}
+    }
     const d = localStorage.getItem('sipatokean_mobile_user');
     if (d) {
       try { return JSON.parse(d); } catch (e) { return null; }
@@ -536,10 +552,12 @@ export class HargaPanganMobileService {
   }
 
   ambilToken(): string | null {
-    return localStorage.getItem('sipatokean_mobile_token');
+    return sessionStorage.getItem('sipatokean_mobile_token') || localStorage.getItem('sipatokean_mobile_token');
   }
 
   keluar() {
+    sessionStorage.removeItem('sipatokean_mobile_token');
+    sessionStorage.removeItem('sipatokean_mobile_user');
     localStorage.removeItem('sipatokean_mobile_token');
     localStorage.removeItem('sipatokean_mobile_user');
   }

@@ -494,14 +494,27 @@ class HargaPanganApiService {
     }
 
     // ─────────────────────────────────────────────
-    // 7. MANAJEMEN SESI
+    // 7. MANAJEMEN SESI (Sesi Sementara sessionStorage & Sesi Permanen localStorage)
     // ─────────────────────────────────────────────
-    simpanSesi(token, pengguna) {
-        localStorage.setItem('sipatokean_token', token);
-        localStorage.setItem('sipatokean_user', JSON.stringify(pengguna));
+    simpanSesi(token, pengguna, ingatSaya = false) {
+        if (ingatSaya) {
+            localStorage.setItem('sipatokean_token', token);
+            localStorage.setItem('sipatokean_user', JSON.stringify(pengguna));
+            sessionStorage.removeItem('sipatokean_token');
+            sessionStorage.removeItem('sipatokean_user');
+        } else {
+            sessionStorage.setItem('sipatokean_token', token);
+            sessionStorage.setItem('sipatokean_user', JSON.stringify(pengguna));
+            localStorage.removeItem('sipatokean_token');
+            localStorage.removeItem('sipatokean_user');
+        }
     }
 
     ambilUser() {
+        const dariSession = sessionStorage.getItem('sipatokean_user');
+        if (dariSession) {
+            try { return JSON.parse(dariSession); } catch (e) {}
+        }
         const data = localStorage.getItem('sipatokean_user');
         if (data) {
             try { return JSON.parse(data); } catch (e) { return null; }
@@ -510,10 +523,12 @@ class HargaPanganApiService {
     }
 
     ambilToken() {
-        return localStorage.getItem('sipatokean_token');
+        return sessionStorage.getItem('sipatokean_token') || localStorage.getItem('sipatokean_token');
     }
 
     keluar() {
+        sessionStorage.removeItem('sipatokean_token');
+        sessionStorage.removeItem('sipatokean_user');
         localStorage.removeItem('sipatokean_token');
         localStorage.removeItem('sipatokean_user');
     }

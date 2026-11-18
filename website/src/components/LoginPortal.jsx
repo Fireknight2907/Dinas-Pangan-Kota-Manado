@@ -5,12 +5,13 @@
 
 import React, { useState } from 'react';
 import { penggunaService } from '../services/PenggunaService';
+import { hargaPanganService } from '../services/HargaPanganService';
 import './LoginPortal.css';
 
 export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
   const [emailUsername, setEmailUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [ingatSaya, setIngatSaya] = useState(true);
+  const [ingatSaya, setIngatSaya] = useState(false); // Default: Centang MATI sesuai instruksi pimpinan
   const [lihatPassword, setLihatPassword] = useState(false);
   const [sedangMemuat, setSedangMemuat] = useState(false);
   const [pesanError, setPesanError] = useState('');
@@ -22,7 +23,8 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
     setPesanError('');
 
     try {
-      const hasil = await penggunaService.login(emailUsername, password);
+      const hasil = await penggunaService.login(emailUsername, password, ingatSaya);
+      hargaPanganService.simpanSesi(hasil.token, hasil.pengguna, ingatSaya);
       if (onLoginSukses) {
         onLoginSukses(hasil.pengguna);
       }
