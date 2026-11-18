@@ -9,10 +9,11 @@ export const DEFAULT_HOST_LAN = '192.168.0.201'; // IP Komputer Anda saat ini
 export const DEFAULT_PORT = '3000';
 export const VERCEL_HOST = 'https://dinas-pangan-kota-manado.vercel.app';
 
-// Kredensial Resmi Supabase Dinas Pangan Kota Manado
+// [CEK-03 FIX] Key dibaca dari .env — tidak di-hardcode di source code
+// File .env tidak masuk ke git (ada di .gitignore)
 export const SUPABASE_CONFIG = {
-  url: 'https://mvwfjbebwidovnwacstm.supabase.co',
-  anonKey: 'sb_publishable__BWMfOhP5y_g5LVrK8KWQg_BHu4__VT'
+  url: (import.meta as any).env?.VITE_SUPABASE_URL || 'https://mvwfjbebwidovnwacstm.supabase.co',
+  anonKey: (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || ''
 };
 
 // Cek apakah aplikasi berjalan di platform native Capacitor (Android/iOS)

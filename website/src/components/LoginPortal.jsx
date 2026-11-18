@@ -3,10 +3,26 @@
 // Dinas Pangan Kota Manado — Mendukung multi-role (Admin, Kabid, Staf, Kadis)
 // ===================================================================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { penggunaService } from '../services/PenggunaService';
 import { hargaPanganService } from '../services/HargaPanganService';
 import './LoginPortal.css';
+
+// [CEK-06 FIX] Brute-force protection — maks 5 percobaan, lockout 5 menit
+const MAKS_PERCOBAAN = 5;
+const DURASI_LOCKOUT_MS = 5 * 60 * 1000; // 5 menit
+const KUNCI_LOCKOUT = 'sipatokaan_login_lockout';
+
+function bacaStatusLockout() {
+  try {
+    const raw = sessionStorage.getItem(KUNCI_LOCKOUT);
+    if (!raw) return { percobaan: 0, lockoutSampai: null };
+    return JSON.parse(raw);
+  } catch { return { percobaan: 0, lockoutSampai: null }; }
+}
+function simpanStatusLockout(data) {
+  sessionStorage.setItem(KUNCI_LOCKOUT, JSON.stringify(data));
+}
 
 export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
   const [emailUsername, setEmailUsername] = useState('');
@@ -15,21 +31,65 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
   const [lihatPassword, setLihatPassword] = useState(false);
   const [sedangMemuat, setSedangMemuat] = useState(false);
   const [pesanError, setPesanError] = useState('');
+  const [sisaWaktuLockout, setSisaWaktuLockout] = useState(0);
+
+  // Countdown timer saat lockout aktif
+  useEffect(() => {
+    const status = bacaStatusLockout();
+    if (status.lockoutSampai && Date.now() < status.lockoutSampai) {
+      const interval = setInterval(() => {
+        const sisa = Math.ceil((status.lockoutSampai - Date.now()) / 1000);
+        if (sisa <= 0) {
+          simpanStatusLockout({ percobaan: 0, lockoutSampai: null });
+          setSisaWaktuLockout(0);
+          clearInterval(interval);
+        } else {
+          setSisaWaktuLockout(sisa);
+        }
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [sisaWaktuLockout]);
 
   // Handler pengiriman form login
   const handleLogin = async (e) => {
     e.preventDefault();
+
+    // [CEK-06] Cek lockout sebelum proses login
+    const status = bacaStatusLockout();
+    if (status.lockoutSampai && Date.now() < status.lockoutSampai) {
+      const sisa = Math.ceil((status.lockoutSampai - Date.now()) / 1000);
+      setSisaWaktuLockout(sisa);
+      setPesanError(`Terlalu banyak percobaan gagal. Coba lagi dalam ${sisa} detik.`);
+      return;
+    }
+
     setSedangMemuat(true);
     setPesanError('');
 
     try {
       const hasil = await penggunaService.login(emailUsername, password, ingatSaya);
+      // Reset lockout counter saat berhasil login
+      simpanStatusLockout({ percobaan: 0, lockoutSampai: null });
       hargaPanganService.simpanSesi(hasil.token, hasil.pengguna, ingatSaya);
       if (onLoginSukses) {
         onLoginSukses(hasil.pengguna);
       }
     } catch (err) {
-      setPesanError(err.message || 'Gagal masuk. Periksa kembali nama pengguna dan kata sandi Anda.');
+      // [CEK-06] Tambah hitungan percobaan gagal
+      const st = bacaStatusLockout();
+      const percobaan = (st.percobaan || 0) + 1;
+      if (percobaan >= MAKS_PERCOBAAN) {
+        const lockoutSampai = Date.now() + DURASI_LOCKOUT_MS;
+        simpanStatusLockout({ percobaan, lockoutSampai });
+        const sisaMenit = Math.ceil(DURASI_LOCKOUT_MS / 60000);
+        setPesanError(`Akun dikunci sementara karena terlalu banyak percobaan gagal. Coba lagi dalam ${sisaMenit} menit.`);
+        setSisaWaktuLockout(DURASI_LOCKOUT_MS / 1000);
+      } else {
+        simpanStatusLockout({ percobaan, lockoutSampai: null });
+        const sisa = MAKS_PERCOBAAN - percobaan;
+        setPesanError((err.message || 'Gagal masuk.') + ` (${sisa} percobaan tersisa)`);
+      }
     } finally {
       setSedangMemuat(false);
     }
@@ -69,6 +129,13 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
         {pesanError && (
           <div className="login-error-alert">
             ⚠️ {pesanError}
+          </div>
+        )}
+
+        {/* Peringatan lockout aktif */}
+        {sisaWaktuLockout > 0 && (
+          <div className="login-error-alert" style={{ background: '#7f1d1d', borderColor: '#dc2626' }}>
+            🔒 Akses dikunci. Coba lagi dalam: <strong>{Math.floor(sisaWaktuLockout / 60)}:{String(sisaWaktuLockout % 60).padStart(2, '0')}</strong>
           </div>
         )}
 
@@ -143,9 +210,9 @@ export default function LoginPortal({ onLoginSukses, onKembaliKePublik }) {
           <button 
             type="submit" 
             className="btn-login-submit"
-            disabled={sedangMemuat}
+            disabled={sedangMemuat || sisaWaktuLockout > 0}
           >
-            {sedangMemuat ? 'Memproses Masuk...' : 'Masuk Sekarang'}
+            {sedangMemuat ? 'Memproses Masuk...' : (sisaWaktuLockout > 0 ? '🔒 Dikunci' : 'Masuk Sekarang')}
           </button>
         </form>
       </div>

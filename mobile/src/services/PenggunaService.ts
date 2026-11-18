@@ -267,7 +267,9 @@ class PenggunaMobileService {
           userCloud.bidang = 'Superadmin';
         }
 
-        const token = `sipatokaan-mobile-cloud-${userCloud.id}-${Date.now()}`;
+        // [CEK-09 FIX] Token menyimpan waktu expiry (8 jam)
+        const exp = Date.now() + (8 * 60 * 60 * 1000);
+        const token = `sipatokaan-mobile-cloud-${userCloud.id}-${Date.now()}-exp${exp}`;
         this.simpanSesi(token, userCloud, ingatSaya);
 
         // Perbarui cache lokal
@@ -281,12 +283,21 @@ class PenggunaMobileService {
         localStorage.setItem(this.kunciMasterUsers, JSON.stringify(lokal));
 
         return { token, pengguna: userCloud };
+      } else {
+        // [CEK-05 FIX] Supabase merespon tapi user/sandi salah — tolak langsung
+        throw new Error('Nama pengguna atau kata sandi salah!');
       }
-    } catch (e) {
+    } catch (e: any) {
+      // [CEK-05 FIX] Hanya fallback lokal jika benar-benar offline
+      const pesanError = (e.message || '');
+      const isOffline = pesanError.includes('fetch') || pesanError.includes('abort') || pesanError.includes('network') || pesanError.includes('Failed');
+      if (!isOffline) {
+        throw e;
+      }
       console.warn('Login Supabase Cloud gagal/offline, verifikasi lokal:', e);
     }
 
-    // 2. Fallback verifikasi lokal jika offline
+    // 2. [CEK-05] Fallback lokal HANYA jika Supabase benar-benar offline
     const daftar = this.ambilSemuaPenggunaLokal();
     const userCocok = daftar.find(u =>
       (u.username && u.username.toLowerCase() === idBersih) ||

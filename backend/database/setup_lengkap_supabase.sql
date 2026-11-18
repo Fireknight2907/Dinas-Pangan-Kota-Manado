@@ -76,22 +76,69 @@ CREATE TABLE harga_pangan (
 );
 
 -- 6. Pengaturan Row Level Security (RLS) & Kebijakan Hak Akses Aplikasi
+-- CATATAN KEAMANAN: Policy anon pada tabel pengguna SENGAJA TIDAK ADA di sini.
+-- Policy yang berlaku diatur di hardening_keamanan_supabase.sql
+-- yang harus dijalankan setelah skrip ini.
 ALTER TABLE pengguna ENABLE ROW LEVEL SECURITY;
 ALTER TABLE acara_gpm ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pendaftar_gpm ENABLE ROW LEVEL SECURITY;
 ALTER TABLE harga_pangan ENABLE ROW LEVEL SECURITY;
 
+-- [CEK-01 FIX] Tabel pengguna: HANYA authenticated yang boleh akses (anon DILARANG)
 DROP POLICY IF EXISTS "Akses publik pengguna" ON pengguna;
-CREATE POLICY "Akses publik pengguna" ON pengguna FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Petugas baca akun pengguna" ON pengguna;
+DROP POLICY IF EXISTS "Petugas kelola akun pengguna" ON pengguna;
+CREATE POLICY "Petugas baca akun pengguna"
+ON pengguna FOR SELECT
+TO authenticated
+USING (true);
+CREATE POLICY "Petugas kelola akun pengguna"
+ON pengguna FOR ALL
+TO authenticated
+USING (true)
+WITH CHECK (true);
 
+-- Tabel acara_gpm: publik hanya baca yang Aktif/Selesai, write hanya authenticated
 DROP POLICY IF EXISTS "Akses publik acara_gpm" ON acara_gpm;
-CREATE POLICY "Akses publik acara_gpm" ON acara_gpm FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Publik baca acara gpm aktif" ON acara_gpm;
+DROP POLICY IF EXISTS "Petugas kelola acara gpm" ON acara_gpm;
+CREATE POLICY "Publik baca acara gpm aktif"
+ON acara_gpm FOR SELECT
+TO anon, authenticated
+USING (status IN ('Aktif', 'Selesai'));
+CREATE POLICY "Petugas kelola acara gpm"
+ON acara_gpm FOR ALL
+TO authenticated
+USING (true)
+WITH CHECK (true);
 
+-- Tabel pendaftar_gpm: anon hanya INSERT (daftar tiket), SELECT/UPDATE/DELETE hanya authenticated
 DROP POLICY IF EXISTS "Akses publik pendaftar_gpm" ON pendaftar_gpm;
-CREATE POLICY "Akses publik pendaftar_gpm" ON pendaftar_gpm FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Publik daftar antrean gpm" ON pendaftar_gpm;
+DROP POLICY IF EXISTS "Petugas kelola pendaftar gpm" ON pendaftar_gpm;
+CREATE POLICY "Publik daftar antrean gpm"
+ON pendaftar_gpm FOR INSERT
+TO anon, authenticated
+WITH CHECK (true);
+CREATE POLICY "Petugas kelola pendaftar gpm"
+ON pendaftar_gpm FOR ALL
+TO authenticated
+USING (true)
+WITH CHECK (true);
 
+-- Tabel harga_pangan: anon hanya baca yang statusnya Terbit, write hanya authenticated
 DROP POLICY IF EXISTS "Akses publik harga_pangan" ON harga_pangan;
-CREATE POLICY "Akses publik harga_pangan" ON harga_pangan FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Publik hanya baca harga pangan terbit" ON harga_pangan;
+DROP POLICY IF EXISTS "Petugas kelola harga pangan" ON harga_pangan;
+CREATE POLICY "Publik hanya baca harga pangan terbit"
+ON harga_pangan FOR SELECT
+TO anon, authenticated
+USING (status = 'Terbit');
+CREATE POLICY "Petugas kelola harga pangan"
+ON harga_pangan FOR ALL
+TO authenticated
+USING (true)
+WITH CHECK (true);
 
 -- Policy untuk informasi_pangan jika ada
 DO $$

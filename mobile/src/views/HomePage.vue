@@ -78,8 +78,14 @@
             <a href="#" class="m-forgot" @click.prevent="alertLupaPassword">Lupa kata sandi?</a>
           </div>
 
-          <button type="submit" class="btn-m-submit" :disabled="sedangLogin">
-            {{ sedangLogin ? 'Memproses...' : 'Masuk Sekarang' }}
+          <!-- [CEK-06] Peringatan lockout -->
+          <div v-if="sisaWaktuLockoutMobile > 0" class="m-lockout-alert">
+            🔒 Akses dikunci — coba lagi dalam
+            <strong>{{ Math.floor(sisaWaktuLockoutMobile / 60) }}:{{ String(sisaWaktuLockoutMobile % 60).padStart(2, '0') }}</strong>
+          </div>
+
+          <button type="submit" class="btn-m-submit" :disabled="sedangLogin || sisaWaktuLockoutMobile > 0">
+            {{ sedangLogin ? 'Memproses...' : (sisaWaktuLockoutMobile > 0 ? '🔒 Dikunci' : 'Masuk Sekarang') }}
           </button>
         </form>
       </div>
@@ -2859,6 +2865,37 @@ const loginInput = ref({
 const lihatPassword = ref(false);
 const sedangLogin = ref(false);
 
+// [CEK-06 FIX] Brute-force protection — maks 5 percobaan, lockout 5 menit
+const MAKS_PERCOBAAN_LOGIN = 5;
+const DURASI_LOCKOUT_LOGIN_MS = 5 * 60 * 1000;
+const KUNCI_LOCKOUT_MOBILE = 'sipatokaan_mobile_lockout';
+const sisaWaktuLockoutMobile = ref(0);
+let timerLockoutMobile: ReturnType<typeof setInterval> | null = null;
+
+const bacaStatusLockoutMobile = () => {
+  try {
+    const raw = sessionStorage.getItem(KUNCI_LOCKOUT_MOBILE);
+    if (!raw) return { percobaan: 0, lockoutSampai: null as number | null };
+    return JSON.parse(raw);
+  } catch { return { percobaan: 0, lockoutSampai: null as number | null }; }
+};
+const simpanStatusLockoutMobile = (data: { percobaan: number; lockoutSampai: number | null }) => {
+  sessionStorage.setItem(KUNCI_LOCKOUT_MOBILE, JSON.stringify(data));
+};
+const mulaiHitungMundurLockout = (sampai: number) => {
+  if (timerLockoutMobile) clearInterval(timerLockoutMobile);
+  timerLockoutMobile = setInterval(() => {
+    const sisa = Math.ceil((sampai - Date.now()) / 1000);
+    if (sisa <= 0) {
+      sisaWaktuLockoutMobile.value = 0;
+      simpanStatusLockoutMobile({ percobaan: 0, lockoutSampai: null });
+      if (timerLockoutMobile) clearInterval(timerLockoutMobile);
+    } else {
+      sisaWaktuLockoutMobile.value = sisa;
+    }
+  }, 1000);
+};
+
 // Daftar Kategori Filter
 const daftarKategoriList = [
   { key: 'Semua', label: 'Semua', icon: '' },
@@ -3301,9 +3338,22 @@ const bukaLoginMobile = () => {
 };
 
 const eksekusiLogin = async () => {
+  // [CEK-06] Cek lockout sebelum proses login
+  const statusLockout = bacaStatusLockoutMobile();
+  if (statusLockout.lockoutSampai && Date.now() < statusLockout.lockoutSampai) {
+    const sisa = Math.ceil((statusLockout.lockoutSampai - Date.now()) / 1000);
+    sisaWaktuLockoutMobile.value = sisa;
+    mulaiHitungMundurLockout(statusLockout.lockoutSampai);
+    alert(`🔒 Terlalu banyak percobaan gagal. Coba lagi dalam ${Math.ceil(sisa / 60)} menit.`);
+    return;
+  }
+
   sedangLogin.value = true;
   try {
     const hasil = await hargaPanganMobileService.login(loginInput.value.email, loginInput.value.password, loginInput.value.ingatSaya);
+    // Reset lockout saat berhasil
+    simpanStatusLockoutMobile({ percobaan: 0, lockoutSampai: null });
+    sisaWaktuLockoutMobile.value = 0;
     userAktif.value = hasil.pengguna;
     tampilanMode.value = 'petugas';
 
@@ -3319,7 +3369,20 @@ const eksekusiLogin = async () => {
     muatRekapGPMKadis();
     muatNotifikasiDinamisMobile();
   } catch (err: any) {
-    alert('Gagal masuk: ' + (err.message || 'Terjadi kesalahan saat masuk'));
+    // [CEK-06] Tambah hitungan percobaan gagal
+    const st = bacaStatusLockoutMobile();
+    const percobaan = (st.percobaan || 0) + 1;
+    if (percobaan >= MAKS_PERCOBAAN_LOGIN) {
+      const lockoutSampai = Date.now() + DURASI_LOCKOUT_LOGIN_MS;
+      simpanStatusLockoutMobile({ percobaan, lockoutSampai });
+      sisaWaktuLockoutMobile.value = Math.ceil(DURASI_LOCKOUT_LOGIN_MS / 1000);
+      mulaiHitungMundurLockout(lockoutSampai);
+      alert(`🔒 Akun dikunci sementara karena terlalu banyak percobaan gagal. Coba lagi dalam 5 menit.`);
+    } else {
+      simpanStatusLockoutMobile({ percobaan, lockoutSampai: null });
+      const sisa = MAKS_PERCOBAAN_LOGIN - percobaan;
+      alert('Gagal masuk: ' + (err.message || 'Terjadi kesalahan') + `\n(${sisa} percobaan tersisa)`);
+    }
   } finally {
     sedangLogin.value = false;
   }
@@ -4180,6 +4243,23 @@ const eksekusiGantiFotoProfil = () => {
   font-size: 0.92rem;
   margin-top: 6px;
   box-shadow: 0 4px 14px rgba(80, 10, 10, 0.35);
+}
+.btn-m-submit:disabled {
+  background: #9ca3af;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* [CEK-06] Lockout alert mobile */
+.m-lockout-alert {
+  background: #7f1d1d;
+  color: #fca5a5;
+  border: 1px solid #dc2626;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  text-align: center;
+  margin-top: 4px;
 }
 
 /* =======================================================

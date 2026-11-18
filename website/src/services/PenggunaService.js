@@ -236,7 +236,7 @@ class PenggunaService {
     async login(identifier, kataSandi, ingatSaya = false) {
         const inputBersih = (identifier || '').toLowerCase().trim();
 
-        // 1. Coba autentikasi via Supabase Cloud
+    // 1. Coba autentikasi via Supabase Cloud
         try {
             const userCloud = await supabaseClient.loginPengguna(inputBersih, kataSandi);
             if (userCloud) {
@@ -247,7 +247,9 @@ class PenggunaService {
                     userCloud.bidang = 'Superadmin';
                 }
 
-                const token = `sipatokean-cloud-${userCloud.id}-${Date.now()}`;
+                // [CEK-09 FIX] Token menyimpan waktu expiry (8 jam)
+                const exp = Date.now() + (8 * 60 * 60 * 1000);
+                const token = `sipatokaan-cloud-${userCloud.id}-${Date.now()}-exp${exp}`;
                 this.simpanSesi(token, userCloud, ingatSaya);
 
                 // Perbarui cache master users lokal
@@ -261,12 +263,23 @@ class PenggunaService {
                 localStorage.setItem(this.kunciMasterUsers, JSON.stringify(lokal));
 
                 return { token, pengguna: userCloud };
+            } else {
+                // [CEK-05 FIX] Jika Supabase merespon tapi user tidak ditemukan/sandi salah — tolak langsung
+                throw new Error('Nama pengguna atau kata sandi salah!');
             }
         } catch (e) {
-            console.warn('Login Supabase Cloud gagal/offline, mencoba verifikasi lokal:', e);
+            // [CEK-05 FIX] Jika error adalah kesalahan kredensial (bukan timeout/offline), langsung throw
+            const pesanError = e.message || '';
+            const isOffline = pesanError.includes('fetch') || pesanError.includes('abort') || pesanError.includes('network') || pesanError.includes('Failed');
+            if (!isOffline) {
+                throw e; // Tolak — kredensial salah atau Supabase merespon dengan error
+            }
+            // Hanya fallback lokal jika benar-benar offline (timeout/network error)
+            console.warn('Supabase tidak dapat dijangkau (offline), verifikasi lokal digunakan sebagai fallback darurat:', e);
         }
 
-        // 2. Verifikasi lokal jika Supabase offline
+        // 2. [CEK-05] Verifikasi lokal HANYA jika Supabase benar-benar offline (network error)
+        // PERINGATAN: Ini adalah fallback darurat — data lokal mungkin tidak terkini
         const daftarUsers = this.ambilSemuaPenggunaLokal();
         const userCocok = daftarUsers.find(u =>
             (u.username && u.username.toLowerCase() === inputBersih) ||
@@ -644,8 +657,17 @@ class PenggunaService {
     }
 
     ambilUserSesi() {
+        // [CEK-09 FIX] Helper: cek apakah token sudah kedaluwarsa
+        const tokenMasihBerlaku = (token) => {
+            if (!token) return false;
+            const match = token.match(/exp(\d+)$/);
+            if (!match) return true; // token lama tanpa expiry, anggap masih berlaku
+            return Date.now() < Number(match[1]);
+        };
+
+        const tokenSession = sessionStorage.getItem(this.kunciSesiToken);
         const dariSession = sessionStorage.getItem(this.kunciSesiUser);
-        if (dariSession) {
+        if (dariSession && tokenMasihBerlaku(tokenSession)) {
             try {
                 const u = JSON.parse(dariSession);
                 if (u && (u.peran === 'Admin' || u.username === 'regina' || u.username === 'edrick')) {
@@ -658,10 +680,15 @@ class PenggunaService {
                 }
                 return u;
             } catch (e) { }
+        } else if (dariSession && !tokenMasihBerlaku(tokenSession)) {
+            // Token kedaluwarsa — hapus sesi
+            sessionStorage.removeItem(this.kunciSesiToken);
+            sessionStorage.removeItem(this.kunciSesiUser);
         }
 
+        const tokenLocal = localStorage.getItem(this.kunciSesiToken);
         const data = localStorage.getItem(this.kunciSesiUser);
-        if (data) {
+        if (data && tokenMasihBerlaku(tokenLocal)) {
             try {
                 const u = JSON.parse(data);
                 if (u && (u.peran === 'Admin' || u.username === 'regina' || u.username === 'edrick')) {
@@ -674,6 +701,10 @@ class PenggunaService {
                 }
                 return u;
             } catch (e) { }
+        } else if (data && !tokenMasihBerlaku(tokenLocal)) {
+            // Token "Ingat Saya" kedaluwarsa — hapus
+            localStorage.removeItem(this.kunciSesiToken);
+            localStorage.removeItem(this.kunciSesiUser);
         }
         return null;
     }

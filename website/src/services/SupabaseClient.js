@@ -2,9 +2,11 @@
 // Dinas Pangan Kota Manado
 // Mengelola integrasi langsung dengan basis data Cloud Supabase REST API
 
+// [CEK-03 FIX] Key dibaca dari .env — tidak di-hardcode di source code
+// File .env tidak masuk ke git (ada di .gitignore)
 export const SUPABASE_CONFIG = {
-  url: 'https://mvwfjbebwidovnwacstm.supabase.co',
-  anonKey: 'sb_publishable__BWMfOhP5y_g5LVrK8KWQg_BHu4__VT'
+  url: import.meta.env.VITE_SUPABASE_URL || 'https://mvwfjbebwidovnwacstm.supabase.co',
+  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 };
 
 class SupabaseRestClient {
@@ -46,7 +48,7 @@ class SupabaseRestClient {
         try {
           const errJson = await res.json();
           errDetail = errJson.message || errJson.error || errDetail;
-        } catch (_) {}
+        } catch (_) { }
         throw new Error(`Supabase Error: ${errDetail}`);
       }
 
@@ -139,7 +141,7 @@ class SupabaseRestClient {
 
   // --- PENDAFTAR GPM ---
   async getPendaftarGPM(acaraId = null) {
-    const endpoint = acaraId 
+    const endpoint = acaraId
       ? `pendaftar_gpm?acara_id=eq.${encodeURIComponent(acaraId)}&order=nomor_antrean.asc`
       : 'pendaftar_gpm?order=waktu_mendaftar.desc';
     return this.request(endpoint);
@@ -192,7 +194,7 @@ class SupabaseRestClient {
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
       }
-    } catch (_) {}
+    } catch (_) { }
     return kataSandi;
   }
 
