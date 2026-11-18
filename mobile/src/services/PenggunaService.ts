@@ -24,8 +24,8 @@ export async function hitungHashSandi(kataSandi: string): Promise<string> {
   return kataSandi;
 }
 
-// Hash resmi untuk kata sandi awal '12345678'
-const HASH_AWAL_DEFAULT = 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481';
+// Hash resmi untuk kata sandi awal 'admin'
+const HASH_AWAL_DEFAULT = 'bfdbf1ca1799b68e56f988a0c60fe4dfebcc377c4f3d21680bcc1eaca9b587c3';
 
 export type PeranPengguna = 'Admin' | 'Kabid' | 'Staf' | 'Kadis' | 'Superadmin';
 
@@ -55,67 +55,17 @@ class PenggunaMobileService {
     this.inisialisasiAkunBawaan();
   }
 
-  // Inisialisasi daftar akun resmi sesuai struktur organisasi Dinas Pangan
+  // Inisialisasi daftar akun resmi bawaan sistem (Akun tunggal default: admin / admin)
   inisialisasiAkunBawaan(): void {
     const akunBawaanResmi: AkunPengguna[] = [
       {
-        id: 'usr-superadmin',
-        nama: 'Superadmin',
-        username: 'superadmin',
-        email: 'superadmin@manado.go.id',
+        id: 'usr-admin',
+        nama: 'Administrator',
+        username: 'admin',
+        email: 'admin@manado.go.id',
         kata_sandi: HASH_AWAL_DEFAULT,
         peran: 'Superadmin',
-        bidang: 'Superadmin',
-        foto_profil: ''
-      },
-      {
-        id: 'usr-effrend',
-        nama: 'Effrend',
-        username: 'effrend',
-        email: 'effrend@manado.go.id',
-        kata_sandi: HASH_AWAL_DEFAULT,
-        peran: 'Staf',
-        bidang: 'Bidang Cadangan dan Distribusi Pangan',
-        foto_profil: ''
-      },
-      {
-        id: 'usr-regina',
-        nama: 'Regina',
-        username: 'regina',
-        email: 'regina@manado.go.id',
-        kata_sandi: HASH_AWAL_DEFAULT,
-        peran: 'Admin',
-        bidang: 'Admin',
-        foto_profil: ''
-      },
-      {
-        id: 'usr-mareta',
-        nama: 'Mareta',
-        username: 'mareta',
-        email: 'mareta@manado.go.id',
-        kata_sandi: HASH_AWAL_DEFAULT,
-        peran: 'Kabid',
-        bidang: 'Kepala Bidang Cadangan & Distribusi Pangan',
-        foto_profil: ''
-      },
-      {
-        id: 'usr-edrick',
-        nama: 'Edrick',
-        username: 'edrick',
-        email: 'edrick@manado.go.id',
-        kata_sandi: HASH_AWAL_DEFAULT,
-        peran: 'Admin',
-        bidang: 'Admin',
-        foto_profil: ''
-      },
-      {
-        id: 'usr-kadis',
-        nama: 'Kepala Dinas Pangan',
-        username: 'kadis',
-        email: 'kadis@manado.go.id',
-        kata_sandi: HASH_AWAL_DEFAULT,
-        peran: 'Kadis',
-        bidang: 'Pimpinan Dinas Pangan Kota Manado',
+        bidang: 'Administrator Sistem',
         foto_profil: ''
       }
     ];
@@ -130,23 +80,14 @@ class PenggunaMobileService {
       let daftar: AkunPengguna[] = JSON.parse(tersimpan);
       let adaPembaruan = false;
 
-      // Hapus akun roni jika masih ada di local cache
-      if (daftar.some(u => u.username && u.username.toLowerCase() === 'roni')) {
-        daftar = daftar.filter(u => u.username && u.username.toLowerCase() !== 'roni');
+      // Pastikan akun admin utama terdaftar di storage
+      const idxAdmin = daftar.findIndex(u => u.username && u.username.toLowerCase() === 'admin');
+      if (idxAdmin === -1) {
+        daftar.unshift(akunBawaanResmi[0]);
         adaPembaruan = true;
-      }
-
-      // Pastikan akun superadmin terdaftar di storage
-      if (!daftar.some(u => u.username && u.username.toLowerCase() === 'superadmin')) {
-        const sa = akunBawaanResmi.find(u => u.username === 'superadmin');
-        if (sa) daftar.unshift(sa);
-        adaPembaruan = true;
-      }
-
-      // Pastikan akun Kadis terdaftar di storage
-      if (!daftar.some(u => u.username && u.username.toLowerCase() === 'kadis')) {
-        const kadis = akunBawaanResmi.find(u => u.username === 'kadis');
-        if (kadis) daftar.push(kadis);
+      } else {
+        daftar[idxAdmin].kata_sandi = HASH_AWAL_DEFAULT;
+        daftar[idxAdmin].peran = 'Superadmin';
         adaPembaruan = true;
       }
 
@@ -693,9 +634,9 @@ class PenggunaMobileService {
           u.bidang = 'Admin';
           sessionStorage.setItem(this.kunciSesiUser, JSON.stringify(u));
         }
-        if (u && (u.peran === 'Superadmin' || u.username === 'superadmin')) {
-          u.nama = 'Superadmin';
-          u.bidang = 'Superadmin';
+        if (u && (u.peran === 'Superadmin' || u.username === 'superadmin' || u.username === 'admin')) {
+          u.peran = 'Superadmin';
+          u.bidang = 'Administrator Sistem';
         }
         return u;
       } catch (e) {}
@@ -709,9 +650,9 @@ class PenggunaMobileService {
           u.bidang = 'Admin';
           localStorage.setItem(this.kunciSesiUser, JSON.stringify(u));
         }
-        if (u && (u.peran === 'Superadmin' || u.username === 'superadmin')) {
-          u.nama = 'Superadmin';
-          u.bidang = 'Superadmin';
+        if (u && (u.peran === 'Superadmin' || u.username === 'superadmin' || u.username === 'admin')) {
+          u.peran = 'Superadmin';
+          u.bidang = 'Administrator Sistem';
         }
         return u;
       } catch (e) {}

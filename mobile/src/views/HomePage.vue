@@ -35,7 +35,7 @@
           <h3>Selamat Datang</h3>
           <p>Masuk ke akun Anda untuk melanjutkan</p>
           <div class="m-login-hint-badge">
-            💡 Contoh akun: <strong>effrend</strong> / Sandi: <strong>12345678</strong>
+            💡 Akun default: <strong>admin</strong> / Sandi: <strong>admin</strong>
           </div>
         </div>
 
@@ -2858,7 +2858,7 @@ const inputFotoProfilUrl = ref('');
 
 // State Login Mobile (Gambar 4)
 const loginInput = ref({
-  email: 'effrend',
+  email: 'admin',
   password: '',
   ingatSaya: false // Default: Centang MATI sesuai instruksi pimpinan
 });

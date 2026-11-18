@@ -38,14 +38,9 @@ class PenggunaModel {
             }
         }
 
-        // Akun Resmi Sesuai Struktur Organisasi Dinas Pangan
+        // Akun Utama Administrator Bawaan (Username: admin / Password: admin)
         const akunBawaan = [
-            { id: 'usr-superadmin', nama: 'Super Administrator', email: 'superadmin@manado.go.id', username: 'superadmin', kata_sandi: '12345678', peran: 'Superadmin', bidang: 'Akses Penuh Seluruh Modul (Superadmin)', foto_profil: '' },
-            { id: 'usr-effrend', nama: 'Effrend', email: 'effrend@manado.go.id', username: 'effrend', kata_sandi: '12345678', peran: 'Staf', bidang: 'Bidang Cadangan dan Distribusi Pangan', foto_profil: '' },
-            { id: 'usr-regina', nama: 'Regina', email: 'regina@manado.go.id', username: 'regina', kata_sandi: '12345678', peran: 'Admin', bidang: 'Administrator Sistem (Superadmin)', foto_profil: '' },
-            { id: 'usr-mareta', nama: 'Mareta', email: 'mareta@manado.go.id', username: 'mareta', kata_sandi: '12345678', peran: 'Kabid', bidang: 'Kepala Bidang Cadangan & Distribusi Pangan', foto_profil: '' },
-            { id: 'usr-edrick', nama: 'Edrick', email: 'edrick@manado.go.id', username: 'edrick', kata_sandi: '12345678', peran: 'Admin', bidang: 'Administrator Sistem (Superadmin)', foto_profil: '' },
-            { id: 'usr-kadis', nama: 'Kepala Dinas Pangan', email: 'kadis@manado.go.id', username: 'kadis', kata_sandi: '12345678', peran: 'Kadis', bidang: 'Pimpinan Dinas Pangan Kota Manado', foto_profil: '' }
+            { id: 'usr-admin', nama: 'Administrator', email: 'admin@manado.go.id', username: 'admin', kata_sandi: 'admin', peran: 'Superadmin', bidang: 'Administrator Sistem', foto_profil: '' }
         ];
 
         const normalisasi = (email || '').toLowerCase().trim();
@@ -114,12 +109,7 @@ class PenggunaModel {
         }
 
         return [
-            { id: 'usr-superadmin', nama: 'Super Administrator', email: 'superadmin@manado.go.id', username: 'superadmin', peran: 'Superadmin', bidang: 'Akses Penuh Seluruh Modul (Superadmin)' },
-            { id: 'usr-effrend', nama: 'Effrend', email: 'effrend@manado.go.id', username: 'effrend', peran: 'Staf', bidang: 'Bidang Cadangan dan Distribusi Pangan' },
-            { id: 'usr-regina', nama: 'Regina', email: 'regina@manado.go.id', username: 'regina', peran: 'Admin', bidang: 'Administrator Sistem (Superadmin)' },
-            { id: 'usr-mareta', nama: 'Mareta', email: 'mareta@manado.go.id', username: 'mareta', peran: 'Kabid', bidang: 'Kepala Bidang Cadangan & Distribusi Pangan' },
-            { id: 'usr-edrick', nama: 'Edrick', email: 'edrick@manado.go.id', username: 'edrick', peran: 'Admin', bidang: 'Administrator Sistem (Superadmin)' },
-            { id: 'usr-kadis', nama: 'Kepala Dinas Pangan', email: 'kadis@manado.go.id', username: 'kadis', peran: 'Kadis', bidang: 'Pimpinan Dinas Pangan Kota Manado' }
+            { id: 'usr-admin', nama: 'Administrator', email: 'admin@manado.go.id', username: 'admin', peran: 'Superadmin', bidang: 'Administrator Sistem' }
         ];
     }
 

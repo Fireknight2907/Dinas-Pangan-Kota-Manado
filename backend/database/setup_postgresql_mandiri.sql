@@ -104,15 +104,10 @@ CREATE TABLE master_pasar (
 -- DATA AWAL RESMI (SEED DATA)
 -- ====================================================================
 
--- Data Pengguna Resmi (Kata Sandi Terenkripsi Hash SHA-256 Default: 12345678)
+-- Data Pengguna Utama (Akun Tunggal Administrator Bawaan - Username: admin / Password: admin)
 -- Salt: SIPATOKAAN_MANADO_2026_SECURE_SALT
 INSERT INTO pengguna (nama, username, email, kata_sandi, peran, bidang) VALUES
-('Super Administrator', 'superadmin', 'superadmin@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Superadmin', 'Akses Penuh Seluruh Modul (Superadmin)'),
-('Effrend', 'effrend', 'effrend@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Staf', 'Bidang Cadangan dan Distribusi Pangan'),
-('Regina', 'regina', 'regina@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Admin', 'Administrator Sistem (Superadmin)'),
-('Mareta', 'mareta', 'mareta@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Kabid', 'Kepala Bidang Cadangan & Distribusi Pangan'),
-('Edrick', 'edrick', 'edrick@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Admin', 'Administrator Sistem (Superadmin)'),
-('Kepala Dinas Pangan', 'kadis', 'kadis@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Kadis', 'Pimpinan Dinas Pangan Kota Manado');
+('Administrator', 'admin', 'admin@manado.go.id', 'bfdbf1ca1799b68e56f988a0c60fe4dfebcc377c4f3d21680bcc1eaca9b587c3', 'Superadmin', 'Administrator Sistem');
 
 -- Master Kecamatan Kota Manado
 INSERT INTO master_kecamatan (nama_kecamatan) VALUES
