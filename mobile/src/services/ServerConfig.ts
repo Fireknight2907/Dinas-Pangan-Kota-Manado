@@ -13,7 +13,7 @@ export const VERCEL_HOST = 'https://dinas-pangan-kota-manado.vercel.app';
 // File .env tidak masuk ke git (ada di .gitignore)
 export const SUPABASE_CONFIG = {
   url: (import.meta as any).env?.VITE_SUPABASE_URL || 'https://mvwfjbebwidovnwacstm.supabase.co',
-  anonKey: (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || ''
+  anonKey: (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable__BWMfOhP5y_g5LVrK8KWQg_BHu4__VT'
 };
 
 // Cek apakah aplikasi berjalan di platform native Capacitor (Android/iOS)

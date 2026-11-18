@@ -226,21 +226,12 @@ class PenggunaMobileService {
         localStorage.setItem(this.kunciMasterUsers, JSON.stringify(lokal));
 
         return { token, pengguna: userCloud };
-      } else {
-        // [CEK-05 FIX] Supabase merespon tapi user/sandi salah — tolak langsung
-        throw new Error('Nama pengguna atau kata sandi salah!');
       }
     } catch (e: any) {
-      // [CEK-05 FIX] Hanya fallback lokal jika benar-benar offline
-      const pesanError = (e.message || '');
-      const isOffline = pesanError.includes('fetch') || pesanError.includes('abort') || pesanError.includes('network') || pesanError.includes('Failed');
-      if (!isOffline) {
-        throw e;
-      }
-      console.warn('Login Supabase Cloud gagal/offline, verifikasi lokal:', e);
+      console.warn('Login Supabase Cloud tidak berhasil, beralih ke verifikasi lokal:', e?.message);
     }
 
-    // 2. [CEK-05] Fallback lokal HANYA jika Supabase benar-benar offline
+    // 2. Fallback Validasi Akun Lokal jika offline atau akun lokal bawaan (misal: admin)
     const daftar = this.ambilSemuaPenggunaLokal();
     const userCocok = daftar.find(u =>
       (u.username && u.username.toLowerCase() === idBersih) ||
@@ -248,7 +239,7 @@ class PenggunaMobileService {
     );
 
     if (!userCocok) {
-      throw new Error('Akun dengan username atau email tersebut tidak terdaftar!');
+      throw new Error('Nama pengguna atau kata sandi salah!');
     }
 
     const hashInput = await hitungHashSandi(kataSandi);

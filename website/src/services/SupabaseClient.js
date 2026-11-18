@@ -6,7 +6,7 @@
 // File .env tidak masuk ke git (ada di .gitignore)
 export const SUPABASE_CONFIG = {
   url: import.meta.env.VITE_SUPABASE_URL || 'https://mvwfjbebwidovnwacstm.supabase.co',
-  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable__BWMfOhP5y_g5LVrK8KWQg_BHu4__VT'
 };
 
 class SupabaseRestClient {

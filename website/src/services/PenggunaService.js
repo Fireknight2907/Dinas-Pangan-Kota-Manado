@@ -206,23 +206,12 @@ class PenggunaService {
                 localStorage.setItem(this.kunciMasterUsers, JSON.stringify(lokal));
 
                 return { token, pengguna: userCloud };
-            } else {
-                // [CEK-05 FIX] Jika Supabase merespon tapi user tidak ditemukan/sandi salah — tolak langsung
-                throw new Error('Nama pengguna atau kata sandi salah!');
             }
         } catch (e) {
-            // [CEK-05 FIX] Jika error adalah kesalahan kredensial (bukan timeout/offline), langsung throw
-            const pesanError = e.message || '';
-            const isOffline = pesanError.includes('fetch') || pesanError.includes('abort') || pesanError.includes('network') || pesanError.includes('Failed');
-            if (!isOffline) {
-                throw e; // Tolak — kredensial salah atau Supabase merespon dengan error
-            }
-            // Hanya fallback lokal jika benar-benar offline (timeout/network error)
-            console.warn('Supabase tidak dapat dijangkau (offline), verifikasi lokal digunakan sebagai fallback darurat:', e);
+            console.warn('Login Cloud tidak berhasil, beralih ke verifikasi lokal:', e.message);
         }
 
-        // 2. [CEK-05] Verifikasi lokal HANYA jika Supabase benar-benar offline (network error)
-        // PERINGATAN: Ini adalah fallback darurat — data lokal mungkin tidak terkini
+        // 2. Fallback Validasi Akun Lokal jika offline atau akun lokal bawaan (misal: admin)
         const daftarUsers = this.ambilSemuaPenggunaLokal();
         const userCocok = daftarUsers.find(u =>
             (u.username && u.username.toLowerCase() === inputBersih) ||
@@ -230,7 +219,7 @@ class PenggunaService {
         );
 
         if (!userCocok) {
-            throw new Error('Akun dengan nama pengguna atau email tersebut tidak ditemukan!');
+            throw new Error('Nama pengguna atau kata sandi salah!');
         }
 
         const hashInput = await hitungHashSandi(kataSandi);
