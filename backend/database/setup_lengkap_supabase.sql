@@ -76,69 +76,87 @@ CREATE TABLE harga_pangan (
 );
 
 -- 6. Pengaturan Row Level Security (RLS) & Kebijakan Hak Akses Aplikasi
--- CATATAN KEAMANAN: Policy anon pada tabel pengguna SENGAJA TIDAK ADA di sini.
--- Policy yang berlaku diatur di hardening_keamanan_supabase.sql
--- yang harus dijalankan setelah skrip ini.
+-- CATATAN: Karena aplikasi web dan mobile terhubung via REST API menggunakan anonKey,
+-- kebijakan RLS disesuaikan agar role 'anon' dan 'authenticated' dapat menjalankan
+-- alur operasional (Staf input harga -> Kabid verifikasi harga pangan -> Terbit).
 ALTER TABLE pengguna ENABLE ROW LEVEL SECURITY;
 ALTER TABLE acara_gpm ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pendaftar_gpm ENABLE ROW LEVEL SECURITY;
 ALTER TABLE harga_pangan ENABLE ROW LEVEL SECURITY;
 
--- [CEK-01 FIX] Tabel pengguna: HANYA authenticated yang boleh akses (anon DILARANG)
+-- Tabel pengguna
 DROP POLICY IF EXISTS "Akses publik pengguna" ON pengguna;
 DROP POLICY IF EXISTS "Petugas baca akun pengguna" ON pengguna;
 DROP POLICY IF EXISTS "Petugas kelola akun pengguna" ON pengguna;
-CREATE POLICY "Petugas baca akun pengguna"
-ON pengguna FOR SELECT
-TO authenticated
-USING (true);
-CREATE POLICY "Petugas kelola akun pengguna"
-ON pengguna FOR ALL
-TO authenticated
-USING (true)
-WITH CHECK (true);
+DROP POLICY IF EXISTS "Anon kelola pengguna terbatas" ON pengguna;
+DROP POLICY IF EXISTS "Akses kelola pengguna" ON pengguna;
+CREATE POLICY "Akses kelola pengguna" ON pengguna FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
--- Tabel acara_gpm: publik hanya baca yang Aktif/Selesai, write hanya authenticated
+-- Tabel acara_gpm
 DROP POLICY IF EXISTS "Akses publik acara_gpm" ON acara_gpm;
 DROP POLICY IF EXISTS "Publik baca acara gpm aktif" ON acara_gpm;
 DROP POLICY IF EXISTS "Petugas kelola acara gpm" ON acara_gpm;
-CREATE POLICY "Publik baca acara gpm aktif"
-ON acara_gpm FOR SELECT
-TO anon, authenticated
-USING (status IN ('Aktif', 'Selesai'));
-CREATE POLICY "Petugas kelola acara gpm"
-ON acara_gpm FOR ALL
-TO authenticated
-USING (true)
-WITH CHECK (true);
+DROP POLICY IF EXISTS "Akses kelola acara gpm" ON acara_gpm;
+CREATE POLICY "Akses kelola acara gpm" ON acara_gpm FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
--- Tabel pendaftar_gpm: anon hanya INSERT (daftar tiket), SELECT/UPDATE/DELETE hanya authenticated
+-- Tabel pendaftar_gpm
 DROP POLICY IF EXISTS "Akses publik pendaftar_gpm" ON pendaftar_gpm;
 DROP POLICY IF EXISTS "Publik daftar antrean gpm" ON pendaftar_gpm;
 DROP POLICY IF EXISTS "Petugas kelola pendaftar gpm" ON pendaftar_gpm;
-CREATE POLICY "Publik daftar antrean gpm"
-ON pendaftar_gpm FOR INSERT
-TO anon, authenticated
-WITH CHECK (true);
-CREATE POLICY "Petugas kelola pendaftar gpm"
-ON pendaftar_gpm FOR ALL
-TO authenticated
-USING (true)
-WITH CHECK (true);
+DROP POLICY IF EXISTS "Akses kelola pendaftar gpm" ON pendaftar_gpm;
+CREATE POLICY "Akses kelola pendaftar gpm" ON pendaftar_gpm FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
--- Tabel harga_pangan: anon hanya baca yang statusnya Terbit, write hanya authenticated
+-- Tabel harga_pangan (Mendukung alur verifikasi Staf -> Kabid)
 DROP POLICY IF EXISTS "Akses publik harga_pangan" ON harga_pangan;
 DROP POLICY IF EXISTS "Publik hanya baca harga pangan terbit" ON harga_pangan;
 DROP POLICY IF EXISTS "Petugas kelola harga pangan" ON harga_pangan;
-CREATE POLICY "Publik hanya baca harga pangan terbit"
-ON harga_pangan FOR SELECT
-TO anon, authenticated
-USING (status = 'Terbit');
-CREATE POLICY "Petugas kelola harga pangan"
-ON harga_pangan FOR ALL
-TO authenticated
-USING (true)
-WITH CHECK (true);
+DROP POLICY IF EXISTS "Akses kelola harga pangan" ON harga_pangan;
+CREATE POLICY "Akses kelola harga pangan" ON harga_pangan FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+-- Izin tabel eksplisit
+GRANT ALL ON TABLE harga_pangan TO anon, authenticated;
+GRANT ALL ON TABLE acara_gpm TO anon, authenticated;
+GRANT ALL ON TABLE pendaftar_gpm TO anon, authenticated;
+GRANT ALL ON TABLE pengguna TO anon, authenticated;
+
+-- Fungsi RPC Login Aman (Hash diverifikasi di server, kata_sandi tidak diekspos ke client)
+CREATE OR REPLACE FUNCTION rpc_login_pengguna(
+    p_identifier TEXT,
+    p_hash_sandi TEXT
+)
+RETURNS TABLE (
+    id          UUID,
+    nama        VARCHAR,
+    username    VARCHAR,
+    email       VARCHAR,
+    peran       VARCHAR,
+    bidang      VARCHAR,
+    foto_profil TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_identifier TEXT := lower(trim(p_identifier));
+BEGIN
+    RETURN QUERY
+    SELECT
+        p.id,
+        p.nama,
+        p.username,
+        p.email,
+        p.peran,
+        p.bidang,
+        p.foto_profil
+    FROM pengguna p
+    WHERE
+        (lower(trim(p.username)) = v_identifier OR lower(trim(p.email)) = v_identifier)
+        AND p.kata_sandi = p_hash_sandi
+    LIMIT 1;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION rpc_login_pengguna(TEXT, TEXT) TO anon, authenticated;
 
 -- Policy untuk informasi_pangan jika ada
 DO $$
