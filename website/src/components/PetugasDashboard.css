@@ -17,6 +17,11 @@
    1. SIDEBAR KIRI (MAROON GELAP #3c0b0b)
    ───────────────────────────────────────────── */
 .petugas-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  align-self: flex-start;
   width: 270px;
   background-color: #380a0a;
   color: #ffffff;
@@ -26,8 +31,6 @@
   flex-shrink: 0;
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 1050;
-  height: 100vh;
-  height: 100dvh;
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -286,6 +289,31 @@
   font-size: 1rem;
 }
 
+/* Tombol Logout Cepat di Topbar (Tampak di Desktop & Mobile) */
+.topbar-quick-logout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.topbar-quick-logout-btn:hover {
+  background-color: #fecaca;
+  color: #7f1d1d;
+  border-color: #fca5a5;
+  box-shadow: 0 2px 6px rgba(153, 27, 27, 0.15);
+}
+
 .petugas-alert-bar {
   background-color: #ecfdf5;
   color: #065f46;
@@ -352,10 +380,21 @@
   margin-bottom: 16px;
 }
 
-.icon-pink { background-color: #ffe4e6; }
-.icon-orange { background-color: #fef3c7; }
-.icon-green { background-color: #dcfce7; }
-.icon-pink-box { background-color: #fce7f3; }
+.icon-pink {
+  background-color: #ffe4e6;
+}
+
+.icon-orange {
+  background-color: #fef3c7;
+}
+
+.icon-green {
+  background-color: #dcfce7;
+}
+
+.icon-pink-box {
+  background-color: #fce7f3;
+}
 
 .stat-number-big {
   font-size: 2rem;
@@ -705,7 +744,7 @@
   .dashboard-stat-cards-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .tetapkan-content-columns {
     grid-template-columns: 1fr;
   }
@@ -747,7 +786,8 @@
     padding: 14px 18px;
   }
 
-  .dashboard-page-container, .tetapkan-harga-page-container {
+  .dashboard-page-container,
+  .tetapkan-harga-page-container {
     padding: 18px 14px;
     width: 100%;
     max-width: 100%;
@@ -799,21 +839,37 @@
     width: 100% !important;
   }
 
-  /* Sorong profil petugas & lonceng notifikasi ke kanan di tampilan ponsel */
+  /* Sorong profil petugas, lonceng notifikasi & tombol keluar ke kanan di tampilan ponsel */
   .top-bar-right {
     width: 100% !important;
     display: flex !important;
     justify-content: flex-end !important;
     align-items: center !important;
-    gap: 14px !important;
+    gap: 8px !important;
     margin-left: auto !important;
+    flex-wrap: nowrap !important;
   }
 
   .staff-profile-pill {
     display: flex !important;
     align-items: center !important;
-    gap: 10px !important;
+    gap: 6px !important;
     margin-left: 0 !important;
+    max-width: 140px;
+    overflow: hidden;
+  }
+
+  .staff-meta {
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .topbar-quick-logout-btn {
+    padding: 6px 10px !important;
+    font-size: 0.78rem !important;
+    border-radius: 6px !important;
   }
 
   .dashboard-hero-title-box {
@@ -1098,7 +1154,8 @@
     overflow: visible !important;
   }
 
-  html, body {
+  html,
+  body {
     background: #ffffff !important;
     color: #000000 !important;
     font-size: 10pt !important;

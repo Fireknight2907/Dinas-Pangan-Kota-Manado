@@ -83,7 +83,7 @@ class PenggunaMobileService {
         email: 'regina@manado.go.id',
         kata_sandi: HASH_AWAL_DEFAULT,
         peran: 'Admin',
-        bidang: 'Administrator Sistem (Superadmin)',
+        bidang: 'Administrator Sistem',
         foto_profil: ''
       },
       {
@@ -103,7 +103,7 @@ class PenggunaMobileService {
         email: 'edrick@manado.go.id',
         kata_sandi: HASH_AWAL_DEFAULT,
         peran: 'Admin',
-        bidang: 'Administrator Sistem (Superadmin)',
+        bidang: 'Administrator Sistem',
         foto_profil: ''
       },
       {
@@ -146,6 +146,11 @@ class PenggunaMobileService {
       daftar.forEach(u => {
         if ((u.peran as string) === 'Kepala Bagian') {
           u.peran = 'Kabid';
+          adaPembaruan = true;
+        }
+        // Bersihkan teks Superadmin jika akun adalah Admin biasa (misal: Regina, Edrick)
+        if (u.peran === 'Admin' && u.bidang && u.bidang.includes('Superadmin')) {
+          u.bidang = 'Administrator Sistem';
           adaPembaruan = true;
         }
       });
@@ -495,7 +500,14 @@ class PenggunaMobileService {
     const data = localStorage.getItem(this.kunciSesiUser);
     if (data) {
       try {
-        return JSON.parse(data);
+        const u = JSON.parse(data);
+        if (u && (u.peran === 'Admin' || u.username === 'regina' || u.username === 'edrick')) {
+          if (u.bidang && u.bidang.includes('Superadmin')) {
+            u.bidang = 'Administrator Sistem';
+            localStorage.setItem(this.kunciSesiUser, JSON.stringify(u));
+          }
+        }
+        return u;
       } catch (e) {}
     }
     return null;

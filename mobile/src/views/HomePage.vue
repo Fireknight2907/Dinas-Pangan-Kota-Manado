@@ -98,7 +98,7 @@
               <img src="/logodinaspangan.png" alt="LogoSIPATOKAAN" class="staff-logo-img" />
             </div>
             <div>
-              <h2 class="staff-header-name">{{ userAktif?.bidang || 'Dinas Pangan Kota Manado' }}</h2>
+              <h2 class="staff-header-name">{{ (peranAktif === 'Admin' ? 'Administrator Sistem' : (userAktif?.bidang?.replace('(Superadmin)', '').trim() || 'Dinas Pangan Kota Manado')) }}</h2>
               <div class="staff-header-sub-row">
                 <span class="user-role-badge" :class="'role-' + peranAktif.toLowerCase()">
                   {{ formatPeranLengkap(peranAktif) }}
@@ -382,7 +382,7 @@
             <div class="m-role-banner-info">
               <span class="m-role-chip">{{ formatPeranLengkap(peranAktif) }}</span>
               <h2 class="m-role-banner-title">Selamat Datang, {{ userAktif?.nama || 'Petugas' }}</h2>
-              <p class="m-role-banner-bidang">{{ userAktif?.bidang || 'Dinas Pangan Kota Manado' }}</p>
+              <p class="m-role-banner-bidang">{{ (peranAktif === 'Admin' ? 'Administrator Sistem' : userAktif?.bidang) || 'Dinas Pangan Kota Manado' }}</p>
             </div>
           </div>
 
@@ -1200,7 +1200,7 @@
               <div class="m-user-role-selector-row">
                 <label>Ubah Peran Akses:</label>
                 <select :value="user.peran" @change="eksekusiUbahPeran(user, ($event.target as any).value)" class="m-role-select">
-                  <option value="Admin">Admin (Superadmin)</option>
+                  <option value="Admin">Admin (Administrator)</option>
                   <option value="Kabid">Kabid (Kepala Bidang)</option>
                   <option value="Staf">Staf (Petugas Pangan)</option>
                   <option value="Kadis">Kadis (Kepala Dinas)</option>
@@ -1890,11 +1890,16 @@
           </div>
         </div>
 
-        <div class="server-modal-footer">
-          <button type="button" class="btn-cancel-server" @click="modalProfilBuka = false">Batal</button>
-          <button type="button" class="btn-save-server" @click="eksekusiGantiSandiMandiri">
-            💾 Simpan Sandi Baru
+        <div class="server-modal-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn-cancel-server" style="background: #fee2e2; color: #991b1b; font-weight: 700; border: 1px solid #fecaca;" @click="modalProfilBuka = false; eksekusiLogout()">
+            🚪 Keluar (Logout)
           </button>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn-cancel-server" @click="modalProfilBuka = false">Tutup</button>
+            <button type="button" class="btn-save-server" @click="eksekusiGantiSandiMandiri">
+              💾 Simpan
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1927,7 +1932,7 @@
           <div class="s-field" style="margin-bottom: 8px;">
             <label>Peran Hak Akses</label>
             <select v-model="formPenggunaBaru.peran" class="m-role-select" style="width: 100%;">
-              <option value="Admin">Admin (Superadmin)</option>
+              <option value="Admin">Admin (Administrator)</option>
               <option value="Kabid">Kabid (Kepala Bidang)</option>
               <option value="Staf">Staf (Petugas Pangan)</option>
               <option value="Kadis">Kadis (Kepala Dinas)</option>
@@ -4243,6 +4248,9 @@ const eksekusiGantiFotoProfil = () => {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .staff-logo-box {
@@ -4265,10 +4273,14 @@ const eksekusiGantiFotoProfil = () => {
 }
 
 .staff-header-name {
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   font-weight: 800;
   color: #111827;
   margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .staff-header-sub {
@@ -4280,7 +4292,8 @@ const eksekusiGantiFotoProfil = () => {
 .staff-header-user {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .notif-bell-icon {
@@ -4309,16 +4322,30 @@ const eksekusiGantiFotoProfil = () => {
   justify-content: center;
   font-weight: 800;
   font-size: 0.85rem;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .btn-logout-mini {
   background: #fee2e2;
   color: #991b1b;
-  border: none;
-  font-size: 0.72rem;
+  border: 1px solid #fecaca;
+  font-size: 0.75rem;
   font-weight: 700;
-  padding: 5px 8px;
+  padding: 6px 9px;
   border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.15s ease;
+}
+
+.btn-logout-mini:active {
+  background: #fca5a5;
+  transform: scale(0.96);
 }
 
 .staff-segmented-bar {
