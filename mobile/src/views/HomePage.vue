@@ -97,8 +97,21 @@
             <div class="staff-logo-box">
               <img src="/logodinaspangan.png" alt="LogoSIPATOKAAN" class="staff-logo-img" />
             </div>
-            <div>
-              <h2 class="staff-header-name">{{ (peranAktif === 'Admin' ? 'Administrator Sistem' : (userAktif?.bidang?.replace('(Superadmin)', '').trim() || 'Dinas Pangan Kota Manado')) }}</h2>
+            <div class="staff-brand-details">
+              <div class="staff-brand-title-line">
+                <h2 class="staff-header-name">SI PATOKAAN</h2>
+                <!-- Indikator Status Online ditempatkan menyatu rapi dengan judul -->
+                <button 
+                  type="button" 
+                  class="btn-server-status-pill" 
+                  :class="statusKoneksi.online ? 'is-online' : 'is-offline'" 
+                  @click="bukaModalServer"
+                  title="Status Koneksi Sistem"
+                >
+                  <span class="status-pulse-dot"></span>
+                  <span class="status-label-short">{{ statusKoneksi.online ? 'Online' : 'Offline' }}</span>
+                </button>
+              </div>
               <div class="staff-header-sub-row">
                 <span class="user-role-badge" :class="'role-' + peranAktif.toLowerCase()">
                   {{ formatPeranLengkap(peranAktif) }}
@@ -109,18 +122,6 @@
           </div>
 
           <div class="staff-header-user">
-            <!-- Indikator Koneksi Web -->
-            <button 
-              type="button" 
-              class="btn-server-status" 
-              :class="statusKoneksi.online ? 'is-online' : 'is-offline'" 
-              @click="bukaModalServer"
-              title="Koneksi Website & Backend"
-            >
-              <span class="status-pulse-dot"></span>
-              <span class="status-label-short">{{ statusKoneksi.online ? 'Online' : 'Offline' }}</span>
-            </button>
-
             <!-- Tombol Notifikasi Dinamis Mobile -->
             <button
               type="button"
@@ -139,6 +140,7 @@
               <span v-else>{{ (userAktif?.nama ? userAktif.nama.charAt(0) : 'P').toUpperCase() }}</span>
             </div>
 
+            <!-- Tombol Keluar (Logout) -->
             <button class="btn-logout-mini" @click="eksekusiLogout" title="Keluar">
               Keluar
             </button>
@@ -382,7 +384,7 @@
             <div class="m-role-banner-info">
               <span class="m-role-chip">{{ formatPeranLengkap(peranAktif) }}</span>
               <h2 class="m-role-banner-title">Selamat Datang, {{ userAktif?.nama || 'Petugas' }}</h2>
-              <p class="m-role-banner-bidang">{{ (peranAktif === 'Admin' ? 'Administrator Sistem' : userAktif?.bidang) || 'Dinas Pangan Kota Manado' }}</p>
+              <p class="m-role-banner-bidang">{{ (peranAktif === 'Admin' ? 'Admin' : (peranAktif === 'Superadmin' ? 'Superadmin' : userAktif?.bidang)) || 'Dinas Pangan Kota Manado' }}</p>
             </div>
           </div>
 
@@ -1200,7 +1202,8 @@
               <div class="m-user-role-selector-row">
                 <label>Ubah Peran Akses:</label>
                 <select :value="user.peran" @change="eksekusiUbahPeran(user, ($event.target as any).value)" class="m-role-select">
-                  <option value="Admin">Admin (Administrator)</option>
+                  <option value="Admin">Admin</option>
+                  <option value="Superadmin">Superadmin</option>
                   <option value="Kabid">Kabid (Kepala Bidang)</option>
                   <option value="Staf">Staf (Petugas Pangan)</option>
                   <option value="Kadis">Kadis (Kepala Dinas)</option>
@@ -1932,7 +1935,8 @@
           <div class="s-field" style="margin-bottom: 8px;">
             <label>Peran Hak Akses</label>
             <select v-model="formPenggunaBaru.peran" class="m-role-select" style="width: 100%;">
-              <option value="Admin">Admin (Administrator)</option>
+              <option value="Admin">Admin</option>
+              <option value="Superadmin">Superadmin</option>
               <option value="Kabid">Kabid (Kepala Bidang)</option>
               <option value="Staf">Staf (Petugas Pangan)</option>
               <option value="Kadis">Kadis (Kepala Dinas)</option>
@@ -2693,8 +2697,8 @@ const isKadis = computed(() => peranAktif.value === 'Kadis' || isSuperadmin.valu
 
 const formatPeranLengkap = (peran?: string | null) => {
   const p = penggunaMobileService.normalisasiPeran(peran);
-  if (p === 'Superadmin') return 'Super Administrator';
-  if (p === 'Admin') return 'Administrator';
+  if (p === 'Superadmin') return 'Superadmin';
+  if (p === 'Admin') return 'Admin';
   if (p === 'Kabid') return 'Kepala Bidang';
   if (p === 'Kadis') return 'Kepala Dinas';
   return 'Staf Pangan';
@@ -4241,7 +4245,8 @@ const eksekusiGantiFotoProfil = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px 8px 16px;
+  padding: 10px 14px 6px 14px;
+  gap: 8px;
 }
 
 .staff-header-brand {
@@ -4250,12 +4255,67 @@ const eksekusiGantiFotoProfil = () => {
   gap: 10px;
   flex: 1;
   min-width: 0;
-  overflow: hidden;
+}
+
+.staff-brand-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.staff-brand-title-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.btn-server-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.12);
+  color: #166534;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-server-status-pill.is-offline {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.12);
+  color: #991b1b;
+}
+
+.btn-server-status-pill .status-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+}
+
+.btn-server-status-pill.is-offline .status-pulse-dot {
+  background: #ef4444;
+}
+
+.staff-header-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .staff-logo-box {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   background: #ffffff;
   border: 1.5px solid #8b1e1e;
   border-radius: 8px;
@@ -4273,14 +4333,12 @@ const eksekusiGantiFotoProfil = () => {
 }
 
 .staff-header-name {
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   font-weight: 800;
   color: #111827;
   margin: 0;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
+  letter-spacing: 0.2px;
 }
 
 .staff-header-sub {
@@ -6013,6 +6071,12 @@ const eksekusiGantiFotoProfil = () => {
   display: inline-block;
 }
 
+.role-superadmin {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
 .role-admin {
   background: #fee2e2;
   color: #b91c1c;
@@ -6819,11 +6883,55 @@ const eksekusiGantiFotoProfil = () => {
   cursor: pointer;
 }
 
-/* Grafik Kadis */
+/* Grafik Kadis: Responsif & Proporsional Sesuai Layar Mobile (Mencegah Out of Box) */
 .m-kadis-filter-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.m-kadis-filter-grid .s-field {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.m-kadis-filter-grid .s-field label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.m-kadis-filter-grid .s-field select,
+.s-field select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.88rem;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.m-kadis-filter-grid .s-field select:focus,
+.s-field select:focus {
+  border-color: #8b1e1e;
+}
+
+@media (min-width: 580px) {
+  .m-kadis-filter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
 }
 
 .m-trend-tag {

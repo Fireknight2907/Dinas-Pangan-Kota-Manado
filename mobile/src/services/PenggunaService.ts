@@ -58,12 +58,12 @@ class PenggunaMobileService {
     const akunBawaanResmi: AkunPengguna[] = [
       {
         id: 'usr-superadmin',
-        nama: 'Super Administrator',
+        nama: 'Superadmin',
         username: 'superadmin',
         email: 'superadmin@manado.go.id',
         kata_sandi: HASH_AWAL_DEFAULT,
         peran: 'Superadmin',
-        bidang: 'Akses Penuh Seluruh Modul (Superadmin)',
+        bidang: 'Superadmin',
         foto_profil: ''
       },
       {
@@ -83,7 +83,7 @@ class PenggunaMobileService {
         email: 'regina@manado.go.id',
         kata_sandi: HASH_AWAL_DEFAULT,
         peran: 'Admin',
-        bidang: 'Administrator Sistem',
+        bidang: 'Admin',
         foto_profil: ''
       },
       {
@@ -103,7 +103,7 @@ class PenggunaMobileService {
         email: 'edrick@manado.go.id',
         kata_sandi: HASH_AWAL_DEFAULT,
         peran: 'Admin',
-        bidang: 'Administrator Sistem',
+        bidang: 'Admin',
         foto_profil: ''
       },
       {
@@ -149,8 +149,13 @@ class PenggunaMobileService {
           adaPembaruan = true;
         }
         // Bersihkan teks Superadmin jika akun adalah Admin biasa (misal: Regina, Edrick)
-        if (u.peran === 'Admin' && u.bidang && u.bidang.includes('Superadmin')) {
-          u.bidang = 'Administrator Sistem';
+        if (u.peran === 'Admin' && (u.bidang?.includes('Superadmin') || u.bidang?.includes('Administrator'))) {
+          u.bidang = 'Admin';
+          adaPembaruan = true;
+        }
+        if (u.peran === 'Superadmin') {
+          u.nama = 'Superadmin';
+          u.bidang = 'Superadmin';
           adaPembaruan = true;
         }
       });
@@ -512,10 +517,14 @@ class PenggunaMobileService {
       try {
         const u = JSON.parse(dariSession);
         if (u && (u.peran === 'Admin' || u.username === 'regina' || u.username === 'edrick')) {
-          if (u.bidang && u.bidang.includes('Superadmin')) {
-            u.bidang = 'Administrator Sistem';
+          if (u.bidang && (u.bidang.includes('Superadmin') || u.bidang.includes('Administrator'))) {
+            u.bidang = 'Admin';
             sessionStorage.setItem(this.kunciSesiUser, JSON.stringify(u));
           }
+        }
+        if (u && (u.peran === 'Superadmin' || u.username === 'superadmin')) {
+          u.nama = 'Superadmin';
+          u.bidang = 'Superadmin';
         }
         return u;
       } catch (e) {}
@@ -527,10 +536,14 @@ class PenggunaMobileService {
       try {
         const u = JSON.parse(data);
         if (u && (u.peran === 'Admin' || u.username === 'regina' || u.username === 'edrick')) {
-          if (u.bidang && u.bidang.includes('Superadmin')) {
-            u.bidang = 'Administrator Sistem';
+          if (u.bidang && (u.bidang.includes('Superadmin') || u.bidang.includes('Administrator'))) {
+            u.bidang = 'Admin';
             localStorage.setItem(this.kunciSesiUser, JSON.stringify(u));
           }
+        }
+        if (u && (u.peran === 'Superadmin' || u.username === 'superadmin')) {
+          u.nama = 'Superadmin';
+          u.bidang = 'Superadmin';
         }
         return u;
       } catch (e) {}

@@ -32,10 +32,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
   // Format nama peran lengkap untuk tampilan antarmuka
   const namaLengkapPeran = (r) => {
-    if (r === 'Superadmin') return 'Super Administrator';
+    if (r === 'Superadmin') return 'Superadmin';
     if (r === 'Kabid') return 'Kepala Bidang';
     if (r === 'Kadis') return 'Kepala Dinas';
-    if (r === 'Admin') return 'Administrator';
+    if (r === 'Admin') return 'Admin';
     return r || 'Staf Pangan';
   };
 
