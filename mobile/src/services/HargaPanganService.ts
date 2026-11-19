@@ -599,7 +599,7 @@ export class HargaPanganMobileService {
     let items = this.ambilDataTersimpan();
 
     if (status) {
-      items = items.filter(i => (i.status || 'Terbit') === status);
+      items = items.filter(i => (i.status || 'Terbit').toLowerCase() === status.toLowerCase());
     }
     if (kategori && kategori !== 'Semua') {
       items = items.filter(i => (i.kategori || '').toLowerCase() === kategori.toLowerCase());

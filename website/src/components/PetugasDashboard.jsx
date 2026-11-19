@@ -796,7 +796,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       daftar_warga: pendaftarAcara
     };
   });
-  const daftarDraftVerifikasi = (Array.isArray(daftarHarga) ? daftarHarga : []).filter(item => item && item.status === 'Draft');
+  const daftarDraftVerifikasi = (Array.isArray(daftarHarga) ? daftarHarga : []).filter(item => item && (item.status || '').toLowerCase() === 'draft');
 
   return (
     <div className="petugas-app-layout">
@@ -1277,8 +1277,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                       <div className="price-item-value-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                         <div className="item-price-nominal">{formatRupiah(item.harga)}</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span className={`badge-status-pill ${item.status === 'Draft' ? 'status-draft' : 'status-terbit'}`}>
-                            {item.status === 'Draft' ? 'Draf' : (item.status || 'Terbit')}
+                          <span className={`badge-status-pill ${(item.status || '').toLowerCase() === 'draft' ? 'status-draft' : 'status-terbit'}`}>
+                            {(item.status || '').toLowerCase() === 'draft' ? 'Draf' : (item.status || 'Terbit')}
                           </span>
                           <button
                             type="button"
@@ -1418,7 +1418,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {daftarHarga.filter(h => h.status === 'Terbit').map(h => (
+                    {daftarHarga.filter(h => (h.status || 'Terbit').toLowerCase() === 'terbit').map(h => (
                       <tr key={h.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ padding: '10px', fontWeight: 700 }}>{h.nama_komoditas}</td>
                         <td style={{ padding: '10px' }}>{h.kategori}</td>
@@ -1645,10 +1645,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                             borderRadius: '4px', 
                             fontSize: '0.72rem', 
                             fontWeight: 700, 
-                            background: h.status === 'Draft' ? '#fef3c7' : '#dcfce7', 
-                            color: h.status === 'Draft' ? '#92400e' : '#166534' 
+                            background: (h.status || '').toLowerCase() === 'draft' ? '#fef3c7' : '#dcfce7', 
+                            color: (h.status || '').toLowerCase() === 'draft' ? '#92400e' : '#166534' 
                           }}>
-                            {h.status === 'Draft' ? 'Draf' : (h.status || 'Terbit')}
+                            {(h.status || '').toLowerCase() === 'draft' ? 'Draf' : (h.status || 'Terbit')}
                           </span>
                         </td>
                       </tr>

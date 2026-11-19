@@ -341,19 +341,19 @@
                     <!-- Status Badge: Kabid bisa toggle status (Setujui/Tarik), Staf hanya melihat status -->
                     <span 
                       v-if="isKabid"
-                      :class="['status-badge-tag', item.status === 'Draft' ? 'is-draft' : 'is-terbit']"
+                      :class="['status-badge-tag', (item.status || '').toLowerCase() === 'draft' ? 'is-draft' : 'is-terbit']"
                       @click="ubahStatusItem(item)"
-                      :title="item.status === 'Draft' ? 'Klik untuk Setujui & Terbitkan' : 'Klik untuk Tarik ke Draf'"
+                      :title="(item.status || '').toLowerCase() === 'draft' ? 'Klik untuk Setujui & Terbitkan' : 'Klik untuk Tarik ke Draf'"
                       style="cursor: pointer;"
                     >
-                      {{ item.status === 'Draft' ? '⏳ Setujui' : '↩️ Tarik' }}
+                      {{ (item.status || '').toLowerCase() === 'draft' ? '⏳ Setujui' : '↩️ Tarik' }}
                     </span>
                     <span 
                       v-else
-                      :class="['status-badge-tag', item.status === 'Draft' ? 'is-draft' : 'is-terbit']"
+                      :class="['status-badge-tag', (item.status || '').toLowerCase() === 'draft' ? 'is-draft' : 'is-terbit']"
                       style="cursor: default;"
                     >
-                      {{ item.status === 'Draft' ? 'Draf' : (item.status || 'Terbit') }}
+                      {{ (item.status || '').toLowerCase() === 'draft' ? 'Draf' : (item.status || 'Terbit') }}
                     </span>
 
                     <!-- Tombol Edit: BISA diklik oleh Staf maupun Kabid untuk semua data (baik Draft maupun Terbit) -->
@@ -954,14 +954,14 @@
 
           <!-- Filter Status Tab -->
           <div class="m-verif-tabs">
-            <button :class="['m-verif-tab', filterStatusVerif === 'Semua' ? 'active' : '']" @click="filterStatusVerif = 'Semua'">
-              Semua ({{ semuaKomoditas.length }})
-            </button>
             <button :class="['m-verif-tab', filterStatusVerif === 'Draft' ? 'active' : '']" @click="filterStatusVerif = 'Draft'">
               ⏳ Menunggu ({{ komoditasDraft.length }})
             </button>
             <button :class="['m-verif-tab', filterStatusVerif === 'Terbit' ? 'active' : '']" @click="filterStatusVerif = 'Terbit'">
               ✓ Terbit ({{ komoditasTerbit.length }})
+            </button>
+            <button :class="['m-verif-tab', filterStatusVerif === 'Semua' ? 'active' : '']" @click="filterStatusVerif = 'Semua'">
+              Semua ({{ semuaKomoditas.length }})
             </button>
           </div>
 
@@ -975,11 +975,11 @@
               v-for="item in komoditasVerifTampil" 
               :key="item.id" 
               class="m-verif-card" 
-              :class="'border-' + (item.status === 'Draft' ? 'draft' : 'terbit')"
+              :class="'border-' + ((item.status || '').toLowerCase() === 'draft' ? 'draft' : 'terbit')"
             >
               <div class="m-verif-top">
-                <span :class="['m-badge-status', item.status === 'Draft' ? 'badge-draft' : 'badge-terbit']">
-                  {{ item.status === 'Draft' ? '⏳ Menunggu Verifikasi' : '✓ Diterbitkan ke Publik' }}
+                <span :class="['m-badge-status', (item.status || '').toLowerCase() === 'draft' ? 'badge-draft' : 'badge-terbit']">
+                  {{ (item.status || '').toLowerCase() === 'draft' ? '⏳ Menunggu Verifikasi' : '✓ Diterbitkan ke Publik' }}
                 </span>
                 <span class="m-verif-date">📅 {{ item.tanggal_penetapan || 'Hari ini' }}</span>
               </div>
@@ -998,7 +998,7 @@
 
               <div class="m-verif-actions">
                 <button 
-                  v-if="item.status === 'Draft'" 
+                  v-if="(item.status || '').toLowerCase() === 'draft'" 
                   class="btn-m-approve" 
                   @click="eksekusiVerifikasiHarga(item.id!, 'Terbit')"
                 >
@@ -1060,7 +1060,7 @@
                 <div class="m-rep-info">
                   <strong>{{ item.nama_komoditas }}</strong>
                   <span>{{ item.nama_pasar }} · {{ item.kategori }}</span>
-                  <span class="m-rep-badge" :class="item.status === 'Draft' ? 'draft' : 'terbit'">{{ item.status || 'Terbit' }}</span>
+                  <span class="m-rep-badge" :class="(item.status || '').toLowerCase() === 'draft' ? 'draft' : 'terbit'">{{ item.status || 'Terbit' }}</span>
                 </div>
                 <div class="m-rep-price">
                   <strong>{{ formatRupiah(item.harga) }}</strong>
@@ -2820,7 +2820,7 @@ const inputKecamatanBaru = ref('');
 const daftarKecamatan = ref<string[]>([]);
 
 // ─── KABID: VERIFIKASI HARGA & LAPORAN ────────────────────────────
-const filterStatusVerif = ref<'Semua' | 'Draft' | 'Terbit'>('Semua');
+const filterStatusVerif = ref<'Semua' | 'Draft' | 'Terbit'>('Draft');
 const modalEditKabidBuka = ref(false);
 const formEditKabid = ref({
   id: '',
@@ -3110,8 +3110,12 @@ const toggleLihatRiwayatAntrean = async (acara: ItemAcaraGPM) => {
 };
 
 watch(menuPetugas, async (baru) => {
-  if (baru === 'gpm') {
+  if (baru === 'gpm' || baru === 'kelola-gpm') {
     await muatDataGPM();
+  }
+  if (baru === 'verif-harga' || baru === 'dashboard' || baru === 'input-harga' || baru === 'laporan') {
+    await muatData();
+    await muatStatsDashboard();
   }
 });
 
@@ -3317,10 +3321,9 @@ const simpanAcaraGPMBaruMobile = async () => {
 
 const muatData = async () => {
   try {
-    // Portal publik mobile hanya menampilkan komoditas yang telah berstatus 'Terbit'
-    const data = await hargaPanganMobileService.ambilSemua(kategoriAktif.value, pasarAktif.value, kataKunciPencarian.value, 'Terbit');
-    const dataTerverifikasi = Array.isArray(data) ? data.filter(i => (i.status || 'Terbit').toLowerCase() === 'terbit') : [];
-    semuaKomoditas.value = dataTerverifikasi;
+    // Ambil SEMUA data komoditas pangan (baik Terbit maupun Draft agar alur verifikasi Kabid & Superadmin selalu sinkron)
+    const data = await hargaPanganMobileService.ambilSemua();
+    semuaKomoditas.value = Array.isArray(data) ? data : [];
 
     const stat = await hargaPanganMobileService.ambilStatistik();
     statistik.value = stat;
@@ -3334,8 +3337,19 @@ const muatData = async () => {
 
 const muatStatsDashboard = async () => {
   try {
-    const stats = await hargaPanganMobileService.ambilStatistikDashboard();
-    statsDashboard.value = stats;
+    const list = semuaKomoditas.value || [];
+    const terbit = list.filter(i => (i.status || 'Terbit').toLowerCase() === 'terbit').length;
+    const draft = list.filter(i => (i.status || '').toLowerCase() === 'draft').length;
+    const acara = daftarAcaraGPM.value || [];
+    const terjadwal = acara.filter(a => a.status === 'Aktif' || !a.status).length;
+    const selesai = acara.filter(a => a.status === 'Selesai').length;
+
+    statsDashboard.value = {
+      harga_ditetapkan: terbit,
+      draft_harga: draft,
+      gpm_terjadwal: terjadwal,
+      gpm_selesai: selesai
+    };
   } catch (e) {
     console.error(e);
   }
@@ -3343,21 +3357,33 @@ const muatStatsDashboard = async () => {
 
 const pilihKategori = (kategori: string) => {
   kategoriAktif.value = kategori;
-  muatData();
 };
 
 const resetPencarian = () => {
   kataKunciPencarian.value = '';
-  muatData();
 };
 
 const filterDataLokal = () => {
-  muatData();
+  // Tersaring otomatis & reaktif via komoditasTerfilter
 };
 
-// Filter data komoditas publik (hanya yang Terbit atau semua fallback)
+// Filter data komoditas publik (hanya yang berstatus Terbit dan cocok dengan filter pencarian/kategori warga)
 const komoditasTerfilter = computed(() => {
-  return semuaKomoditas.value.filter(item => item.status !== 'Draft');
+  let list = semuaKomoditas.value.filter(item => (item.status || 'Terbit').toLowerCase() !== 'draft');
+  if (kategoriAktif.value && kategoriAktif.value !== 'Semua') {
+    list = list.filter(item => (item.kategori || '').toLowerCase() === kategoriAktif.value.toLowerCase());
+  }
+  if (pasarAktif.value && pasarAktif.value !== 'Semua') {
+    list = list.filter(item => (item.nama_pasar || '').toLowerCase() === pasarAktif.value.toLowerCase());
+  }
+  if (kataKunciPencarian.value && kataKunciPencarian.value.trim() !== '') {
+    const k = kataKunciPencarian.value.toLowerCase().trim();
+    list = list.filter(item =>
+      (item.nama_komoditas || '').toLowerCase().includes(k) ||
+      (item.nama_pasar || '').toLowerCase().includes(k)
+    );
+  }
+  return list;
 });
 
 // Format Rupiah
@@ -3560,16 +3586,25 @@ const simpanHargaPetugas = async (statusOverride?: string) => {
 
   // Staf selalu menghasilkan status 'Draft' untuk verifikasi Kabid; Kabid dapat menentukan langsung 'Terbit' atau 'Draft'
   const status = isKabid.value ? ((statusOverride as any) || 'Terbit') : 'Draft';
+  const tglKini = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+  const kategoriOtomatis = (() => {
+    const n = formPenetapan.value.nama_komoditas.toLowerCase();
+    if (n.includes('ayam') || n.includes('sapi') || n.includes('telur') || n.includes('ikan') || n.includes('daging')) return 'Hewani';
+    if (n.includes('bawang') || n.includes('cabai') || n.includes('rica') || n.includes('tomat') || n.includes('sayur')) return 'Sayuran';
+    if (n.includes('pisang') || n.includes('pepaya') || n.includes('jeruk') || n.includes('apel') || n.includes('buah')) return 'Buah';
+    return 'Bahan Pokok';
+  })();
 
   try {
     if (idDiedit.value) {
       await hargaPanganMobileService.perbarui(idDiedit.value, {
         nama_komoditas: formPenetapan.value.nama_komoditas.trim(),
+        kategori: kategoriOtomatis,
         satuan: satuanGabungan,
         harga: hargaAngka,
         nama_pasar: formPenetapan.value.nama_pasar,
         status: status,
-        tanggal_penetapan: '14 Oktober 2026'
+        tanggal_penetapan: tglKini
       });
       pesanSuksesMobile.value = isKabid.value
         ? (status === 'Terbit' ? `✅ Perubahan "${formPenetapan.value.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diterbitkan ke masyarakat!` : `📝 Perubahan "${formPenetapan.value.nama_komoditas}" disimpan sebagai draf!`)
@@ -3578,11 +3613,11 @@ const simpanHargaPetugas = async (statusOverride?: string) => {
     } else {
       await hargaPanganMobileService.tambah({
         nama_komoditas: formPenetapan.value.nama_komoditas.trim(),
-        kategori: 'Bahan Pokok',
+        kategori: kategoriOtomatis,
         satuan: satuanGabungan,
         harga: hargaAngka,
         nama_pasar: formPenetapan.value.nama_pasar,
-        tanggal_penetapan: '14 Oktober 2026',
+        tanggal_penetapan: tglKini,
         status: status
       });
       pesanSuksesMobile.value = isKabid.value
@@ -3604,7 +3639,7 @@ const simpanHargaPetugas = async (statusOverride?: string) => {
 };
 
 const ubahStatusItem = async (item: ItemHargaPangan) => {
-  const statusBaru = item.status === 'Draft' ? 'Terbit' : 'Draft';
+  const statusBaru = (item.status || '').toLowerCase() === 'draft' ? 'Terbit' : 'Draft';
   if (item.id) {
     await hargaPanganMobileService.perbarui(item.id, { status: statusBaru });
     pesanSuksesMobile.value = statusBaru === 'Terbit'
@@ -3619,8 +3654,8 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
 // ─────────────────────────────────────────────────────────────
 // METODE KABID: VERIFIKASI HARGA & LAPORAN BIDANG
 // ─────────────────────────────────────────────────────────────
-const komoditasDraft = computed(() => semuaKomoditas.value.filter(k => k.status === 'Draft'));
-const komoditasTerbit = computed(() => semuaKomoditas.value.filter(k => (k.status || 'Terbit') === 'Terbit'));
+const komoditasDraft = computed(() => semuaKomoditas.value.filter(k => (k.status || '').toLowerCase() === 'draft'));
+const komoditasTerbit = computed(() => semuaKomoditas.value.filter(k => (k.status || 'Terbit').toLowerCase() === 'terbit'));
 const komoditasVerifTampil = computed(() => {
   if (filterStatusVerif.value === 'Draft') return komoditasDraft.value;
   if (filterStatusVerif.value === 'Terbit') return komoditasTerbit.value;
