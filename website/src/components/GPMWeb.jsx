@@ -486,44 +486,61 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                   Pilih Lokasi Acara GPM ({daftarAcaraAktif.length}):
                 </h4>
                 <div className="gpm-event-selector-list">
-                  {daftarAcaraAktif.map((acara) => {
-                    const st = acara.statusOperasional;
-                    const terpilih = String(acaraDipilih?.id) === String(acara.id);
+                  {['Berlangsung', 'Akan Datang', 'Penuh'].map((kelompokKode) => {
+                    const daftarGrup = daftarAcaraAktif.filter((a) => a.statusOperasional?.kode === kelompokKode);
+                    if (daftarGrup.length === 0) return null;
+                    const judulGrup =
+                      kelompokKode === 'Berlangsung'
+                        ? `🟢 Sedang Berlangsung (${daftarGrup.length})`
+                        : kelompokKode === 'Akan Datang'
+                          ? `🔵 Akan Datang / Pendaftaran Dibuka (${daftarGrup.length})`
+                          : `🔴 Kuota Penuh (${daftarGrup.length})`;
                     return (
-                      <div
-                        key={acara.id}
-                        className={`gpm-event-select-item ${terpilih ? 'is-selected' : ''} ${st.kuotaPenuh ? 'is-full' : ''}`}
-                        onClick={() => {
-                          setAcaraDipilihId(acara.id);
-                          setTiketHasil(null);
-                          setPesanError('');
-                        }}
-                      >
-                        <div className="event-item-left">
-                          <div className="event-badges-row">
-                            <span className={`event-status-chip is-${st.kode.toLowerCase().replace(/\s+/g, '-')}`}>
-                              {st.label}
-                            </span>
-                            <span className="event-countdown-chip">⏳ {st.keteranganWaktu}</span>
-                            {acara.jarakKm !== null && acara.jarakKm !== undefined && (
-                              <span className="event-distance-chip">📍 {acara.jarakKm} km</span>
-                            )}
-                          </div>
-                          <div className="event-name-tag">{acara.nama_acara}</div>
-                          <div className="event-loc-sub">
-                            <span>📍</span> {acara.lokasi} (Kec. {acara.kecamatan})
-                          </div>
-                          <div className="event-time-row">
-                            📅 {jadwalGPMService.formatTanggalID(acara.tanggal)} · ⏰ {acara.jam_mulai} – {acara.jam_selesai} WITA
-                          </div>
+                      <React.Fragment key={kelompokKode}>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#475569', padding: '6px 4px 2px 4px', borderBottom: '1px solid #e2e8f0' }}>
+                          {judulGrup}
                         </div>
+                        {daftarGrup.map((acara) => {
+                          const st = acara.statusOperasional;
+                          const terpilih = String(acaraDipilih?.id) === String(acara.id);
+                          return (
+                            <div
+                              key={acara.id}
+                              className={`gpm-event-select-item ${terpilih ? 'is-selected' : ''} ${st.kuotaPenuh ? 'is-full' : ''}`}
+                              onClick={() => {
+                                setAcaraDipilihId(acara.id);
+                                setTiketHasil(null);
+                                setPesanError('');
+                              }}
+                            >
+                              <div className="event-item-left">
+                                <div className="event-badges-row">
+                                  <span className={`event-status-chip is-${st.kode.toLowerCase().replace(/\s+/g, '-')}`}>
+                                    {st.label}
+                                  </span>
+                                  <span className="event-countdown-chip">⏳ {st.keteranganWaktu}</span>
+                                  {acara.jarakKm !== null && acara.jarakKm !== undefined && (
+                                    <span className="event-distance-chip">📍 {acara.jarakKm} km</span>
+                                  )}
+                                </div>
+                                <div className="event-name-tag">{acara.nama_acara}</div>
+                                <div className="event-loc-sub">
+                                  <span>📍</span> {acara.lokasi} (Kec. {acara.kecamatan})
+                                </div>
+                                <div className="event-time-row">
+                                  📅 {jadwalGPMService.formatTanggalID(acara.tanggal)} · ⏰ {acara.jam_mulai} – {acara.jam_selesai} WITA
+                                </div>
+                              </div>
 
-                        <div className={`event-quota-badge ${st.kuotaPenuh ? 'is-full' : ''}`}>
-                          {st.kuotaPenuh
-                            ? `Penuh (${st.terisi}/${st.kuotaMaks})`
-                            : `Sisa ${st.sisaKuota} / ${st.kuotaMaks}`}
-                        </div>
-                      </div>
+                              <div className={`event-quota-badge ${st.kuotaPenuh ? 'is-full' : ''}`}>
+                                {st.kuotaPenuh
+                                  ? `Penuh (${st.terisi}/${st.kuotaMaks})`
+                                  : `Sisa ${st.sisaKuota} / ${st.kuotaMaks}`}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </React.Fragment>
                     );
                   })}
                 </div>
@@ -565,7 +582,7 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                       </div>
 
                       <div className="ticket-scan-instruction">
-                        📱 <strong>Petunjuk:</strong> Tunjukkan Kode QR ini kepada petugas di lokasi GPM <strong>sebelum jam selesai berakhir</strong>. Tiket QR otomatis terkunci setelah jadwal GPM ditutup.
+                        📱 <strong>Petunjuk:</strong> Tiket ini adalah <strong>bukti nomor antrean &amp; alokasi kuota</strong> (bukan bukti pembayaran) dan tidak dapat dipindahtangankan. Tunjukkan Kode QR ini kepada petugas di lokasi GPM <strong>sebelum jam selesai berakhir</strong>. Tiket QR otomatis terkunci setelah jadwal GPM ditutup.
                       </div>
 
                       <div className="ticket-actions-row">
@@ -614,6 +631,10 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                                   : `Tersisa ${st.sisaKuota} dari ${st.kuotaMaks} kuota (${st.terisi} terdaftar)`}
                               </span>
                             </div>
+                            <div className="gpm-info-row">
+                              <strong>📝 Pendaftaran:</strong>
+                              <span>Daftar antrean online tersedia (atau datang langsung sesuai kuota lokasi)</span>
+                            </div>
                           </div>
 
                           {/* Progress Bar Keterisian Kuota */}
@@ -634,6 +655,13 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                             <div className="gpm-commodities-pill-box">
                               <strong>🌾 Komoditas Pangan Murah Tersedia:</strong>
                               <p style={{ margin: '6px 0 0 0' }}>{acaraDipilih.komoditas_tersedia}</p>
+                            </div>
+                          )}
+
+                          {acaraDipilih.deskripsi && (
+                            <div className="gpm-commodities-pill-box" style={{ marginTop: '8px', background: '#f8fafc', borderColor: '#e2e8f0' }}>
+                              <strong>ℹ️ Keterangan Kegiatan:</strong>
+                              <p style={{ margin: '6px 0 0 0' }}>{acaraDipilih.deskripsi}</p>
                             </div>
                           )}
 
@@ -667,6 +695,13 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                                 </button>
                               )}
                             </div>
+                          ) : acaraDipilih.mode_pendaftaran === 'langsung' ? (
+                            <div className="gpm-locked-banner" style={{ background: '#eff6ff', borderColor: '#bfdbfe', color: '#1e3a8a' }}>
+                              <h4>📍 Datang Langsung ke Lokasi (Tanpa Daftar Online)</h4>
+                              <p>
+                                Kegiatan ini tidak memerlukan pendaftaran antrean online. Silakan datang langsung ke <strong>{acaraDipilih.lokasi}</strong> dengan membawa KTP/KK pada jadwal yang tertera.
+                              </p>
+                            </div>
                           ) : (
                             /* FORM AMBIL ANTREAN AKTIF (TANPA LOGIN) */
                             <div className="gpm-form-wrapper">
@@ -674,7 +709,9 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                                 <span>🎟️</span> Ambil Nomor Antrean &amp; Kode QR
                               </h4>
                               <p className="gpm-form-hint">
-                                Masyarakat tidak perlu login. Satu NIK (16 digit) hanya berlaku untuk 1 nomor antrean pada kegiatan yang sama.
+                                {acaraDipilih.mode_penerima === 'keluarga'
+                                  ? 'Mekanisme kegiatan ini dihitung per Keluarga (1 Kartu Keluarga / 1 NIK perwakilan = 1 antrean).'
+                                  : 'Masyarakat tidak perlu login. Satu NIK (16 digit) hanya berlaku untuk 1 nomor antrean pada kegiatan yang sama.'}
                               </p>
 
                               {pesanError && (

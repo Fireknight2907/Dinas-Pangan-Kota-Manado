@@ -176,23 +176,47 @@ class LaporanMobileService {
 
     // A. Prioritas Utama: Data historis riil dari tabel riwayat_harga_pangan
     if (riwayatKronologis.length > 0) {
-      const potongan = riwayatKronologis.slice(-20);
-      const hariUnik = new Set(potongan.map(r => this.formatLabelTanggalTitik(r.dicatat_pada, false)));
-      const pakaiJam = potongan.length > 1 && hariUnik.size < potongan.length;
+      let titikData: TitikTrenHarga[] = [];
+      if (pasarBersih === 'Semua') {
+        const perTanggal = new Map<string, { total: number; jumlah: number; pasarSet: Set<string> }>();
+        riwayatKronologis.forEach((r) => {
+          const tglKey = this.formatLabelTanggalTitik(r.dicatat_pada, false);
+          if (!perTanggal.has(tglKey)) {
+            perTanggal.set(tglKey, { total: 0, jumlah: 0, pasarSet: new Set() });
+          }
+          const b = perTanggal.get(tglKey)!;
+          b.total += Number(r.harga_baru) || 0;
+          b.jumlah += 1;
+          if (r.nama_pasar) b.pasarSet.add(r.nama_pasar);
+        });
+        titikData = Array.from(perTanggal.entries()).slice(-20).map(([tglKey, b]) => ({
+          tanggal: tglKey,
+          tanggalLengkap: `${tglKey} (Rata-rata ${b.pasarSet.size || 1} pasar)`,
+          harga: Math.round(b.total / (b.jumlah || 1)),
+          hargaLama: null,
+          selisih: 0,
+          pasar: `Rata-rata (${b.pasarSet.size || 1} pasar)`,
+          keterangan: ''
+        }));
+      } else {
+        const potongan = riwayatKronologis.slice(-20);
+        const hariUnik = new Set(potongan.map(r => this.formatLabelTanggalTitik(r.dicatat_pada, false)));
+        const pakaiJam = potongan.length > 1 && hariUnik.size < potongan.length;
 
-      const titikData: TitikTrenHarga[] = potongan.map((r) => ({
-        tanggal: this.formatLabelTanggalTitik(r.dicatat_pada, pakaiJam),
-        tanggalLengkap: r.dicatat_pada
-          ? new Date(r.dicatat_pada).toLocaleString('id-ID', {
-              day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-            })
-          : '-',
-        harga: Number(r.harga_baru) || 0,
-        hargaLama: r.harga_lama !== null && r.harga_lama !== undefined ? Number(r.harga_lama) : null,
-        selisih: Number(r.selisih) || 0,
-        pasar: r.nama_pasar || '-',
-        keterangan: r.keterangan || ''
-      }));
+        titikData = potongan.map((r) => ({
+          tanggal: this.formatLabelTanggalTitik(r.dicatat_pada, pakaiJam),
+          tanggalLengkap: r.dicatat_pada
+            ? new Date(r.dicatat_pada).toLocaleString('id-ID', {
+                day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+              })
+            : '-',
+          harga: Number(r.harga_baru) || 0,
+          hargaLama: r.harga_lama !== null && r.harga_lama !== undefined ? Number(r.harga_lama) : null,
+          selisih: Number(r.selisih) || 0,
+          pasar: r.nama_pasar || '-',
+          keterangan: r.keterangan || ''
+        }));
+      }
 
       return this.hitungMetrikDariTitik({
         namaKomoditas: namaBersih,

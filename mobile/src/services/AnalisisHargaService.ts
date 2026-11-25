@@ -402,6 +402,7 @@ export class AnalisisHargaMobileService {
       pasarTerpilih = [],
       kelompokAktif = 'Semua',
       varianAktif = 'Semua',
+      tanggalFilter = 'Semua',
       petaMaster = null
     } = opsi;
     const setPasar = new Set((pasarTerpilih || []).map((p) => p.toLowerCase()));
@@ -413,9 +414,11 @@ export class AnalisisHargaMobileService {
     const katFilter = String(kategori || 'Semua').toLowerCase();
     const kelFilter = String(kelompokAktif || 'Semua').toLowerCase();
     const varFilter = String(varianAktif || 'Semua').toLowerCase();
+    const tglFilter = String(tanggalFilter || 'Semua').trim();
 
     return (Array.isArray(daftarTerbit) ? daftarTerbit : []).filter((item) => {
       if (setPasar.size > 0 && !setPasar.has((item?.nama_pasar || '').toLowerCase())) return false;
+      if (tglFilter !== 'Semua' && (item?.tanggal_penetapan || '').trim() !== tglFilter) return false;
       if (katFilter !== 'semua') {
         const katItem = (item?.kategori || 'Lainnya').toLowerCase();
         if (katFilter === 'lainnya') {

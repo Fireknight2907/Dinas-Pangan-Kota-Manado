@@ -92,7 +92,9 @@ export default function PetugasGPMManager({ token, pengguna }) {
     longitude: 124.8436,
     kuota_maksimal: 100,
     komoditas_tersedia: '',
-    deskripsi: ''
+    deskripsi: '',
+    mode_pendaftaran: 'online',
+    mode_penerima: 'individu'
   });
   const [sedangSimpanAcara, setSedangSimpanAcara] = useState(false);
   const [notifSukses, setNotifSukses] = useState('');
@@ -605,6 +607,7 @@ export default function PetugasGPMManager({ token, pengguna }) {
     const cari = filterCariTabel.toLowerCase();
     return (
       (item.nama_pendaftar && item.nama_pendaftar.toLowerCase().includes(cari)) ||
+      (item.nik && String(item.nik).toLowerCase().includes(cari)) ||
       (item.nomor_telepon && item.nomor_telepon.includes(cari)) ||
       (item.kode_barcode && item.kode_barcode.toLowerCase().includes(cari)) ||
       String(item.nomor_antrean).includes(cari)
@@ -873,8 +876,32 @@ export default function PetugasGPMManager({ token, pengguna }) {
                       🔒 Verifikasi QR Dikunci: Jadwal kegiatan GPM ini telah berakhir ({parsedScan.acara?.jam_selesai || '-'} WITA / Selesai). Tiket tidak dapat diverifikasi lagi.
                     </div>
                   ) : parsedScan.status_kehadiran === 'Hadir' ? (
-                    <div className="badge-verified-done">
-                      ✅ Warga ini telah diverifikasi hadir dan berhak menerima paket pangan murah.
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                      <div className="badge-verified-done">
+                        ✅ Warga ini telah diverifikasi hadir ({parsedScan.status_pengambilan === 'Sudah Diambil' ? '📦 Pangan Sudah Diambil' : '⏳ Belum Mengambil Pangan'}).
+                      </div>
+                      {parsedScan.status_pengambilan !== 'Sudah Diambil' && (
+                        <button
+                          type="button"
+                          className="btn-verify-success"
+                          style={{ background: '#0369a1' }}
+                          onClick={async () => {
+                            try {
+                              await supabaseClient.request(`pendaftar_gpm?id=eq.${parsedScan.id}`, {
+                                method: 'PATCH',
+                                body: JSON.stringify({ status_pengambilan: 'Sudah Diambil', waktu_pengambilan: new Date().toISOString() })
+                              });
+                              setHasilScan((prev) => prev ? { ...prev, status_pengambilan: 'Sudah Diambil' } : prev);
+                              await muatPendaftar();
+                              tampilkanNotif('📦 Pengambilan bahan pangan berhasil dikonfirmasi!');
+                            } catch (e) {
+                              alert('Gagal konfirmasi pengambilan: ' + e.message);
+                            }
+                          }}
+                        >
+                          📦 Konfirmasi Pengambilan Bahan Pangan
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <button className="btn-verify-success" onClick={handleKonfirmasiKehadiran}>
@@ -1073,15 +1100,42 @@ export default function PetugasGPMManager({ token, pengguna }) {
                           <span className={`badge-status-attend ${parsed.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu'}`}>
                             {parsed.status_kehadiran === 'Hadir' ? '✓ Hadir' : 'Menunggu'}
                           </span>
+                          {parsed.status_kehadiran === 'Hadir' && (
+                            <div style={{ marginTop: '4px', fontSize: '0.72rem', fontWeight: 700, color: item.status_pengambilan === 'Sudah Diambil' ? '#15803d' : '#b45309' }}>
+                              {item.status_pengambilan === 'Sudah Diambil' ? '📦 Sudah Diambil' : '⏳ Belum Diambil'}
+                            </div>
+                          )}
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <button
-                            type="button"
-                            className={parsed.status_kehadiran === 'Hadir' ? 'btn-cancel-attend' : 'btn-mark-attend'}
-                            onClick={() => handleToggleKehadiranTabel(item)}
-                          >
-                            {parsed.status_kehadiran === 'Hadir' ? 'Batalkan' : '✓ Tandai Hadir'}
-                          </button>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              className={parsed.status_kehadiran === 'Hadir' ? 'btn-cancel-attend' : 'btn-mark-attend'}
+                              onClick={() => handleToggleKehadiranTabel(item)}
+                            >
+                              {parsed.status_kehadiran === 'Hadir' ? 'Batalkan' : '✓ Tandai Hadir'}
+                            </button>
+                            {parsed.status_kehadiran === 'Hadir' && item.status_pengambilan !== 'Sudah Diambil' && (
+                              <button
+                                type="button"
+                                className="btn-mark-attend"
+                                style={{ background: '#0369a1', fontSize: '0.72rem', padding: '4px 8px' }}
+                                onClick={async () => {
+                                  try {
+                                    await supabaseClient.request(`pendaftar_gpm?id=eq.${item.id}`, {
+                                      method: 'PATCH',
+                                      body: JSON.stringify({ status_pengambilan: 'Sudah Diambil', waktu_pengambilan: new Date().toISOString() })
+                                    });
+                                    await muatPendaftar();
+                                  } catch (e) {
+                                    alert('Gagal update pengambilan: ' + e.message);
+                                  }
+                                }}
+                              >
+                                📦 Ambil Pangan
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1457,6 +1511,36 @@ export default function PetugasGPMManager({ token, pengguna }) {
                   </div>
                 </div>
               )}
+            </div>
+
+            <div className="form-two-cols-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', gridColumn: '1 / -1' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
+                  Mode Pendaftaran Warga
+                </label>
+                <select
+                  className="event-input-box"
+                  value={formGPM.mode_pendaftaran}
+                  onChange={(e) => setFormGPM({ ...formGPM, mode_pendaftaran: e.target.value })}
+                >
+                  <option value="online">🌐 Pendaftaran Online + Lokasi</option>
+                  <option value="keduanya">🔄 Online &amp; Datang Langsung</option>
+                  <option value="langsung">📍 Datang Langsung (Tanpa Daftar Online)</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
+                  Mekanisme Hitungan Penerima
+                </label>
+                <select
+                  className="event-input-box"
+                  value={formGPM.mode_penerima}
+                  onChange={(e) => setFormGPM({ ...formGPM, mode_penerima: e.target.value })}
+                >
+                  <option value="individu">👤 Per Individu (1 NIK = 1 Antrean)</option>
+                  <option value="keluarga">👨‍👩‍👧‍👦 Per Keluarga (1 KK = 1 Antrean)</option>
+                </select>
+              </div>
             </div>
 
             <div className="form-field-full">

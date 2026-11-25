@@ -41,6 +41,8 @@ CREATE TABLE acara_gpm (
     kuota_maksimal INT NOT NULL DEFAULT 250,
     komoditas_tersedia TEXT,
     deskripsi TEXT,
+    mode_pendaftaran VARCHAR(20) NOT NULL DEFAULT 'online',
+    mode_penerima VARCHAR(20) NOT NULL DEFAULT 'individu',
     status VARCHAR(30) NOT NULL DEFAULT 'Aktif',
     petugas_id UUID,
     dibuat_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -59,7 +61,13 @@ CREATE TABLE pendaftar_gpm (
     kode_barcode VARCHAR(100) UNIQUE NOT NULL,
     status_kehadiran VARCHAR(30) NOT NULL DEFAULT 'Menunggu',
     waktu_kehadiran TIMESTAMP WITH TIME ZONE,
+    status_pengambilan VARCHAR(30) NOT NULL DEFAULT 'Belum Diambil',
+    waktu_pengambilan TIMESTAMP WITH TIME ZONE,
+    no_kk VARCHAR(16),
+    nama_kepala_keluarga VARCHAR(150),
+    jumlah_anggota INT DEFAULT 1,
     petugas_verifikasi UUID,
+    petugas_id_verifikasi UUID,
     waktu_mendaftar TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -73,6 +81,7 @@ CREATE TABLE harga_pangan (
     nama_pasar VARCHAR(150) NOT NULL,
     tanggal_penetapan VARCHAR(50) NOT NULL DEFAULT '',
     status VARCHAR(30) NOT NULL DEFAULT 'Terbit',
+    is_terkini BOOLEAN NOT NULL DEFAULT TRUE,
     prioritas_tampil INT NOT NULL DEFAULT 50,
     jumlah_dilihat INT NOT NULL DEFAULT 0,
     catatan_perubahan TEXT DEFAULT '',

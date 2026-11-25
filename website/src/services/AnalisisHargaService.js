@@ -304,6 +304,7 @@ export class AnalisisHargaService {
             pasarTerpilih = [],
             kelompokAktif = 'Semua',
             varianAktif = 'Semua',
+            tanggalFilter = 'Semua',
             petaMaster = null
         } = {}
     ) {
@@ -316,9 +317,13 @@ export class AnalisisHargaService {
         const katFilter = String(kategori || 'Semua').toLowerCase();
         const kelFilter = String(kelompokAktif || 'Semua').toLowerCase();
         const varFilter = String(varianAktif || 'Semua').toLowerCase();
+        const tglFilter = String(tanggalFilter || 'Semua').trim();
 
         return (Array.isArray(daftarTerbit) ? daftarTerbit : []).filter((item) => {
             if (setPasar.size > 0 && !setPasar.has((item?.nama_pasar || '').toLowerCase())) {
+                return false;
+            }
+            if (tglFilter !== 'Semua' && (item?.tanggal_penetapan || '').trim() !== tglFilter) {
                 return false;
             }
             if (katFilter !== 'semua') {

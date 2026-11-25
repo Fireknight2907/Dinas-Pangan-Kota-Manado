@@ -44,6 +44,10 @@ export default function HargaPanganWeb({ onBukaLogin }) {
   const [varianAktif, setVarianAktif] = useState('Semua');
   const [pencarian, setPencarian] = useState('');
   const [pasarTerpilih, setPasarTerpilih] = useState([]); // [] berarti Semua Pasar
+  const [kecamatanAktif, setKecamatanAktif] = useState('Semua');
+  const [tanggalFilter, setTanggalFilter] = useState('Semua');
+  const [halaman, setHalaman] = useState(1);
+  const ITEM_PER_HALAMAN = 20;
   const [popoverPasarBuka, setPopoverPasarBuka] = useState(false);
   const [urutkan, setUrutkan] = useState('prioritas'); // 'prioritas' | 'termurah' | 'termahal' | 'terpopuler' | 'abjad'
   const [modeTampilan, setModeTampilan] = useState('ringkasan'); // 'ringkasan' | 'matriks' | 'semua-pasar'
@@ -156,11 +160,12 @@ export default function HargaPanganWeb({ onBukaLogin }) {
         pasarTerpilih,
         kelompokAktif,
         varianAktif,
+        tanggalFilter,
         urutkan,
         petaDelta,
         petaMaster: petaMasterKomoditas
       }),
-    [daftarHargaTerbit, kategoriAktif, pencarian, pasarTerpilih, kelompokAktif, varianAktif, urutkan, petaDelta, petaMasterKomoditas]
+    [daftarHargaTerbit, kategoriAktif, pencarian, pasarTerpilih, kelompokAktif, varianAktif, tanggalFilter, urutkan, petaDelta, petaMasterKomoditas]
   );
 
   // Matriks mode 'matriks' (Baris = Varian Komoditas, Kolom = Pasar, sel hijau Termurah & merah Termahal)
@@ -172,11 +177,12 @@ export default function HargaPanganWeb({ onBukaLogin }) {
         pasarTerpilih,
         kelompokAktif,
         varianAktif,
+        tanggalFilter,
         urutkan,
         petaDelta,
         petaMaster: petaMasterKomoditas
       }),
-    [daftarHargaTerbit, kategoriAktif, pencarian, pasarTerpilih, kelompokAktif, varianAktif, urutkan, petaDelta, petaMasterKomoditas]
+    [daftarHargaTerbit, kategoriAktif, pencarian, pasarTerpilih, kelompokAktif, varianAktif, tanggalFilter, urutkan, petaDelta, petaMasterKomoditas]
   );
 
   // Daftar kartu mode 'semua-pasar' (flat per pasar dengan badge Termurah/Termahal)
@@ -188,11 +194,21 @@ export default function HargaPanganWeb({ onBukaLogin }) {
         pasarTerpilih,
         kelompokAktif,
         varianAktif,
+        tanggalFilter,
         urutkan,
         petaDelta,
         petaMaster: petaMasterKomoditas
       }),
-    [daftarHargaTerbit, kategoriAktif, pencarian, pasarTerpilih, kelompokAktif, varianAktif, urutkan, petaDelta, petaMasterKomoditas]
+    [daftarHargaTerbit, kategoriAktif, pencarian, pasarTerpilih, kelompokAktif, varianAktif, tanggalFilter, urutkan, petaDelta, petaMasterKomoditas]
+  );
+
+  useEffect(() => {
+    setHalaman(1);
+  }, [kategoriAktif, pencarian, pasarTerpilih, kelompokAktif, varianAktif, tanggalFilter, urutkan, modeTampilan]);
+
+  const daftarTanggalUnik = useMemo(
+    () => Array.from(new Set(daftarHargaTerbit.map((i) => i.tanggal_penetapan).filter(Boolean))),
+    [daftarHargaTerbit]
   );
 
   const togglePasar = (namaPasar) => {
@@ -487,6 +503,51 @@ export default function HargaPanganWeb({ onBukaLogin }) {
                   )}
                 </div>
 
+                {/* Dropdown Wilayah Kecamatan */}
+                {daftarPasarDB.some(p => p.kecamatan) && (
+                  <div className="sort-select-wrapper">
+                    <select
+                      className="category-select-dropdown"
+                      aria-label="Filter wilayah kecamatan"
+                      value={kecamatanAktif}
+                      onChange={(e) => {
+                        const kec = e.target.value;
+                        setKecamatanAktif(kec);
+                        if (kec === 'Semua') {
+                          setPasarTerpilih([]);
+                        } else {
+                          const pasarDiKec = daftarPasarDB
+                            .filter(p => p.kecamatan === kec)
+                            .map(p => p.nama_pasar);
+                          setPasarTerpilih(pasarDiKec);
+                        }
+                      }}
+                    >
+                      <option value="Semua">🏘️ Semua Kecamatan</option>
+                      {Array.from(new Set(daftarPasarDB.map(p => p.kecamatan).filter(Boolean))).sort().map(kec => (
+                        <option key={kec} value={kec}>{kec}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Dropdown Filter Tanggal */}
+                {daftarTanggalUnik.length > 0 && (
+                  <div className="sort-select-wrapper">
+                    <select
+                      className="category-select-dropdown"
+                      aria-label="Filter tanggal penetapan"
+                      value={tanggalFilter}
+                      onChange={(e) => setTanggalFilter(e.target.value)}
+                    >
+                      <option value="Semua">📅 Semua Tanggal</option>
+                      {daftarTanggalUnik.map((tgl) => (
+                        <option key={tgl} value={tgl}>{tgl}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {/* Dropdown Pengurutan */}
                 <div className="sort-select-wrapper">
                   <select
@@ -655,7 +716,9 @@ export default function HargaPanganWeb({ onBukaLogin }) {
                 </tr>
               </thead>
               <tbody>
-                {matriksPerbandingan.daftarBarisMatriks.map((baris) => {
+                {matriksPerbandingan.daftarBarisMatriks
+                  .slice((halaman - 1) * ITEM_PER_HALAMAN, halaman * ITEM_PER_HALAMAN)
+                  .map((baris) => {
                   const selisihDelta = baris.deltaTerbaru ? Number(baris.deltaTerbaru.selisih) || 0 : 0;
                   return (
                     <tr key={baris.kunci}>
@@ -732,7 +795,9 @@ export default function HargaPanganWeb({ onBukaLogin }) {
       ) : modeTampilan === 'ringkasan' ? (
         /* MODE 1: KARTU KOMODITAS TERKELOMPOK */
         <div className="commodity-cards-grid">
-          {daftarRingkasanKomoditas.map((grup) => {
+          {daftarRingkasanKomoditas
+            .slice((halaman - 1) * ITEM_PER_HALAMAN, halaman * ITEM_PER_HALAMAN)
+            .map((grup) => {
             const delta = grup.deltaTerbaru;
             const selisihDelta = delta ? Number(delta.selisih) || 0 : 0;
 
@@ -830,7 +895,9 @@ export default function HargaPanganWeb({ onBukaLogin }) {
       ) : (
         /* MODE 3: DAFTAR SEMUA PASAR */
         <div className="commodity-cards-grid">
-          {daftarSemuaPasar.map((item) => {
+          {daftarSemuaPasar
+            .slice((halaman - 1) * ITEM_PER_HALAMAN, halaman * ITEM_PER_HALAMAN)
+            .map((item) => {
             const selisihDelta = item.delta ? Number(item.delta.selisih) || 0 : 0;
             const kelasBorder =
               item.posisiPasar === 'termurah'
@@ -894,6 +961,43 @@ export default function HargaPanganWeb({ onBukaLogin }) {
           })}
         </div>
       )}
+
+      {/* PAGINATION BAR */}
+      {(() => {
+        const totalItem =
+          modeTampilan === 'matriks'
+            ? matriksPerbandingan.daftarBarisMatriks.length
+            : modeTampilan === 'semua-pasar'
+              ? daftarSemuaPasar.length
+              : daftarRingkasanKomoditas.length;
+        const totalHalaman = Math.max(1, Math.ceil(totalItem / ITEM_PER_HALAMAN));
+        if (totalItem <= ITEM_PER_HALAMAN) return null;
+        return (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '24px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn-reset-filter"
+              disabled={halaman <= 1}
+              onClick={() => setHalaman((h) => Math.max(1, h - 1))}
+              style={{ opacity: halaman <= 1 ? 0.5 : 1, cursor: halaman <= 1 ? 'not-allowed' : 'pointer' }}
+            >
+              ← Sebelumnya
+            </button>
+            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
+              Halaman {halaman} dari {totalHalaman} ({totalItem} data)
+            </span>
+            <button
+              type="button"
+              className="btn-reset-filter"
+              disabled={halaman >= totalHalaman}
+              onClick={() => setHalaman((h) => Math.min(totalHalaman, h + 1))}
+              style={{ opacity: halaman >= totalHalaman ? 0.5 : 1, cursor: halaman >= totalHalaman ? 'not-allowed' : 'pointer' }}
+            >
+              Berikutnya →
+            </button>
+          </div>
+        );
+      })()}
     </main >
 
           {/* MODAL DETAIL KOMODITAS: PERBANDINGAN ANTAR PASAR & GRAFIK RIWAYAT RIIL */ }

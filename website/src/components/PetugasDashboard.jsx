@@ -87,6 +87,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   });
   const [sedangMenyimpan, setSedangMenyimpan] = useState(false);
   const [pesanNotifikasi, setPesanNotifikasi] = useState('');
+  const [tanggalPengambilan, setTanggalPengambilan] = useState(() => new Date().toISOString().split('T')[0]);
+  const [daftarSementaraHarga, setDaftarSementaraHarga] = useState([]);
+  const [idEditSementara, setIdEditSementara] = useState(null);
+  const [detailPengajuanBuka, setDetailPengajuanBuka] = useState(null);
 
   // Notifikasi Sistem
   const [daftarNotif, setDaftarNotif] = useState([]);
@@ -156,6 +160,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   const [pasarTren, setPasarTren] = useState('Semua');
   const [dataTren, setDataTren] = useState(null);
   const [sedangMuatTren, setSedangMuatTren] = useState(false);
+  const [filterLaporanHarga, setFilterLaporanHarga] = useState({ pasar: 'Semua', kategori: 'Semua', status: 'Semua' });
 
   // Data Riil Pelaksanaan GPM & Pendaftar Warga (Kadis, Admin, Kabid)
   const [daftarAcaraGPM, setDaftarAcaraGPM] = useState([]);
@@ -192,7 +197,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   // Sinkronkan pilihan komoditas pertama dari data riil Supabase untuk Grafik Kadis
   useEffect(() => {
     if (!isKadis) return;
-    const daftarNamaUnik = Array.from(new Set(daftarHarga.map(i => i.nama_komoditas).filter(Boolean)));
+    const daftarNamaUnik = Array.from(new Set(daftarHarga.filter(i => i.status === 'Terbit').map(i => i.nama_komoditas).filter(Boolean)));
     if (daftarNamaUnik.length === 0) {
       if (komoditasTren !== '') setKomoditasTren('');
       return;
@@ -330,7 +335,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         notifs.push({
           id: 'notif-kadis-gpm-selesai',
           judul: '📊 Laporan Pelaksanaan GPM',
-          pesan: `Kegiatan "${gpmSelesai[0].nama_acara}" selesai dengan ${gpmSelesai[0].terlayani || 0} warga terlayani. Laporan siap dievaluasi.`,
+          pesan: `Kegiatan "${gpmSelesai[0].nama_acara}" selesai dengan ${gpmSelesai[0].terlayani || 0} warga terlayani. Laporan siap dilihat.`,
           waktu: 'Hari ini',
           target: 'laporan-gpm'
         });
@@ -459,6 +464,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
   const handleBatalEditStaf = () => {
     setIdEditHarga(null);
+    setIdEditSementara(null);
     setFormHarga({
       nama_komoditas: '',
       kategori: 'Bahan Pokok',
@@ -468,6 +474,132 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       status: 'Draft',
       prioritas_tampil: 50
     });
+  };
+
+  // PK-14: Tambah / perbarui baris di Tabel Input Harga Sementara (belum kirim ke DB)
+  const handleTambahKeSementara = (e) => {
+    e.preventDefault();
+    if (!formHarga.nama_pasar) {
+      alert('Pilih Pasar terlebih dahulu!');
+      return;
+    }
+    if (!tanggalPengambilan) {
+      alert('Pilih Tanggal pengambilan harga terlebih dahulu!');
+      return;
+    }
+    if (!formHarga.nama_komoditas.trim()) {
+      alert('Pilih Nama Komoditas resmi terlebih dahulu!');
+      return;
+    }
+    const hargaAngka = parseInt(String(formHarga.harga).replace(/[^0-9]/g, ''), 10);
+    if (!hargaAngka || hargaAngka <= 0) {
+      alert('Masukkan harga acuan yang valid (> 0)!');
+      return;
+    }
+    const satuanGabungan = formatSatuanTampil(formHarga.satuan || daftarSatuan[0] || '1 KG');
+    const masterCocok = daftarMasterKomoditas.find(
+      (k) => k.nama_komoditas.toLowerCase() === formHarga.nama_komoditas.trim().toLowerCase()
+    );
+    const prioritasFinal = Number(masterCocok?.prioritas_tampil || formHarga.prioritas_tampil) || 50;
+
+    if (idEditSementara) {
+      setDaftarSementaraHarga((prev) =>
+        prev.map((row) =>
+          row.tempId === idEditSementara
+            ? {
+                ...row,
+                nama_komoditas: formHarga.nama_komoditas.trim(),
+                kategori: masterCocok?.kategori || formHarga.kategori,
+                satuan: satuanGabungan,
+                harga: hargaAngka,
+                prioritas_tampil: prioritasFinal
+              }
+            : row
+        )
+      );
+      setIdEditSementara(null);
+    } else {
+      setDaftarSementaraHarga((prev) => [
+        ...prev,
+        {
+          tempId: `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          nama_komoditas: formHarga.nama_komoditas.trim(),
+          kategori: masterCocok?.kategori || formHarga.kategori,
+          satuan: satuanGabungan,
+          harga: hargaAngka,
+          prioritas_tampil: prioritasFinal
+        }
+      ]);
+    }
+
+    setFormHarga((prev) => ({
+      ...prev,
+      nama_komoditas: '',
+      harga: ''
+    }));
+  };
+
+  const handleMulaiEditSementara = (row) => {
+    setIdEditSementara(row.tempId);
+    setFormHarga((prev) => ({
+      ...prev,
+      nama_komoditas: row.nama_komoditas,
+      kategori: row.kategori || 'Bahan Pokok',
+      satuan: row.satuan || '1 KG',
+      harga: String(row.harga || ''),
+      prioritas_tampil: row.prioritas_tampil || 50
+    }));
+  };
+
+  const handleHapusSementara = (tempId) => {
+    setDaftarSementaraHarga((prev) => prev.filter((r) => r.tempId !== tempId));
+    if (idEditSementara === tempId) {
+      setIdEditSementara(null);
+      setFormHarga((prev) => ({ ...prev, nama_komoditas: '', harga: '' }));
+    }
+  };
+
+  const handleAjukanDaftarSementara = async () => {
+    if (daftarSementaraHarga.length === 0) {
+      alert('Tabel input harga sementara masih kosong!');
+      return;
+    }
+    if (!formHarga.nama_pasar || !tanggalPengambilan) {
+      alert('Pasar dan Tanggal wajib dipilih!');
+      return;
+    }
+    const tglFormatted = new Date(`${tanggalPengambilan}T00:00:00`).toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+    const statusFinal = peran === 'Staf' ? 'Draft' : 'Terbit';
+
+    setSedangMenyimpan(true);
+    try {
+      for (const row of daftarSementaraHarga) {
+        await hargaPanganService.tambah({
+          nama_komoditas: row.nama_komoditas,
+          kategori: row.kategori,
+          satuan: row.satuan,
+          harga: row.harga,
+          nama_pasar: formHarga.nama_pasar,
+          status: statusFinal,
+          prioritas_tampil: row.prioritas_tampil,
+          tanggal_penetapan: tglFormatted
+        });
+      }
+      tampilkanPesan(
+        `✅ ${daftarSementaraHarga.length} komoditas untuk ${formHarga.nama_pasar} (${tglFormatted}) berhasil diajukan sebagai data baru!`
+      );
+      setDaftarSementaraHarga([]);
+      setIdEditSementara(null);
+      await muatDataDashboard();
+    } catch (error) {
+      alert('Gagal mengajukan daftar harga: ' + error.message);
+    } finally {
+      setSedangMenyimpan(false);
+    }
   };
 
   // Simpan harga komoditas (Staf: 1 tombol pengajuan ke verifikasi Kabid)
@@ -508,8 +640,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       };
 
       if (idEditHarga) {
-        await hargaPanganService.perbarui(idEditHarga, payload);
-        tampilkanPesan(`✅ Perubahan data "${formHarga.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diajukan ke Kepala Bidang untuk diverifikasi.`);
+        // Arsipkan baris lama agar tanggal penetapan sebelumnya tidak tertimpa, lalu simpan sebagai data baru
+        await hargaPanganService.perbarui(idEditHarga, { status: 'Arsip' });
+        await hargaPanganService.tambah(payload);
+        tampilkanPesan(`✅ Perubahan data "${formHarga.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diajukan sebagai data baru ke Kepala Bidang.`);
         setIdEditHarga(null);
       } else {
         await hargaPanganService.tambah(payload);
@@ -1295,8 +1429,52 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
             <div className="tetapkan-content-columns">
               <div className="tetapkan-form-card">
-                <h3 className="form-card-heading">{idEditHarga ? "✏️ Ubah Data Komoditas" : "Formulir Masukan Data Komoditas"}</h3>
-                <form onSubmit={(e) => handleSimpanHarga(e, 'Draft')} className="price-entry-form">
+                <h3 className="form-card-heading">
+                  {idEditHarga
+                    ? '✏️ Ubah Data Komoditas'
+                    : idEditSementara
+                      ? '✏️ Edit Baris Input Sementara'
+                      : '1️⃣ Pilih Pasar, Tanggal & Tambah Komoditas'}
+                </h3>
+
+                {/* Langkah 1: Pilih Pasar & Tanggal Pengambilan Terlebih Dahulu */}
+                {!idEditHarga && (
+                  <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
+                    <div className="form-two-cols-row">
+                      <div className="form-field-group">
+                        <label className="field-label-text">1. Pilih Pasar Terdaftar *</label>
+                        <select
+                          className="field-select-box"
+                          value={formHarga.nama_pasar}
+                          disabled={daftarSementaraHarga.length > 0}
+                          title={daftarSementaraHarga.length > 0 ? 'Ajukan atau kosongkan daftar sementara untuk ganti pasar' : ''}
+                          onChange={(e) => setFormHarga({ ...formHarga, nama_pasar: e.target.value })}
+                        >
+                          {daftarPasar.map((pasar, idx) => (
+                            <option key={idx} value={pasar}>{pasar}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-field-group">
+                        <label className="field-label-text">2. Tanggal Pengambilan Harga *</label>
+                        <input
+                          type="date"
+                          className="field-input-box"
+                          value={tanggalPengambilan}
+                          disabled={daftarSementaraHarga.length > 0}
+                          onChange={(e) => setTanggalPengambilan(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    {daftarSementaraHarga.length > 0 && (
+                      <small style={{ color: '#0369a1', fontWeight: 600, display: 'block', marginTop: '6px' }}>
+                        🔒 Sesi aktif terkunci untuk <strong>{formHarga.nama_pasar}</strong> tanggal <strong>{tanggalPengambilan}</strong> agar input terpisah per pasar.
+                      </small>
+                    )}
+                  </div>
+                )}
+
+                <form onSubmit={idEditHarga ? (e) => handleSimpanHarga(e, 'Draft') : handleTambahKeSementara} className="price-entry-form">
                   <div className="form-field-group">
                     <label className="field-label-text">Nama Komoditas / Varian Resmi (Master Admin)</label>
                     <select
@@ -1324,32 +1502,26 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                           </optgroup>
                         )}
                     </select>
-                    <small style={{ color: '#64748b', fontSize: '0.76rem', marginTop: '4px', display: 'block' }}>
-                      Kategori & satuan otomatis terisi dari Master Komoditas Admin agar penulisan varian seragam di semua pasar.
-                    </small>
                   </div>
 
                   <div className="form-two-cols-row">
                     <div className="form-field-group">
                       <label className="field-label-text">Kategori</label>
-                      <select
-                        className="field-select-box"
+                      <input
+                        type="text"
+                        readOnly
+                        className="field-input-box"
+                        style={{ background: '#f1f5f9', cursor: 'not-allowed' }}
                         value={formHarga.kategori}
-                        onChange={(e) => setFormHarga({ ...formHarga, kategori: e.target.value })}
-                      >
-                        <option value="Bahan Pokok">Bahan Pokok</option>
-                        <option value="Hewani">Hewani</option>
-                        <option value="Sayuran">Sayuran</option>
-                        <option value="Buah">Buah</option>
-                        <option value="Lainnya">Lainnya</option>
-                      </select>
+                      />
                     </div>
 
                     <div className="form-field-group">
-                      <label className="field-label-text">Satuan Resmi (Terkunci per 1 • Master Admin)</label>
+                      <label className="field-label-text">Satuan Resmi (Terkunci)</label>
                       <select
                         className="field-select-box"
                         value={formHarga.satuan}
+                        disabled={Boolean(formHarga.nama_komoditas)}
                         onChange={(e) => setFormHarga({ ...formHarga, satuan: e.target.value })}
                       >
                         {Array.from(new Set([...daftarSatuan, formHarga.satuan].filter(Boolean))).map((s) => (
@@ -1359,117 +1531,229 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                     </div>
                   </div>
 
-                  <div className="form-two-cols-row">
-                    <div className="form-field-group">
-                      <label className="field-label-text">Harga Acuan (Rp)</label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        required
-                        placeholder="Contoh: 15000 (hanya angka)"
-                        className="field-input-box"
-                        value={formHarga.harga}
-                        onKeyDown={hanyaBolehAngka}
-                        onChange={(e) => setFormHarga({ ...formHarga, harga: e.target.value.replace(/[^0-9]/g, '') })}
-                      />
-                      {formHarga.harga && (
-                        <small style={{ color: '#059669', fontWeight: 600, fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>
-                          Terformat: {formatRupiah(parseInt(formHarga.harga, 10))}
-                        </small>
-                      )}
-                    </div>
-
-                    <div className="form-field-group">
-                      <label className="field-label-text">Pilihan Pasar Terdaftar</label>
-                      <select
-                        className="field-select-box"
-                        value={formHarga.nama_pasar}
-                        onChange={(e) => setFormHarga({ ...formHarga, nama_pasar: e.target.value })}
-                      >
-                        {daftarPasar.map((pasar, idx) => (
-                          <option key={idx} value={pasar}>{pasar}</option>
-                        ))}
-                      </select>
-                    </div>
+                  <div className="form-field-group">
+                    <label className="field-label-text">Harga Acuan (Rp)</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      required
+                      placeholder="Contoh: 15000 (hanya angka)"
+                      className="field-input-box"
+                      value={formHarga.harga}
+                      onKeyDown={hanyaBolehAngka}
+                      onChange={(e) => setFormHarga({ ...formHarga, harga: e.target.value.replace(/[^0-9]/g, '') })}
+                    />
+                    {formHarga.harga && (
+                      <small style={{ color: '#059669', fontWeight: 600, fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>
+                        Terformat: {formatRupiah(parseInt(formHarga.harga, 10))}
+                      </small>
+                    )}
                   </div>
 
                   <div className="form-actions-stack">
-                    <button type="submit" className="btn-terbitkan-masyarakat" disabled={sedangMenyimpan}>
-                      {sedangMenyimpan ? 'Mengajukan...' : (idEditHarga ? '📨 Ajukan Perubahan Harga' : '📨 Ajukan Harga')}
-                    </button>
-                    {idEditHarga && (
-                      <button type="button" className="btn-simpan-draft" onClick={handleBatalEditStaf}>
-                        ✕ Batal Ubah
-                      </button>
+                    {idEditHarga ? (
+                      <>
+                        <button type="submit" className="btn-terbitkan-masyarakat" disabled={sedangMenyimpan}>
+                          {sedangMenyimpan ? 'Mengajukan...' : '📨 Ajukan Perubahan sebagai Data Baru'}
+                        </button>
+                        <button type="button" className="btn-simpan-draft" onClick={handleBatalEditStaf}>
+                          ✕ Batal Ubah
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button type="submit" className="btn-terbitkan-masyarakat" style={{ background: '#0369a1' }}>
+                          {idEditSementara ? '💾 Simpan Edit Baris Sementara' : '➕ Tambah Komoditas ke Daftar Sementara'}
+                        </button>
+                        {idEditSementara && (
+                          <button type="button" className="btn-simpan-draft" onClick={() => { setIdEditSementara(null); setFormHarga(p => ({ ...p, nama_komoditas: '', harga: '' })); }}>
+                            ✕ Batal Edit Baris
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </form>
+
+                {/* Langkah 2: Tabel Input Harga Sementara + Tombol Ajukan Data */}
+                {!idEditHarga && (
+                  <div style={{ marginTop: '20px', borderTop: '2px dashed #cbd5e1', paddingTop: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#1e293b' }}>
+                        2️⃣ Tabel Input Harga Sementara ({daftarSementaraHarga.length} item)
+                      </h4>
+                    </div>
+
+                    {daftarSementaraHarga.length === 0 ? (
+                      <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1', fontSize: '0.84rem', color: '#64748b', textAlign: 'center' }}>
+                        Belum ada komoditas ditambahkan ke daftar sementara.
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ overflowX: 'auto' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', marginBottom: '12px' }}>
+                            <thead>
+                              <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+                                <th style={{ padding: '8px' }}>Komoditas</th>
+                                <th style={{ padding: '8px' }}>Satuan</th>
+                                <th style={{ padding: '8px' }}>Harga</th>
+                                <th style={{ padding: '8px', textAlign: 'center' }}>Aksi</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {daftarSementaraHarga.map((row) => (
+                                <tr key={row.tempId} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                  <td style={{ padding: '8px', fontWeight: 700 }}>{row.nama_komoditas}</td>
+                                  <td style={{ padding: '8px' }}>{row.satuan}</td>
+                                  <td style={{ padding: '8px', fontWeight: 700, color: '#8b1e1e' }}>{formatRupiah(row.harga)}</td>
+                                  <td style={{ padding: '8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                    <button type="button" onClick={() => handleMulaiEditSementara(row)} style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: '4px', padding: '3px 7px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', marginRight: '4px' }}>
+                                      ✏️ Edit
+                                    </button>
+                                    <button type="button" onClick={() => handleHapusSementara(row.tempId)} style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '4px', padding: '3px 7px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                                      🗑️ Hapus
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-terbitkan-masyarakat"
+                          style={{ width: '100%' }}
+                          disabled={sedangMenyimpan}
+                          onClick={handleAjukanDaftarSementara}
+                        >
+                          {sedangMenyimpan ? 'Mengirim Seluruh Daftar...' : `📨 Ajukan Data (${daftarSementaraHarga.length} Komoditas)`}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Riwayat Data Masukan Staf */}
+              {/* PK-15: Daftar Pengajuan Harga (Dikelompokkan per Pasar & Tanggal) + Detail Pengajuan */}
               <div className="tetapkan-list-card">
-                <h3 className="list-card-heading">Daftar Data Komoditas Dimasukkan</h3>
+                <h3 className="list-card-heading">Daftar Pengajuan Harga (Per Pasar &amp; Tanggal)</h3>
                 <div className="current-prices-stack">
-                  {daftarHarga.map((item) => (
-                    <div key={item.id} className="price-item-row-card">
-                      <div className="price-item-info-col">
-                        <div className="item-title-unit">
-                          <strong className="item-name">{item.nama_komoditas}</strong>
-                          <span className="item-unit"> / {formatSatuanTampil(item.satuan)}</span>
-                        </div>
-                        <div className="item-market-date">
-                          {item.nama_pasar} · {item.tanggal_penetapan || 'Hari ini'}
-                        </div>
-                      </div>
-
-                      <div className="price-item-value-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
-                        <div className="item-price-nominal">{formatRupiah(item.harga)}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span className={`badge-status-pill ${(item.status || '').toLowerCase() === 'draft' ? 'status-draft' : 'status-terbit'}`}>
-                            {(item.status || '').toLowerCase() === 'draft' ? 'Draf' : (item.status || 'Terbit')}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleMulaiEditStaf(item)}
-                            title="Ubah data harga komoditas"
-                            style={{
-                              background: '#eff6ff',
-                              color: '#1d4ed8',
-                              border: '1px solid #bfdbfe',
-                              borderRadius: '4px',
-                              padding: '4px 8px',
-                              fontSize: '0.75rem',
-                              fontWeight: 700,
-                              cursor: 'pointer'
-                            }}
-                          >
-                            ✏️ Edit
-                          </button>
-                          {isKabid && (
+                  {(() => {
+                    const grupMap = new Map();
+                    daftarHarga.forEach((item) => {
+                      const k = `${item.nama_pasar || '-'}||${item.tanggal_penetapan || '-'}`;
+                      if (!grupMap.has(k)) {
+                        grupMap.set(k, {
+                          kunci: k,
+                          nama_pasar: item.nama_pasar || '-',
+                          tanggal_penetapan: item.tanggal_penetapan || '-',
+                          items: []
+                        });
+                      }
+                      grupMap.get(k).items.push(item);
+                    });
+                    const daftarGrupPengajuan = Array.from(grupMap.values());
+                    if (daftarGrupPengajuan.length === 0) {
+                      return <div style={{ color: '#64748b', fontSize: '0.85rem' }}>Belum ada pengajuan harga tercatat.</div>;
+                    }
+                    return daftarGrupPengajuan.map((grup) => {
+                      const jmlDraft = grup.items.filter(i => (i.status || '').toLowerCase() === 'draft').length;
+                      return (
+                        <div key={grup.kunci} className="price-item-row-card" style={{ alignItems: 'center' }}>
+                          <div className="price-item-info-col">
+                            <div className="item-title-unit">
+                              <strong className="item-name">📍 {grup.nama_pasar}</strong>
+                            </div>
+                            <div className="item-market-date">
+                              📅 {grup.tanggal_penetapan} · <strong>{grup.items.length} komoditas</strong>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span className={`badge-status-pill ${jmlDraft > 0 ? 'status-draft' : 'status-terbit'}`}>
+                              {jmlDraft > 0 ? `${jmlDraft} Draf` : 'Terbit'}
+                            </span>
                             <button
                               type="button"
-                              onClick={() => handleHapusHarga(item.id, item.nama_komoditas)}
-                              title="Hapus komoditas"
-                              style={{
-                                background: '#fee2e2',
-                                color: '#991b1b',
-                                border: '1px solid #fecaca',
-                                borderRadius: '4px',
-                                padding: '4px 8px',
-                                fontSize: '0.75rem',
-                                fontWeight: 700,
-                                cursor: 'pointer'
-                              }}
+                              onClick={() => setDetailPengajuanBuka(grup)}
+                              style={{ background: '#0f172a', color: '#ffffff', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}
                             >
-                              🗑️ Hapus
+                              👁️ Detail Pengajuan
                             </button>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    });
+                  })()}
                 </div>
+
+                {/* Modal Detail Pengajuan */}
+                {detailPengajuanBuka && (
+                  <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+                    <div style={{ background: '#ffffff', borderRadius: '14px', maxWidth: '680px', width: '100%', maxHeight: '85vh', overflowY: 'auto', padding: '22px', boxShadow: '0 20px 45px rgba(0,0,0,0.25)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', marginBottom: '14px' }}>
+                        <div>
+                          <h3 style={{ margin: 0, fontSize: '1.08rem', color: '#0f172a' }}>📋 Detail Pengajuan Harga</h3>
+                          <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: '#475569' }}>
+                            📍 <strong>{detailPengajuanBuka.nama_pasar}</strong> · 📅 {detailPengajuanBuka.tanggal_penetapan}
+                          </p>
+                        </div>
+                        <button type="button" onClick={() => setDetailPengajuanBuka(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '8px', padding: '6px 12px', fontWeight: 700, cursor: 'pointer' }}>
+                          ✕ Tutup
+                        </button>
+                      </div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
+                        <thead>
+                          <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+                            <th style={{ padding: '8px' }}>Komoditas</th>
+                            <th style={{ padding: '8px' }}>Satuan</th>
+                            <th style={{ padding: '8px' }}>Harga</th>
+                            <th style={{ padding: '8px' }}>Status</th>
+                            <th style={{ padding: '8px', textAlign: 'right' }}>Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detailPengajuanBuka.items.map((item) => (
+                            <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                              <td style={{ padding: '8px', fontWeight: 700 }}>{item.nama_komoditas}</td>
+                              <td style={{ padding: '8px' }}>{formatSatuanTampil(item.satuan)}</td>
+                              <td style={{ padding: '8px', fontWeight: 700, color: '#8b1e1e' }}>{formatRupiah(item.harga)}</td>
+                              <td style={{ padding: '8px' }}>
+                                <span className={`badge-status-pill ${(item.status || '').toLowerCase() === 'draft' ? 'status-draft' : 'status-terbit'}`}>
+                                  {(item.status || '').toLowerCase() === 'draft' ? 'Draf' : (item.status || 'Terbit')}
+                                </span>
+                              </td>
+                              <td style={{ padding: '8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDetailPengajuanBuka(null);
+                                    handleMulaiEditStaf(item);
+                                  }}
+                                  style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: '4px', padding: '4px 8px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', marginRight: '4px' }}
+                                >
+                                  ✏️ Edit
+                                </button>
+                                {isKabid && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setDetailPengajuanBuka(null);
+                                      handleHapusHarga(item.id, item.nama_komoditas);
+                                    }}
+                                    style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '4px', padding: '4px 8px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
+                                  >
+                                    🗑️
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1715,9 +1999,16 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         {/* ─────────────────────────────────────────────
             14. VIEW 6: LAPORAN KHUSUS BIDANG (KABID & SUPERADMIN)
             ───────────────────────────────────────────── */}
-        {menuAktif === 'laporan' && isKabid && (
+        {menuAktif === 'laporan' && isKabid && (() => {
+          const daftarLaporanTerfilter = daftarHarga.filter((h) => {
+            if (filterLaporanHarga.pasar !== 'Semua' && h.nama_pasar !== filterLaporanHarga.pasar) return false;
+            if (filterLaporanHarga.kategori !== 'Semua' && h.kategori !== filterLaporanHarga.kategori) return false;
+            if (filterLaporanHarga.status !== 'Semua' && (h.status || 'Terbit') !== filterLaporanHarga.status) return false;
+            return true;
+          });
+          return (
           <div className="dashboard-page-container" id="area-laporan-resmi">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
               <div>
                 <h1 className="dashboard-main-heading">📑 Laporan Resmi Bidang Cadangan & Distribusi Pangan</h1>
                 <p className="dashboard-main-subheading">
@@ -1727,7 +2018,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button
-                  onClick={() => laporanService.eksporLaporanHargaCSV(daftarHarga, { nama: ambilNamaPenandatangan('Kabid') })}
+                  onClick={() => laporanService.eksporLaporanHargaCSV(daftarLaporanTerfilter, { nama: ambilNamaPenandatangan('Kabid') })}
                   style={{
                     background: '#166534',
                     color: '#ffffff',
@@ -1742,7 +2033,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   📥 Unduh CSV (Excel)
                 </button>
                 <button
-                  onClick={() => handleCetakDokumen({ jenis: 'kabid-harga', data: daftarHarga })}
+                  onClick={() => handleCetakDokumen({ jenis: 'kabid-harga', data: daftarLaporanTerfilter })}
                   style={{
                     background: '#8b1e1e',
                     color: '#ffffff',
@@ -1759,6 +2050,42 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               </div>
             </div>
 
+            {/* Filter Laporan Harga */}
+            <div style={{ background: '#ffffff', padding: '14px 18px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <select
+                value={filterLaporanHarga.pasar}
+                onChange={(e) => setFilterLaporanHarga(p => ({ ...p, pasar: e.target.value }))}
+                style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.84rem', fontWeight: 600 }}
+              >
+                <option value="Semua">📍 Semua Pasar</option>
+                {Array.from(new Set(daftarHarga.map(h => h.nama_pasar).filter(Boolean))).sort().map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+              <select
+                value={filterLaporanHarga.kategori}
+                onChange={(e) => setFilterLaporanHarga(p => ({ ...p, kategori: e.target.value }))}
+                style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.84rem', fontWeight: 600 }}
+              >
+                <option value="Semua">📦 Semua Kategori</option>
+                {Array.from(new Set(daftarHarga.map(h => h.kategori).filter(Boolean))).sort().map(k => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+              <select
+                value={filterLaporanHarga.status}
+                onChange={(e) => setFilterLaporanHarga(p => ({ ...p, status: e.target.value }))}
+                style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.84rem', fontWeight: 600 }}
+              >
+                <option value="Semua">🔖 Semua Status</option>
+                <option value="Terbit">Terbit</option>
+                <option value="Draft">Draf</option>
+              </select>
+              <span style={{ fontSize: '0.82rem', color: '#64748b', marginLeft: 'auto' }}>
+                Menampilkan <strong>{daftarLaporanTerfilter.length}</strong> dari {daftarHarga.length} data
+              </span>
+            </div>
+
             <div style={{ background: '#ffffff', padding: '28px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
               <div style={{ borderBottom: '2px solid #8b1e1e', paddingBottom: '14px', marginBottom: '18px', textAlign: 'center' }}>
                 <h3 style={{ margin: 0, color: '#8b1e1e', letterSpacing: '0.5px' }}>PEMERINTAH KOTA MANADO — DINAS PANGAN</h3>
@@ -1769,24 +2096,26 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               </div>
 
               <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '28px', fontSize: '0.88rem', minWidth: '600px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '28px', fontSize: '0.88rem', minWidth: '640px' }}>
                   <thead>
                     <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
                       <th style={{ padding: '10px' }}>No.</th>
                       <th style={{ padding: '10px' }}>Nama Komoditas</th>
                       <th style={{ padding: '10px' }}>Kategori</th>
                       <th style={{ padding: '10px' }}>Nama Pasar</th>
+                      <th style={{ padding: '10px' }}>Tanggal</th>
                       <th style={{ padding: '10px' }}>Harga Acuan</th>
                       <th style={{ padding: '10px' }}>Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {daftarHarga.map((h, idx) => (
+                    {daftarLaporanTerfilter.map((h, idx) => (
                       <tr key={h.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={{ padding: '10px' }}>{idx + 1}</td>
                         <td style={{ padding: '10px', fontWeight: 700 }}>{h.nama_komoditas}</td>
                         <td style={{ padding: '10px' }}>{h.kategori}</td>
                         <td style={{ padding: '10px' }}>{h.nama_pasar}</td>
+                        <td style={{ padding: '10px', fontSize: '0.82rem', color: '#475569' }}>{h.tanggal_penetapan || '-'}</td>
                         <td style={{ padding: '10px', fontWeight: 800, color: '#8b1e1e' }}>{formatRupiah(h.harga)} / {formatSatuanTampil(h.satuan)}</td>
                         <td style={{ padding: '10px' }}>
                           <span style={{
@@ -2275,7 +2604,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 600 }}
                 >
                   {(() => {
-                    const daftarNama = Array.from(new Set(daftarHarga.map(i => i.nama_komoditas).filter(Boolean)));
+                    const daftarNama = Array.from(new Set(daftarHarga.filter(i => i.status === 'Terbit').map(i => i.nama_komoditas).filter(Boolean)));
                     if (daftarNama.length === 0) {
                       return <option value="">Belum ada data komoditas di database</option>;
                     }
@@ -2406,44 +2735,84 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                     </div>
                   )}
 
-                  <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '6px' }}>
-                    <div style={{ minWidth: `${Math.max(320, dataTren.titikData.length * 88)}px`, height: '220px', display: 'flex', alignItems: 'flex-end', gap: '14px', padding: '20px 10px 10px 10px', background: '#f8fafc', borderRadius: '8px', borderBottom: '2px solid #cbd5e1' }}>
-                      {dataTren.titikData.map((titik, idx) => {
-                        const rasio = dataTren.hargaTertinggi === dataTren.hargaTerendah
-                          ? 0.72
-                          : (titik.harga - dataTren.hargaTerendah * 0.9) / (dataTren.hargaTertinggi - dataTren.hargaTerendah * 0.9 || 1);
-                        const tinggiPersen = Math.max(25, Math.min(100, Math.round(rasio * 100)));
-                        return (
-                          <div key={idx} style={{ flex: 1, minWidth: '72px', display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
-                            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#8b1e1e', marginBottom: '6px', whiteSpace: 'nowrap' }}>
-                              {formatRupiah(titik.harga)}
-                            </span>
-                            <div
-                              style={{
-                                width: '100%',
-                                maxWidth: '48px',
-                                height: `${tinggiPersen}%`,
-                                background: 'linear-gradient(180deg, #8b1e1e 0%, #b91c1c 100%)',
-                                borderRadius: '6px 6px 0 0',
-                                transition: 'all 0.3s ease'
-                              }}
-                              title={`${titik.tanggalLengkap} · ${titik.pasar}: ${formatRupiah(titik.harga)}`}
+                  {(() => {
+                    const pts = dataTren.titikData;
+                    const W = Math.max(560, pts.length * 64);
+                    const H = 240;
+                    const padL = 72;
+                    const padR = 24;
+                    const padT = 24;
+                    const padB = 42;
+                    const plotW = W - padL - padR;
+                    const plotH = H - padT - padB;
+                    const minH = dataTren.hargaTerendah;
+                    const maxH = dataTren.hargaTertinggi;
+                    const range = maxH === minH ? 1 : maxH - minH;
+                    const coords = pts.map((t, i) => ({
+                      ...t,
+                      x: pts.length === 1 ? padL + plotW / 2 : padL + (i / (pts.length - 1)) * plotW,
+                      y: pts.length === 1 ? padT + plotH / 2 : padT + plotH - ((t.harga - minH) / range) * plotH
+                    }));
+                    const polylinePoints = coords.map(c => `${c.x},${c.y}`).join(' ');
+                    const areaPoints = coords.length >= 2
+                      ? `${coords[0].x},${padT + plotH} ${polylinePoints} ${coords[coords.length - 1].x},${padT + plotH}`
+                      : '';
+                    const yTicks = [0, 0.25, 0.5, 0.75, 1].map(r => ({
+                      y: padT + plotH - r * plotH,
+                      val: Math.round(minH + r * (maxH === minH ? 0 : range))
+                    }));
+                    const stepLabel = pts.length > 10 ? Math.ceil(pts.length / 8) : 1;
+
+                    return (
+                      <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '6px' }}>
+                        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', minWidth: `${W}px`, height: '240px', background: '#f8fafc', borderRadius: '8px', display: 'block' }}>
+                          {yTicks.map((tk, i) => (
+                            <g key={i}>
+                              <line x1={padL} y1={tk.y} x2={W - padR} y2={tk.y} stroke={i === 0 ? '#cbd5e1' : '#e2e8f0'} strokeWidth="1" />
+                              <text x={padL - 8} y={tk.y + 4} textAnchor="end" fontSize="10" fill="#64748b" fontWeight="600">
+                                {formatRupiah(tk.val)}
+                              </text>
+                            </g>
+                          ))}
+                          {areaPoints && (
+                            <polygon points={areaPoints} fill="rgba(139, 30, 30, 0.08)" />
+                          )}
+                          {coords.length >= 2 && (
+                            <polyline
+                              fill="none"
+                              stroke="#8b1e1e"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={polylinePoints}
                             />
-                            <span style={{ fontSize: '0.7rem', color: '#475569', marginTop: '8px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                              {titik.tanggal}
-                            </span>
-                            {dataTren.pasar === 'Semua' && titik.pasar && (
-                              <span style={{ fontSize: '0.65rem', color: '#94a3b8', maxWidth: '84px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={titik.pasar}>
-                                {titik.pasar.replace(/^Pasar\s+/i, '')}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                          )}
+                          {coords.map((c, idx) => {
+                            const showLbl = idx === 0 || idx === coords.length - 1 || idx % stepLabel === 0;
+                            return (
+                              <g key={idx}>
+                                <circle cx={c.x} cy={c.y} r="5" fill="#8b1e1e" stroke="#ffffff" strokeWidth="2">
+                                  <title>{`${c.tanggalLengkap} · ${c.pasar}: ${formatRupiah(c.harga)}`}</title>
+                                </circle>
+                                {showLbl && (
+                                  <>
+                                    <text x={c.x} y={c.y - 10} textAnchor="middle" fontSize="10" fontWeight="700" fill="#1e293b">
+                                      {`${Math.round(c.harga / 1000)}k`}
+                                    </text>
+                                    <text x={c.x} y={H - 18} textAnchor="middle" fontSize="10" fill="#475569" fontWeight="600">
+                                      {c.tanggal}
+                                    </text>
+                                  </>
+                                )}
+                              </g>
+                            );
+                          })}
+                        </svg>
+                      </div>
+                    );
+                  })()}
                   <div style={{ fontSize: '0.72rem', color: '#94a3b8', textAlign: 'right', marginTop: '6px' }}>
-                    💡 Arahkan kursor pada batang untuk melihat detail waktu & pasar. Geser ke samping jika grafik lebar.
+                    💡 Arahkan kursor pada titik grafik untuk melihat detail waktu &amp; pasar. Geser ke samping jika grafik lebar.
                   </div>
 
                   {/* Tabel Rincian Catatan Riwayat Riil */}
@@ -2484,9 +2853,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           <div className="dashboard-page-container">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
               <div>
-                <h1 className="dashboard-main-heading">📋 Laporan Evaluasi Gerakan Pangan Murah (GPM)</h1>
+                <h1 className="dashboard-main-heading">📋 Laporan Gerakan Pangan Murah (GPM)</h1>
                 <p className="dashboard-main-subheading">
-                  Laporan eksekutif untuk Kepala Dinas: Evaluasi serapan kuota pangan murah dan pemerataan distribusi di 11 Kecamatan.
+                  Laporan eksekutif untuk Kepala Dinas: Rekapitulasi serapan kuota pangan murah dan pemerataan distribusi di 11 Kecamatan.
                 </p>
               </div>
 
@@ -3497,7 +3866,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 />
                 <div>
                   <strong style={{ display: 'block', fontSize: '0.92rem', color: '#1e293b' }}>1. Rekapitulasi Seluruh Kegiatan GPM</strong>
-                  <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Mencetak rangkuman evaluasi seluruh titik pelaksanaan GPM Kota Manado, serapan kuota, dan status kegiatan.</span>
+                  <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Mencetak rangkuman laporan seluruh titik pelaksanaan GPM Kota Manado, serapan kuota, dan status kegiatan.</span>
                 </div>
               </label>
 
@@ -3652,7 +4021,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 LAPORAN EKSEKUTIF REKAPITULASI PELAKSANAAN GERAKAN PANGAN MURAH (GPM)
               </h4>
               <p style={{ margin: '4px 0 0 0', fontSize: '9pt', color: '#333333' }}>
-                Evaluasi Serapan Kuota Pangan Pokok & Pemerataan Distribusi Kota Manado
+                Rekapitulasi Serapan Kuota Pangan Pokok & Pemerataan Distribusi Kota Manado
               </p>
             </div>
 

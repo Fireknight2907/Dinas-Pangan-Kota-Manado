@@ -240,7 +240,7 @@
               <div class="s-row-two">
                 <div class="s-field">
                   <label>Satuan Resmi (Per 1 • Master Admin)</label>
-                  <select v-model="formPenetapan.satuan" class="s-select-market">
+                  <select v-model="formPenetapan.satuan" class="s-select-market" :disabled="Boolean(formPenetapan.nama_komoditas)">
                     <option v-for="s in Array.from(new Set([...daftarSatuan, formPenetapan.satuan].filter(Boolean)))" :key="s" :value="s">
                       {{ s }}
                     </option>
@@ -498,7 +498,7 @@
                   <span class="m-qa-icon">📋</span>
                   <div class="m-qa-detail">
                     <strong>Laporan Eksekutif GPM</strong>
-                    <small>Evaluasi ketercapaian kuota</small>
+                    <small>Rekapitulasi ketercapaian kuota</small>
                   </div>
                 </button>
               </template>
@@ -796,8 +796,31 @@
             <div v-if="pendaftarGPMList.length === 0" style="padding: 24px; text-align: center; color: #94a3b8; font-size: 0.88rem; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1; margin-top: 10px;">
               Belum ada pendaftar nomor antrean untuk acara ini.
             </div>
-            <div v-else class="m-queue-items-list">
-              <div v-for="item in pendaftarGPMList" :key="item.id" class="m-queue-item-row">
+            <template v-else>
+              <div style="margin: 10px 0;">
+                <input
+                  v-model="cariAntreanMobile"
+                  type="text"
+                  placeholder="🔍 Cari Nama, NIK, No. HP, atau Nomor Antrean..."
+                  style="width: 100%; padding: 9px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.85rem; box-sizing: border-box;"
+                />
+              </div>
+              <div class="m-queue-items-list">
+              <div
+                v-for="item in pendaftarGPMList.filter(i => {
+                  if (!cariAntreanMobile.trim()) return true;
+                  const q = cariAntreanMobile.toLowerCase().trim();
+                  return (
+                    (i.nama_pendaftar || '').toLowerCase().includes(q) ||
+                    String(i.nik || '').toLowerCase().includes(q) ||
+                    (i.nomor_telepon || '').includes(q) ||
+                    (i.kode_barcode || '').toLowerCase().includes(q) ||
+                    String(i.nomor_antrean || '').includes(q)
+                  );
+                })"
+                :key="item.id"
+                class="m-queue-item-row"
+              >
                 <div class="m-queue-number-badge">
                   #{{ String(gpmMobileService.parseDataPendaftar(item).nomor_antrean || item.nomor_antrean).padStart(3, '0') }}
                 </div>
@@ -830,6 +853,7 @@
                 </div>
               </div>
             </div>
+            </template>
           </div>
 
           <!-- TAB 3: TAMBAH TITIK LOKASI GPM BARU -->
@@ -1597,10 +1621,20 @@
 
               <div class="m-svg-chart-container">
                 <svg viewBox="0 0 500 220" class="m-svg-chart">
-                  <line x1="40" y1="30" x2="480" y2="30" stroke="#f1f5f9" stroke-width="1" />
-                  <line x1="40" y1="80" x2="480" y2="80" stroke="#f1f5f9" stroke-width="1" />
-                  <line x1="40" y1="130" x2="480" y2="130" stroke="#f1f5f9" stroke-width="1" />
-                  <line x1="40" y1="180" x2="480" y2="180" stroke="#e2e8f0" stroke-width="1" />
+                  <line x1="56" y1="30" x2="480" y2="30" stroke="#f1f5f9" stroke-width="1" />
+                  <line x1="56" y1="80" x2="480" y2="80" stroke="#f1f5f9" stroke-width="1" />
+                  <line x1="56" y1="130" x2="480" y2="130" stroke="#f1f5f9" stroke-width="1" />
+                  <line x1="56" y1="180" x2="480" y2="180" stroke="#e2e8f0" stroke-width="1" />
+
+                  <text x="50" y="34" text-anchor="end" font-size="9" fill="#64748b" font-weight="600">
+                    {{ Math.round(dataTren.hargaTertinggi / 1000) }}k
+                  </text>
+                  <text x="50" y="109" text-anchor="end" font-size="9" fill="#64748b" font-weight="600">
+                    {{ Math.round(((dataTren.hargaTertinggi + dataTren.hargaTerendah) / 2) / 1000) }}k
+                  </text>
+                  <text x="50" y="184" text-anchor="end" font-size="9" fill="#64748b" font-weight="600">
+                    {{ Math.round(dataTren.hargaTerendah / 1000) }}k
+                  </text>
 
                   <polyline
                     v-if="dataTren.titikData.length >= 2"
@@ -1614,10 +1648,25 @@
 
                   <g v-for="(titik, idx) in hitungKoordinatTitik(dataTren.titikData)" :key="idx">
                     <circle :cx="titik.x" :cy="titik.y" r="5" fill="#8b1e1e" stroke="#ffffff" stroke-width="2" />
-                    <text :x="titik.x" :y="titik.y - 10" text-anchor="middle" font-size="10" font-weight="700" fill="#1e293b">
+                    <text
+                      v-if="dataTren.titikData.length <= 7 || idx === 0 || idx === dataTren.titikData.length - 1 || idx % Math.ceil(dataTren.titikData.length / 6) === 0"
+                      :x="titik.x"
+                      :y="titik.y - 10"
+                      text-anchor="middle"
+                      font-size="10"
+                      font-weight="700"
+                      fill="#1e293b"
+                    >
                       {{ (titik.harga / 1000).toFixed(1) }}k
                     </text>
-                    <text :x="titik.x" y="200" text-anchor="middle" font-size="9.5" fill="#64748b">
+                    <text
+                      v-if="dataTren.titikData.length <= 7 || idx === 0 || idx === dataTren.titikData.length - 1 || idx % Math.ceil(dataTren.titikData.length / 6) === 0"
+                      :x="titik.x"
+                      y="200"
+                      text-anchor="middle"
+                      font-size="9.5"
+                      fill="#64748b"
+                    >
                       {{ titik.tanggal }}
                     </text>
                   </g>
@@ -1668,7 +1717,7 @@
             <div class="stat-box-card">
               <div class="stat-val">{{ daftarRekapGPMKadis.length }}</div>
               <div class="stat-lbl">Kegiatan Terlaksana</div>
-              <div class="stat-sub">evaluasi berkala</div>
+              <div class="stat-sub">rekapitulasi berkala</div>
             </div>
             <div class="stat-box-card">
               <div class="stat-val">{{ totalKuotaGPMKadis }}</div>
@@ -2014,6 +2063,16 @@
                       <td class="m-mx-sticky" @click="grupDetailDipilih = baris">
                         <div class="m-mx-name">{{ baris.nama_komoditas }}</div>
                         <div class="m-mx-sub">{{ baris.kelompok }} • {{ baris.satuanUtama }}</div>
+                        <div v-if="baris.tanggalPenetapanTerbaru" class="m-mx-sub" style="font-size: 0.65rem; color: #64748b;">
+                          {{ baris.tanggalPenetapanTerbaru }}
+                        </div>
+                        <div
+                          v-if="baris.delta && baris.delta.selisih !== 0"
+                          class="m-mx-sub"
+                          :style="{ fontSize: '0.65rem', fontWeight: 700, color: baris.delta.selisih > 0 ? '#dc2626' : '#15803d' }"
+                        >
+                          {{ baris.delta.selisih > 0 ? '▲ +' : '▼ -' }}{{ formatRupiah(Math.abs(baris.delta.selisih)) }}
+                        </div>
                       </td>
                       <td
                         v-for="pasar in matriksPerbandinganPublik.daftarKolomPasar"
@@ -2143,8 +2202,18 @@
                 ≈ {{ formatRupiah(item.hargaStandar) }}/{{ item.labelStandar }}
               </div>
 
-              <div class="item-footer-row">
-                <span class="item-date-text">Riwayat →</span>
+              <div class="item-footer-row" style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
+                <span class="item-date-text">
+                  <template v-if="item.delta && item.delta.selisih !== 0">
+                    <span :style="{ color: item.delta.selisih > 0 ? '#dc2626' : '#15803d', fontWeight: 700 }">
+                      {{ item.delta.selisih > 0 ? '▲ +' : '▼ -' }}{{ formatRupiah(Math.abs(item.delta.selisih)) }}
+                    </span>
+                  </template>
+                  <template v-else>
+                    Ditetapkan {{ item.tanggal_penetapan || '-' }}
+                  </template>
+                </span>
+                <span class="item-date-text" style="font-weight: 700; color: #8b1e1e;">Riwayat →</span>
               </div>
             </div>
           </div>
@@ -2224,7 +2293,7 @@
                 </div>
 
                 <div class="m-ticket-instruction">
-                  📱 <strong>Petunjuk:</strong> Tunjukkan Kode QR ini ke petugas Dinas Pangan di lokasi GPM sebelum jam selesai berakhir (tiket otomatis terkunci setelah jam tutup WITA).
+                  📱 <strong>Petunjuk:</strong> Tiket ini adalah <strong>bukti nomor antrean &amp; alokasi kuota</strong> (bukan bukti pembayaran) dan tidak dapat dipindahtangankan. Tunjukkan Kode QR ini ke petugas Dinas Pangan di lokasi GPM sebelum jam selesai berakhir (tiket otomatis terkunci setelah jam tutup WITA).
                 </div>
 
                 <button type="button" class="btn-m-take-new" @click="tiketGPMHasil = null">
@@ -3778,6 +3847,7 @@ const formGPMBaru = ref({
 });
 const sedangSimpanGPMBaru = ref(false);
 const dropdownGPMKomoditasBuka = ref(false);
+const cariAntreanMobile = ref('');
 
 const daftarKecamatanPilihanFormGPM = computed<string[]>(() => {
   if (daftarKecamatan.value.length > 0) return daftarKecamatan.value;
@@ -5043,19 +5113,21 @@ const simpanHargaPetugas = async (statusOverride?: string) => {
 
   try {
     if (idDiedit.value) {
-      await hargaPanganMobileService.perbarui(idDiedit.value, {
+      // Arsipkan baris lama agar tanggal penetapan sebelumnya tidak tertimpa, lalu simpan sebagai data baru
+      await hargaPanganMobileService.perbarui(idDiedit.value, { status: 'Arsip' });
+      await hargaPanganMobileService.tambah({
         nama_komoditas: formPenetapan.value.nama_komoditas.trim(),
         kategori: kategoriOtomatis,
         satuan: satuanGabungan,
         harga: hargaAngka,
         nama_pasar: formPenetapan.value.nama_pasar,
+        tanggal_penetapan: tglKini,
         status: status,
-        prioritas_tampil: prioritasFinal,
-        tanggal_penetapan: tglKini
+        prioritas_tampil: prioritasFinal
       });
       pesanSuksesMobile.value = isKabid.value
-        ? (status === 'Terbit' ? `✅ Perubahan "${formPenetapan.value.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diterbitkan ke masyarakat!` : `📝 Perubahan "${formPenetapan.value.nama_komoditas}" disimpan sebagai draf!`)
-        : `📨 Perubahan "${formPenetapan.value.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diajukan ke Kepala Bidang untuk diverifikasi!`;
+        ? (status === 'Terbit' ? `✅ Perubahan "${formPenetapan.value.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diterbitkan sebagai data baru!` : `📝 Perubahan "${formPenetapan.value.nama_komoditas}" disimpan sebagai draf baru!`)
+        : `📨 Perubahan "${formPenetapan.value.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diajukan sebagai data baru ke Kepala Bidang!`;
       batalEditItem();
     } else {
       await hargaPanganMobileService.tambah({

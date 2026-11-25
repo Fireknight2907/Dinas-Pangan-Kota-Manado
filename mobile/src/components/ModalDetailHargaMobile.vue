@@ -101,6 +101,12 @@
                   ≈ {{ analisisHargaMobileService.formatRupiah(item.hargaStandar) }}/{{ item.labelStandar }}
                 </span>
                 <span>Ditetapkan {{ item.tanggal_penetapan || '-' }}</span>
+                <span
+                  v-if="item.delta && item.delta.selisih !== 0"
+                  :style="{ color: item.delta.selisih > 0 ? '#dc2626' : '#15803d', fontWeight: 700 }"
+                >
+                  {{ item.delta.selisih > 0 ? '▲ +' : '▼ -' }}{{ analisisHargaMobileService.formatRupiah(Math.abs(item.delta.selisih)) }} dari sebelumnya
+                </span>
               </div>
               <div class="m-mc-price-box">
                 <div class="m-mc-price">{{ analisisHargaMobileService.formatRupiah(item.harga) }}</div>

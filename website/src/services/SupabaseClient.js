@@ -63,14 +63,14 @@ class SupabaseRestClient {
 
   // --- HARGA PANGAN ---
   async getHargaPangan() {
-    return this.request('harga_pangan?order=diperbarui_pada.desc');
+    return this.request('harga_pangan?status=neq.Arsip&order=diperbarui_pada.desc');
   }
 
   async tambahHargaPangan(item) {
     const payload = {
       nama_komoditas: item.nama_komoditas,
       kategori: item.kategori || 'Bahan Pokok',
-      satuan: item.satuan || 'kg',
+      satuan: item.satuan || '1 KG',
       harga: Number(item.harga) || 0,
       nama_pasar: item.nama_pasar,
       tanggal_penetapan: item.tanggal_penetapan || new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
