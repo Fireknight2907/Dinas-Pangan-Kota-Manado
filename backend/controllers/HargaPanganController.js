@@ -5,14 +5,25 @@
 // ===================================================================================
 
 const ModelHargaPangan = require('../models/HargaPanganModel');
+const ModelRiwayatHarga = require('../models/RiwayatHargaModel');
 
 class HargaPanganController {
 
-    // 1. Mengambil semua data harga komoditas (dengan filter kategori, pasar, keyword pencarian)
+    // 1. Mengambil semua data harga komoditas (mendukung filter kategori, multi-pasar, status, pencarian, dan urutan)
     async daftarSemua(req, res) {
         try {
-            const { kategori, pasar, cari } = req.query;
-            const data = await ModelHargaPangan.ambilSemuaData({ kategori, pasar, cari });
+            const { kategori, pasar, cari, status, urutkan } = req.query;
+            const pasarList = (pasar && pasar !== 'Semua' && pasar.includes(','))
+                ? pasar.split(',').map(p => p.trim()).filter(Boolean)
+                : [];
+            const data = await ModelHargaPangan.ambilSemuaData({
+                kategori,
+                pasar: pasarList.length > 0 ? undefined : pasar,
+                pasarList,
+                cari,
+                status,
+                urutkan
+            });
             return res.status(200).json({
                 sukses: true,
                 total: data.length,
@@ -23,6 +34,50 @@ class HargaPanganController {
             return res.status(500).json({
                 sukses: false,
                 pesan: 'Gagal memuat data harga pangan: ' + error.message
+            });
+        }
+    }
+
+    // 1b. Mengambil riwayat perubahan harga riil per komoditas (filter multi-pasar & rentang hari 7/30/90/0=semua)
+    async ambilRiwayat(req, res) {
+        try {
+            const { komoditas, pasar, hari } = req.query;
+            const pasarList = (pasar && pasar !== 'Semua')
+                ? String(pasar).split(',').map(p => p.trim()).filter(Boolean)
+                : [];
+            const rentangHari = hari !== undefined ? Number(hari) : 30;
+            const data = await ModelRiwayatHarga.ambilRiwayatKomoditas({
+                namaKomoditas: komoditas || '',
+                pasarList,
+                rentangHari
+            });
+            return res.status(200).json({
+                sukses: true,
+                total: data.length,
+                data
+            });
+        } catch (error) {
+            console.error('Error saat mengambil riwayat harga pangan:', error);
+            return res.status(500).json({
+                sukses: false,
+                pesan: 'Gagal memuat riwayat harga pangan: ' + error.message
+            });
+        }
+    }
+
+    // 1c. Mencatat klik lihat masyarakat terhadap suatu komoditas untuk metrik popularitas riil
+    async catatLihat(req, res) {
+        try {
+            const { nama_komoditas } = req.body || {};
+            if (!nama_komoditas) {
+                return res.status(400).json({ sukses: false, pesan: 'nama_komoditas wajib diisi' });
+            }
+            await ModelHargaPangan.tambahJumlahDilihat(nama_komoditas);
+            return res.status(200).json({ sukses: true });
+        } catch (error) {
+            return res.status(500).json({
+                sukses: false,
+                pesan: 'Gagal mencatat klik lihat: ' + error.message
             });
         }
     }

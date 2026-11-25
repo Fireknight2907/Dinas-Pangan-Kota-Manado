@@ -16,6 +16,11 @@ export interface ItemHargaPangan {
   tanggal_penetapan?: string;
   status?: string; // 'Terbit' | 'Draft'
   bidang?: string;
+  prioritas_tampil?: number;
+  jumlah_dilihat?: number;
+  catatan_perubahan?: string;
+  dibuat_pada?: string;
+  diperbarui_pada?: string;
 }
 
 export interface StatistikKategori {
@@ -162,6 +167,38 @@ export class HargaPanganMobileService {
 
     // 3. Fallback ke penyimpanan lokal di perangkat HP
     return this.ambilFallback(kategori, pasar, cari, status);
+  }
+
+  // 1b. Mengambil data harga pangan TERBIT khusus portal publik mobile (100% DATA RIIL DB, TANPA DUMMY FALLBACK)
+  async ambilPublikTerbit(): Promise<ItemHargaPangan[]> {
+    try {
+      const supabaseData = await supabaseClient.getHargaPangan();
+      if (Array.isArray(supabaseData)) {
+        return supabaseData
+          .filter((i: any) => (i.status || '').toLowerCase() === 'terbit')
+          .map((i: any) => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
+      }
+    } catch (errCloud: any) {
+      // Coba API backend LAN jika sedang aktif (bukan data dummy)
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const respon = await fetch(`${this.baseUrl}?status=Terbit`, {
+          headers: { 'Accept': 'application/json' },
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (respon.ok) {
+          const hasil = await respon.json();
+          const list = Array.isArray(hasil.data) ? hasil.data : [];
+          return list
+            .filter((i: any) => (i.status || '').toLowerCase() === 'terbit')
+            .map((i: any) => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
+        }
+      } catch (_) {}
+      throw new Error(errCloud?.message || 'Tidak dapat terhubung ke basis data harga pangan.');
+    }
+    return [];
   }
 
   // 2. Mengambil statistik jumlah komoditas per kategori untuk badge mobile

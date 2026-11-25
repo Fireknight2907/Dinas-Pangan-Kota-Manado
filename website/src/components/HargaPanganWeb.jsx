@@ -1,255 +1,162 @@
 // ===================================================================================
-// KOMPONEN TAMPILAN UTAMA: HARGA PANGAN KOTA MANADO (WEBSITE)
-// Bidang: Cadangan dan Distribusi Pangan - Dinas Pangan Kota Manado
-// Berdasarkan desain SIPATOKAAN (Gambar 1) dilengkapi Modul Input Data Staf
+// Modul Tampilan Publik Informasi Harga Pangan Kota Manado (Website)
+// Fungsi: Menyajikan harga pangan terverifikasi dari DB tanpa data dummy, dilengkapi
+//         multi-select pasar, pengurutan (Prioritas Masyarakat/Termurah/Termahal/
+//         Populer/A-Z), satuan terkunci per 1 dari Master Admin, kartu terkelompok
+//         lintas pasar + toggle daftar semua pasar, serta modal perbandingan & riwayat.
 // ===================================================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { hargaPanganService } from '../services/HargaPanganService';
+import { analisisHargaService } from '../services/AnalisisHargaService';
+import { riwayatHargaService } from '../services/RiwayatHargaService';
+import ModalDetailHargaWeb from './ModalDetailHargaWeb';
 import GPMWeb from './GPMWeb';
 import './HargaPanganWeb.css';
 
+const DAFTAR_KATEGORI = [
+  { key: 'Semua', label: 'Semua', icon: '📋' },
+  { key: 'Bahan Pokok', label: 'Bahan Pokok', icon: '🌾' },
+  { key: 'Hewani', label: 'Hewani', icon: '🥩' },
+  { key: 'Sayuran', label: 'Sayuran', icon: '🥬' },
+  { key: 'Buah', label: 'Buah', icon: '🍊' },
+  { key: 'Lainnya', label: 'Lainnya', icon: '📦' }
+];
+
 export default function HargaPanganWeb({ onBukaLogin }) {
-  // ─────────────────────────────────────────────
-  // 1. STATE MANAGEMENT
-  // ─────────────────────────────────────────────
-  
   // Tab Navigasi Aktif ('harga' | 'gpm')
   const [tabNavAktif, setTabNavAktif] = useState('harga');
-  
-  // Data komoditas harga pangan
-  const [daftarKomoditas, setDaftarKomoditas] = useState([]);
-  
-  // Data statistik jumlah per kategori (untuk badge counter)
-  const [statistik, setStatistik] = useState({
-    Semua: 0,
-    'Bahan Pokok': 0,
-    Hewani: 0,
-    Sayuran: 0,
-    Buah: 0,
-    Lainnya: 0
-  });
 
-  // State filter & pencarian
+  // Data Riil dari Basis Data (100% tanpa data dummy)
+  const [daftarHargaTerbit, setDaftarHargaTerbit] = useState([]);
+  const [riwayatTerbaru, setRiwayatTerbaru] = useState([]);
+  const [sedangMemuat, setSedangMemuat] = useState(true);
+  const [errorMuat, setErrorMuat] = useState('');
+
+  // State Filter, Multi-Pilih Pasar, Urutan & Mode Tampilan
   const [kategoriAktif, setKategoriAktif] = useState('Semua');
   const [pencarian, setPencarian] = useState('');
-  const [pasarDipilih, setPasarDipilih] = useState('Semua');
-  const [daftarPasar, setDaftarPasar] = useState([]);
+  const [pasarTerpilih, setPasarTerpilih] = useState([]); // [] berarti Semua Pasar
+  const [popoverPasarBuka, setPopoverPasarBuka] = useState(false);
+  const [urutkan, setUrutkan] = useState('prioritas'); // 'prioritas' | 'termurah' | 'termahal' | 'terpopuler' | 'abjad'
+  const [modeTampilan, setModeTampilan] = useState('ringkasan'); // 'ringkasan' | 'semua-pasar'
 
-  // State loading & status
-  const [sedangMemuat, setSedangMemuat] = useState(false);
-  const [pesanNotifikasi, setPesanNotifikasi] = useState('');
+  // State Modal Detail (Perbandingan Pasar & Riwayat Harga)
+  const [grupDetailDipilih, setGrupDetailDipilih] = useState(null);
 
-  // State Modal Tempat Isi Data Staf (CRUD)
-  const [tampilkanModalStaf, setTampilkanModalStaf] = useState(false);
-  const [modeEdit, setModeEdit] = useState(null); // null untuk tambah baru, atau ID komoditas
-  const [formStaf, setFormStaf] = useState({
-    nama_komoditas: '',
-    kategori: 'Bahan Pokok',
-    satuanJumlah: '1',
-    satuanUnit: 'KG',
-    harga: '',
-    nama_pasar: 'Pasar Bersehati Karombasan',
-    tanggal_penetapan: new Date().toISOString().split('T')[0]
-  });
+  const popoverRef = useRef(null);
 
-  // Format tampilan satuan agar bersih dan rapi
-  const formatSatuanTampil = (satuan) => {
-    if (!satuan) return '1 KG';
-    let s = String(satuan).replace(/[\/]+/g, '').trim();
-    if (!s) return '1 KG';
-    if (/^kg$|^kilogram$/i.test(s)) return '1 KG';
-    if (/^gram$|^gr$|^g$/i.test(s)) return '1 Gram';
-    const match = s.match(/^(\d+)\s*(kg|kilogram|gram|gr|g)$/i);
-    if (match) {
-      const angka = match[1];
-      const unit = /^(gram|gr|g)$/i.test(match[2].trim()) ? 'Gram' : 'KG';
-      return `${angka} ${unit}`;
-    }
-    return s;
-  };
-
-  // Mengurai string satuan menjadi kuantitas angka dan pilihan unit
-  const uraiSatuan = (satuan) => {
-    if (!satuan) return { jumlah: '1', unit: 'KG' };
-    const str = String(satuan).replace(/[\/]+/g, '').trim();
-    const digitMatch = str.match(/\d+/);
-    const jumlah = digitMatch ? digitMatch[0] : '1';
-    const isGram = /\b(gram|gr|g)\b/i.test(str) && !/\b(kg|kilogram)\b/i.test(str);
-    return {
-      jumlah,
-      unit: isGram ? 'Gram' : 'KG'
-    };
-  };
-
-  // Validasi input angka (0-9)
-  const hanyaBolehAngka = (e) => {
-    if ([
-      'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
-      'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-      'Home', 'End'
-    ].includes(e.key)) {
-      return;
-    }
-    if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) {
-      return;
-    }
-    if (!/^[0-9]$/.test(e.key)) {
-      e.preventDefault();
-    }
-  };
-
-  // ─────────────────────────────────────────────
-  // 2. LIFECYCLE & PEMANGGILAN API
-  // ─────────────────────────────────────────────
-  
-  // Memuat data saat komponen pertama kali dibuka atau filter berubah
+  // Tutup popover multi-select pasar saat klik di luar
   useEffect(() => {
-    muatDataKomoditas();
-  }, [kategoriAktif, pasarDipilih]);
+    const handleKlikLuar = (e) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target)) {
+        setPopoverPasarBuka(false);
+      }
+    };
+    document.addEventListener('mousedown', handleKlikLuar);
+    return () => document.removeEventListener('mousedown', handleKlikLuar);
+  }, []);
 
-  // Memuat data komoditas resmi dari backend/Supabase (HANYA status Terbit untuk publik)
-  const muatDataKomoditas = async () => {
+  // Muat seluruh data harga pangan terbit & ringkasan riwayat riil saat pertama kali dibuka
+  const muatDataPublik = async () => {
     setSedangMemuat(true);
+    setErrorMuat('');
     try {
-      // Portal publik wajib hanya menampilkan komoditas yang telah berstatus 'Terbit' dan lolos verifikasi Kabid
-      const data = await hargaPanganService.ambilSemua(kategoriAktif, pasarDipilih, pencarian, 'Terbit');
-      const dataTerverifikasi = Array.isArray(data) ? data.filter(i => (i.status || 'Terbit').toLowerCase() === 'terbit') : [];
-      setDaftarKomoditas(dataTerverifikasi);
-
-      const stat = await hargaPanganService.ambilStatistik();
-      setStatistik(stat);
-
-      const pasar = await hargaPanganService.ambilDaftarPasar();
-      setDaftarPasar(pasar);
-    } catch (error) {
-      console.error('Gagal memuat data:', error);
+      const [dataTerbit, hasilRiwayat] = await Promise.all([
+        hargaPanganService.ambilPublikTerbit(),
+        riwayatHargaService.ambilRiwayatPublikTerbaru(400)
+      ]);
+      setDaftarHargaTerbit(Array.isArray(dataTerbit) ? dataTerbit : []);
+      setRiwayatTerbaru(Array.isArray(hasilRiwayat?.data) ? hasilRiwayat.data : []);
+    } catch (err) {
+      setErrorMuat(err?.message || 'Gagal terhubung ke basis data harga pangan.');
+      setDaftarHargaTerbit([]);
     } finally {
       setSedangMemuat(false);
     }
   };
 
-  // Handler pencarian saat user menekan enter atau submit
-  const handlePencarianSubmit = (e) => {
-    e.preventDefault();
-    muatDataKomoditas();
+  useEffect(() => {
+    muatDataPublik();
+  }, []);
+
+  // Daftar pasar unik murni dari DB
+  const daftarPasarDB = useMemo(
+    () => analisisHargaService.ekstrakDaftarPasarUnik(daftarHargaTerbit),
+    [daftarHargaTerbit]
+  );
+
+  // Stempel waktu pembaruan terakhir murni dari DB
+  const infoPembaruanTerakhir = useMemo(
+    () => analisisHargaService.ambilPembaruanTerakhir(daftarHargaTerbit),
+    [daftarHargaTerbit]
+  );
+
+  // Peta delta perubahan harga riil dari riwayat_harga_pangan
+  const petaDelta = useMemo(
+    () => analisisHargaService.buatPetaDeltaTerbaru(riwayatTerbaru),
+    [riwayatTerbaru]
+  );
+
+  // Statistik badge kategori riil mengikuti pasar terpilih & mode tampilan
+  const statistikKategori = useMemo(
+    () => analisisHargaService.hitungStatistikKategori(daftarHargaTerbit, pasarTerpilih, modeTampilan),
+    [daftarHargaTerbit, pasarTerpilih, modeTampilan]
+  );
+
+  // Daftar kartu mode 'ringkasan' (1 kartu per komoditas dengan Pasar Termurah & Termahal)
+  const daftarRingkasanKomoditas = useMemo(
+    () =>
+      analisisHargaService.kelompokkanPerKomoditas(daftarHargaTerbit, {
+        kategori: kategoriAktif,
+        pencarian,
+        pasarTerpilih,
+        urutkan,
+        petaDelta
+      }),
+    [daftarHargaTerbit, kategoriAktif, pencarian, pasarTerpilih, urutkan, petaDelta]
+  );
+
+  // Daftar kartu mode 'semua-pasar' (flat per pasar dengan badge Termurah/Termahal)
+  const daftarSemuaPasar = useMemo(
+    () =>
+      analisisHargaService.susunDaftarSemuaPasar(daftarHargaTerbit, {
+        kategori: kategoriAktif,
+        pencarian,
+        pasarTerpilih,
+        urutkan,
+        petaDelta
+      }),
+    [daftarHargaTerbit, kategoriAktif, pencarian, pasarTerpilih, urutkan, petaDelta]
+  );
+
+  // Toggle centang satu pasar di multi-select
+  const togglePasar = (namaPasar) => {
+    setPasarTerpilih((prev) =>
+      prev.includes(namaPasar) ? prev.filter((p) => p !== namaPasar) : [...prev, namaPasar]
+    );
   };
 
-  // ─────────────────────────────────────────────
-  // 3. HANDLER OPERASI TEMPAT ISI DATA STAF (CRUD)
-  // ─────────────────────────────────────────────
-  
-  // Membuka modal tambah baru
-  const bukaModalTambah = () => {
-    setModeEdit(null);
-    setFormStaf({
-      nama_komoditas: '',
-      kategori: 'Bahan Pokok',
-      satuanJumlah: '1',
-      satuanUnit: 'KG',
-      harga: '',
-      nama_pasar: 'Pasar Bersehati Karombasan',
-      tanggal_penetapan: new Date().toISOString().split('T')[0]
-    });
-    setTampilkanModalStaf(true);
+  const resetSemuaFilter = () => {
+    setKategoriAktif('Semua');
+    setPencarian('');
+    setPasarTerpilih([]);
+    setUrutkan('prioritas');
   };
 
-  // Membuka modal edit dengan data yang dipilih
-  const bukaModalEdit = (item) => {
-    setModeEdit(item.id);
-    const parsed = uraiSatuan(item.satuan);
-    setFormStaf({
-      nama_komoditas: item.nama_komoditas,
-      kategori: item.kategori,
-      satuanJumlah: parsed.jumlah,
-      satuanUnit: parsed.unit,
-      harga: String(item.harga ? Math.round(item.harga) : '').replace(/[^0-9]/g, ''),
-      nama_pasar: item.nama_pasar,
-      tanggal_penetapan: item.tanggal_penetapan || new Date().toISOString().split('T')[0]
-    });
-    setTampilkanModalStaf(true);
-  };
-
-  // Menyimpan data (Insert atau Update)
-  const handleSimpanDataStaf = async (e) => {
-    e.preventDefault();
-    const hargaAngka = parseInt(String(formStaf.harga).replace(/[^0-9]/g, ''), 10);
-    if (!hargaAngka || hargaAngka <= 0) {
-      alert('Besaran harga acuan wajib diisi dengan angka bulat positif lebih dari 0!');
-      return;
-    }
-    const kuantitas = parseInt(String(formStaf.satuanJumlah).replace(/[^0-9]/g, ''), 10) || 1;
-    const unit = formStaf.satuanUnit === 'Gram' ? 'Gram' : 'KG';
-    const satuanGabungan = `${kuantitas} ${unit}`;
-
-    const payload = {
-      ...formStaf,
-      harga: hargaAngka,
-      satuan: satuanGabungan
-    };
-
-    try {
-      if (modeEdit) {
-        // Mode Perbarui / Update
-        await hargaPanganService.perbarui(modeEdit, payload);
-        tampilkanPesan('Data komoditas berhasil diperbarui!');
-      } else {
-        // Mode Tambah Baru
-        await hargaPanganService.tambah(payload);
-        tampilkanPesan('Data harga pangan baru berhasil disimpan ke sistem!');
-      }
-      setTampilkanModalStaf(false);
-      muatDataKomoditas();
-    } catch (err) {
-      alert('Gagal menyimpan data: ' + err.message);
-    }
-  };
-
-  // Menghapus data komoditas
-  const handleHapusKomoditas = async (id, nama) => {
-    if (window.confirm(`Yakin ingin menghapus harga untuk "${nama}"?`)) {
-      try {
-        await hargaPanganService.hapus(id);
-        tampilkanPesan(`Data "${nama}" berhasil dihapus.`);
-        muatDataKomoditas();
-      } catch (err) {
-        alert('Gagal menghapus: ' + err.message);
-      }
-    }
-  };
-
-  const tampilkanPesan = (pesan) => {
-    setPesanNotifikasi(pesan);
-    setTimeout(() => setPesanNotifikasi(''), 4000);
-  };
-
-  // Format rupiah
-  const formatRupiah = (angka) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      maximumFractionDigits: 0
-    }).format(angka).replace('IDR', 'Rp');
-  };
-
-  // Daftar kategori dengan label dan icon
-  const daftarKategoriList = [
-    { key: 'Semua', label: 'Semua', icon: '📋' },
-    { key: 'Bahan Pokok', label: 'Bahan Pokok', icon: '' },
-    { key: 'Hewani', label: 'Hewani', icon: '' },
-    { key: 'Sayuran', label: 'Sayuran', icon: '🥬' },
-    { key: 'Buah', label: 'Buah', icon: '🍊' },
-    { key: 'Lainnya', label: 'Lainnya', icon: '' }
-  ];
+  const totalTampil = modeTampilan === 'ringkasan' ? daftarRingkasanKomoditas.length : daftarSemuaPasar.length;
+  const labelTombolPasar =
+    pasarTerpilih.length === 0
+      ? `Semua Pasar (${daftarPasarDB.length})`
+      : pasarTerpilih.length === 1
+        ? pasarTerpilih[0]
+        : `${pasarTerpilih.length} Pasar Dipilih`;
 
   return (
     <div className="sipatokaan-page-wrapper">
-      {/* ─────────────────────────────────────────────
-          4. HEADER NAVIGASI (Sesuai Gambar 1)
-          ───────────────────────────────────────────── */}
+      {/* HEADER NAVIGASI */}
       <header className="sipatokaan-navbar">
         <div className="navbar-left">
-          {/* Logo SIPATOKAAN */}
           <div className="brand-logo-badge">
             <img src="/logodinaspangan.png" alt="Logo SIPATOKAAN" className="brand-logo-img" />
           </div>
@@ -259,15 +166,14 @@ export default function HargaPanganWeb({ onBukaLogin }) {
           </div>
         </div>
 
-        {/* Tab Menu Header */}
         <nav className="navbar-menu">
-          <button 
+          <button
             className={`nav-tab ${tabNavAktif === 'harga' ? 'active' : ''}`}
             onClick={() => setTabNavAktif('harga')}
           >
             Harga Pangan
           </button>
-          <button 
+          <button
             className={`nav-tab ${tabNavAktif === 'gpm' ? 'active' : ''}`}
             onClick={() => setTabNavAktif('gpm')}
           >
@@ -275,345 +181,422 @@ export default function HargaPanganWeb({ onBukaLogin }) {
           </button>
         </nav>
 
-        {/* Tombol Aksi Kanan (Masuk Petugas) */}
         <div className="navbar-right">
-          <button 
+          <button
             className="btn-login-petugas"
             onClick={onBukaLogin}
             title="Masuk ke Portal Petugas"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/>
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
             </svg>
             <span>Masuk Petugas</span>
           </button>
         </div>
       </header>
 
-      {/* JIKA TAB GPM AKTIF, TAMPILKAN MODUL GPM PUBLIK */}
       {tabNavAktif === 'gpm' ? (
-        <GPMWeb 
+        <GPMWeb
           onKembaliKeHarga={() => setTabNavAktif('harga')}
           onBukaLogin={onBukaLogin}
         />
       ) : (
         <>
-          {/* Notifikasi Floating jika ada update */}
-          {pesanNotifikasi && (
-            <div className="alert-sukses-banner">
-              ✅ {pesanNotifikasi}
-            </div>
-          )}
-
-          {/* ─────────────────────────────────────────────
-              5. HERO SECTION (Banner Merah Tua / Maroon)
-              ───────────────────────────────────────────── */}
+          {/* HERO SECTION */}
           <section className="hero-banner-maroon">
-        <div className="hero-content">
-          <div className="hero-tag-badge">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 20V10M12 20V4M6 20v-6"/>
-            </svg>
-            <span>Pemantauan Harga Pangan</span>
-          </div>
-
-          <h2 className="hero-headline">Harga Pangan Kota Manado</h2>
-
-          <p className="hero-description">
-            Informasi terkini harga produsen dan konsumen komoditas pangan di pasar Kota Manado.
-            Data diperbarui rutin oleh Dinas Pangan untuk transparansi dan stabilisasi harga.
-          </p>
-
-          <div className="hero-date-badge">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-            <span>Pembaruan terakhir: Selasa, 22 September 2026</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Konten Utama */}
-      <main className="sipatokaan-main-container">
-        
-        {/* ─────────────────────────────────────────────
-            6. FILTER KATEGORI (Chips dengan Count Badge)
-            ───────────────────────────────────────────── */}
-        <div className="category-filter-chips">
-          {daftarKategoriList.map((kat) => {
-            const isAktif = kategoriAktif === kat.key;
-            const jumlah = statistik[kat.key] ?? 0;
-            return (
-              <button
-                key={kat.key}
-                onClick={() => setKategoriAktif(kat.key)}
-                className={`filter-chip-btn ${isAktif ? 'active' : ''}`}
-              >
-                {kat.icon && <span className="chip-icon">{kat.icon}</span>}
-                <span className="chip-label">{kat.label}</span>
-                <span className={`chip-count ${isAktif ? 'active-count' : ''}`}>
-                  {jumlah}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* ─────────────────────────────────────────────
-            7. SEARCH BAR & DROPDOWN FILTER
-            ───────────────────────────────────────────── */}
-        <div className="search-filter-card">
-          <form className="search-input-wrapper" onSubmit={handlePencarianSubmit}>
-            <span className="search-prefix-label">Cari Komoditas —</span>
-            <input
-              type="text"
-              className="search-input-field"
-              placeholder="beras, cabai, daging, ikan..."
-              value={pencarian}
-              onChange={(e) => setPencarian(e.target.value)}
-            />
-            {pencarian && (
-              <button 
-                type="button" 
-                className="clear-search-btn"
-                onClick={() => { setPencarian(''); muatDataKomoditas(); }}
-              >
-                ✕
-              </button>
-            )}
-          </form>
-
-          <div className="category-select-wrapper">
-            <select
-              className="custom-category-select"
-              value={pasarDipilih}
-              onChange={(e) => setPasarDipilih(e.target.value)}
-            >
-              <option value="Semua">Semua Kategori / Pasar</option>
-              {daftarPasar.map((pasar, idx) => (
-                <option key={idx} value={pasar}>{pasar}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* ─────────────────────────────────────────────
-            8. GRID KARTU HARGA KOMODITAS (Sesuai Gambar 1)
-            ───────────────────────────────────────────── */}
-        {sedangMemuat ? (
-          <div className="loading-state-box">
-            <div className="spinner-loader"></div>
-            <p>Memuat data harga pangan terkini dari Dinas Pangan Kota Manado...</p>
-          </div>
-        ) : daftarKomoditas.length === 0 ? (
-          <div className="empty-state-box">
-            <p>Tidak ada komoditas pangan yang sesuai dengan pencarian atau filter.</p>
-            <button className="btn-reset-filter" onClick={() => { setKategoriAktif('Semua'); setPasarDipilih('Semua'); setPencarian(''); }}>
-              Atur Ulang Filter
-            </button>
-          </div>
-        ) : (
-          <div className="commodity-cards-grid">
-            {daftarKomoditas.map((item) => (
-              <div key={item.id} className="commodity-card-item">
-                {/* Baris Atas: Satuan & Label Pasar */}
-                <div className="card-top-row">
-                  <span className="satuan-badge">
-                    SATUAN {formatSatuanTampil(item.satuan)}
-                  </span>
-                  <span className="market-pill-badge" title={item.nama_pasar}>
-                    {item.nama_pasar}
-                  </span>
-                </div>
-
-                {/* Judul Komoditas */}
-                <h3 className="commodity-name-title">
-                  {item.nama_komoditas}
-                </h3>
-
-                {/* Harga Komoditas */}
-                <div className="commodity-price-amount">
-                  {formatRupiah(item.harga)}
-                </div>
-
-                {/* Baris Bawah: Tanggal Penetapan */}
-                <div className="card-bottom-row">
-                  <span className="date-set-text">
-                    Ditetapkan {item.tanggal_penetapan || '8 Oktober 2026'}
-                  </span>
-                </div>
+            <div className="hero-content">
+              <div className="hero-tag-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 20V10M12 20V4M6 20v-6" />
+                </svg>
+                <span>Pemantauan Harga Pangan Real-Time</span>
               </div>
-            ))}
-          </div>
-        )}
 
-      </main>
+              <h2 className="hero-headline">Harga Pangan Kota Manado</h2>
 
-      {/* ─────────────────────────────────────────────
-          9. MODAL TEMPAT ISI DATA STAF (CRUD FORM)
-          Bidang Cadangan dan Distribusi Pangan
-          ───────────────────────────────────────────── */}
-      {tampilkanModalStaf && (
-        <div className="modal-overlay-backdrop" onClick={() => setTampilkanModalStaf(false)}>
-          <div className="modal-container-card" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header-bar">
-              <div className="modal-title-group">
-                <span className="modal-badge-icon">🏛️</span>
-                <div>
-                  <h3 className="modal-heading">
-                    {modeEdit ? 'Ubah Data Harga Komoditas' : 'Masukan Data Harga Komoditas Baru'}
-                  </h3>
-                  <p className="modal-subheading">
-                    Bidang Cadangan dan Distribusi Pangan • Terkoneksi ke Supabase
-                  </p>
+              <p className="hero-description">
+                Bandingkan harga pangan pokok antar pasar tradisional Kota Manado, temukan pasar termurah hingga termahal, dan pantau riwayat perubahan harga resmi dari Dinas Pangan.
+              </p>
+
+              <div className="hero-meta-row">
+                <div className="hero-date-badge">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                  <span>Pembaruan terakhir: <strong>{infoPembaruanTerakhir}</strong></span>
                 </div>
+                {daftarPasarDB.length > 0 && (
+                  <div className="hero-date-badge">
+                    <span>📍 {daftarPasarDB.length} Pasar Aktif • {daftarHargaTerbit.length} Data Terverifikasi</span>
+                  </div>
+                )}
               </div>
-              <button 
-                className="modal-close-button" 
-                onClick={() => setTampilkanModalStaf(false)}
-              >
-                ✕
-              </button>
+            </div>
+          </section>
+
+          {/* KONTEN UTAMA */}
+          <main className="sipatokaan-main-container">
+            {/* FILTER KATEGORI (Angka Riil dari Database) */}
+            <div className="category-filter-chips">
+              {DAFTAR_KATEGORI.map((kat) => {
+                const isAktif = kategoriAktif === kat.key;
+                const jumlah = statistikKategori[kat.key] ?? 0;
+                return (
+                  <button
+                    key={kat.key}
+                    onClick={() => setKategoriAktif(kat.key)}
+                    className={`filter-chip-btn ${isAktif ? 'active' : ''}`}
+                  >
+                    {kat.icon && <span className="chip-icon">{kat.icon}</span>}
+                    <span className="chip-label">{kat.label}</span>
+                    <span className={`chip-count ${isAktif ? 'active-count' : ''}`}>
+                      {jumlah}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
-            <form onSubmit={handleSimpanDataStaf} className="modal-form-body">
-              {/* Nama Komoditas */}
-              <div className="form-group-item">
-                <label className="form-label-text">Nama Komoditas Pangan <span className="req">*</span></label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Contoh: Beras Premium, Cabai Rawit, Minyak Goreng"
-                  className="form-input-control"
-                  value={formStaf.nama_komoditas}
-                  onChange={(e) => setFormStaf({ ...formStaf, nama_komoditas: e.target.value })}
-                />
-              </div>
-
-              {/* Kategori & Satuan */}
-              <div className="form-row-two-columns">
-                <div className="form-group-item">
-                  <label className="form-label-text">Kategori Komoditas <span className="req">*</span></label>
-                  <select
-                    className="form-input-control"
-                    value={formStaf.kategori}
-                    onChange={(e) => setFormStaf({ ...formStaf, kategori: e.target.value })}
-                  >
-                    <option value="Bahan Pokok">Bahan Pokok</option>
-                    <option value="Hewani">Hewani</option>
-                    <option value="Sayuran">Sayuran</option>
-                    <option value="Buah">Buah</option>
-                    <option value="Lainnya">Lainnya</option>
-                  </select>
-                </div>
-
-                <div className="form-group-item">
-                  <label className="form-label-text">Satuan Pangan <span className="req">*</span></label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      required
-                      placeholder="Jumlah (Contoh: 1 / 500)"
-                      className="form-input-control"
-                      value={formStaf.satuanJumlah}
-                      onKeyDown={hanyaBolehAngka}
-                      onChange={(e) => setFormStaf({ ...formStaf, satuanJumlah: e.target.value.replace(/[^0-9]/g, '') })}
-                    />
-                    <select
-                      className="form-input-control"
-                      value={formStaf.satuanUnit}
-                      onChange={(e) => setFormStaf({ ...formStaf, satuanUnit: e.target.value })}
-                    >
-                      <option value="KG">KG (Kilogram)</option>
-                      <option value="Gram">Gram</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Harga & Nama Pasar */}
-              <div className="form-row-two-columns">
-                <div className="form-group-item">
-                  <label className="form-label-text">Harga Acuan (Rp) <span className="req">*</span></label>
+            {/* BAR KONTROL: PENCARIAN, MULTI-SELECT PASAR, SORTIR & MODE TAMPILAN */}
+            <div className="public-controls-panel">
+              <div className="search-filter-card enhanced-filter-card">
+                {/* Pencarian Realtime */}
+                <div className="search-input-wrapper">
+                  <span className="search-prefix-label">🔍</span>
                   <input
                     type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    required
-                    placeholder="Contoh: 15500 (hanya angka)"
-                    className="form-input-control"
-                    value={formStaf.harga}
-                    onKeyDown={hanyaBolehAngka}
-                    onChange={(e) => setFormStaf({ ...formStaf, harga: e.target.value.replace(/[^0-9]/g, '') })}
+                    className="search-input-field"
+                    placeholder="Cari komoditas atau pasar (misal: beras, cabai, bahu)..."
+                    value={pencarian}
+                    onChange={(e) => setPencarian(e.target.value)}
                   />
-                  {formStaf.harga && (
-                    <small style={{ color: '#059669', fontWeight: 600, fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>
-                      Terformat: {formatRupiah(parseInt(formStaf.harga, 10))}
-                    </small>
+                  {pencarian && (
+                    <button
+                      type="button"
+                      className="clear-search-btn"
+                      onClick={() => setPencarian('')}
+                      title="Hapus pencarian"
+                    >
+                      ✕
+                    </button>
                   )}
                 </div>
 
-                <div className="form-group-item">
-                  <label className="form-label-text">Nama Pasar <span className="req">*</span></label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Contoh: Pasar Bersehati Karombasan"
-                    className="form-input-control"
-                    value={formStaf.nama_pasar}
-                    onChange={(e) => setFormStaf({ ...formStaf, nama_pasar: e.target.value })}
-                    list="daftarPasarOptions"
-                  />
-                  <datalist id="daftarPasarOptions">
-                    <option value="Pasar Bersehati Karombasan" />
-                    <option value="Pasar Tradisional Tuminting" />
-                    <option value="Pasar Bersehati Sario" />
-                    <option value="Pasar Tradisional Bahu" />
-                  </datalist>
+                {/* Multi-Select Wilayah Pasar */}
+                <div className="multi-market-wrapper" ref={popoverRef}>
+                  <button
+                    type="button"
+                    className={`multi-market-trigger ${pasarTerpilih.length > 0 ? 'has-selection' : ''}`}
+                    onClick={() => setPopoverPasarBuka((v) => !v)}
+                  >
+                    <span>📍 {labelTombolPasar}</span>
+                    <span className="chevron-icon">{popoverPasarBuka ? '▲' : '▼'}</span>
+                  </button>
+
+                  {popoverPasarBuka && (
+                    <div className="multi-market-popover">
+                      <div className="popover-header-row">
+                        <strong>Pilih Pasar untuk Dibandingkan</strong>
+                        <div className="popover-quick-btns">
+                          <button
+                            type="button"
+                            onClick={() => setPasarTerpilih([...daftarPasarDB])}
+                          >
+                            Pilih Semua
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPasarTerpilih([])}
+                          >
+                            Reset
+                          </button>
+                        </div>
+                      </div>
+
+                      {daftarPasarDB.length === 0 ? (
+                        <p className="popover-empty-note">Belum ada data pasar di basis data.</p>
+                      ) : (
+                        <div className="popover-checkbox-list">
+                          {daftarPasarDB.map((pasar) => {
+                            const tercentang = pasarTerpilih.includes(pasar);
+                            return (
+                              <label key={pasar} className={`popover-market-item ${tercentang ? 'checked' : ''}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={tercentang}
+                                  onChange={() => togglePasar(pasar)}
+                                />
+                                <span>{pasar}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div className="popover-footer-note">
+                        Centang 2+ pasar untuk langsung melihat pasar termurah & termahal di antaranya.
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Dropdown Urutkan */}
+                <div className="sort-select-wrapper">
+                  <select
+                    className="custom-category-select"
+                    value={urutkan}
+                    onChange={(e) => setUrutkan(e.target.value)}
+                    aria-label="Urutkan harga pangan"
+                  >
+                    <option value="prioritas">⭐ Urutkan: Prioritas Masyarakat</option>
+                    <option value="termurah">💰 Harga Termurah → Termahal</option>
+                    <option value="termahal">📈 Harga Termahal → Termurah</option>
+                    <option value="terpopuler">🔥 Paling Banyak Dilihat</option>
+                    <option value="abjad">🔤 Nama Komoditas (A–Z)</option>
+                  </select>
                 </div>
               </div>
 
-              {/* Tanggal Penetapan */}
-              <div className="form-group-item">
-                <label className="form-label-text">Tanggal Penetapan Harga</label>
-                <input
-                  type="date"
-                  className="form-input-control"
-                  value={formStaf.tanggal_penetapan}
-                  onChange={(e) => setFormStaf({ ...formStaf, tanggal_penetapan: e.target.value })}
-                />
-              </div>
+              {/* Baris Kedua: Pill Pasar Terpilih + Toggle Mode Tampilan + Info */}
+              <div className="subtoolbar-row">
+                <div className="subtoolbar-left">
+                  <span className="summary-count-text">
+                    Menampilkan <strong>{totalTampil}</strong>{' '}
+                    {modeTampilan === 'ringkasan' ? 'komoditas' : 'catatan harga pasar'}
+                    {' • Semua harga per 1 satuan resmi (Master Satuan)'}
+                  </span>
 
-              {/* Tombol Aksi Modal */}
-              <div className="modal-actions-footer">
-                <button
-                  type="button"
-                  className="btn-modal-cancel"
-                  onClick={() => setTampilkanModalStaf(false)}
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="btn-modal-save"
-                >
-                  💾 {modeEdit ? 'Simpan Perubahan' : 'Simpan Data Harga'}
+                  {pasarTerpilih.length > 0 && (
+                    <div className="active-market-pills">
+                      {pasarTerpilih.map((p) => (
+                        <span key={p} className="active-market-chip">
+                          📍 {p}
+                          <button type="button" onClick={() => togglePasar(p)} aria-label={`Hapus ${p}`}>
+                            ✕
+                          </button>
+                        </span>
+                      ))}
+                      <button type="button" className="btn-clear-markets" onClick={() => setPasarTerpilih([])}>
+                        Tampilkan Semua Pasar
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Toggle Ringkasan Komoditas vs Daftar Semua Pasar */}
+                <div className="view-mode-toggle" role="group" aria-label="Mode tampilan">
+                  <button
+                    type="button"
+                    className={`mode-toggle-btn ${modeTampilan === 'ringkasan' ? 'active' : ''}`}
+                    onClick={() => setModeTampilan('ringkasan')}
+                  >
+                    🧩 Ringkasan Komoditas
+                  </button>
+                  <button
+                    type="button"
+                    className={`mode-toggle-btn ${modeTampilan === 'semua-pasar' ? 'active' : ''}`}
+                    onClick={() => setModeTampilan('semua-pasar')}
+                  >
+                    🏪 Semua Pasar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* STATUS MEMUAT / ERROR / KOSONG / GRID KARTU */}
+            {sedangMemuat ? (
+              <div className="loading-state-box">
+                <div className="spinner-loader"></div>
+                <p>Memuat data harga pangan resmi dari basis data Dinas Pangan Kota Manado...</p>
+              </div>
+            ) : errorMuat ? (
+              <div className="empty-state-box error-state-box">
+                <p>⚠️ <strong>Gagal memuat data dari server basis data:</strong> {errorMuat}</p>
+                <button className="btn-reset-filter" onClick={muatDataPublik}>
+                  🔄 Coba Muat Ulang
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            ) : totalTampil === 0 ? (
+              <div className="empty-state-box">
+                <p>Tidak ada komoditas pangan terverifikasi yang sesuai dengan pencarian atau filter pasar saat ini.</p>
+                <button className="btn-reset-filter" onClick={resetSemuaFilter}>
+                  Atur Ulang Filter
+                </button>
+              </div>
+            ) : modeTampilan === 'ringkasan' ? (
+              /* MODE 1: KARTU KOMODITAS TERKELOMPOK (SMART COMMODITY CARDS) */
+              <div className="commodity-cards-grid">
+                {daftarRingkasanKomoditas.map((grup) => {
+                  const delta = grup.deltaTerbaru;
+                  const selisihDelta = delta ? Number(delta.selisih) || 0 : 0;
 
-      {/* Footer */}
-      <footer className="sipatokaan-footer">
-        <p>Sumber Data: Dinas Pangan Kota Manado • Bidang Cadangan dan Distribusi Pangan</p>
-      </footer>
+                  return (
+                    <article
+                      key={grup.kunci}
+                      className="commodity-card-item smart-commodity-card"
+                      onClick={() => setGrupDetailDipilih(grup)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setGrupDetailDipilih(grup);
+                        }
+                      }}
+                    >
+                      {/* Baris Atas: Satuan, Kategori & Indikator Perubahan Riil */}
+                      <div className="card-top-row">
+                        <span className="satuan-badge">
+                          SATUAN {grup.satuanUtama} • {grup.kategori}
+                        </span>
+                        {selisihDelta > 0 ? (
+                          <span className="card-delta-pill is-up" title="Kenaikan dari pencatatan resmi sebelumnya">
+                            ▲ +{analisisHargaService.formatRupiah(selisihDelta)}
+                          </span>
+                        ) : selisihDelta < 0 ? (
+                          <span className="card-delta-pill is-down" title="Penurunan dari pencatatan resmi sebelumnya">
+                            ▼ -{analisisHargaService.formatRupiah(Math.abs(selisihDelta))}
+                          </span>
+                        ) : (
+                          <span className="card-delta-pill is-stable">• Stabil</span>
+                        )}
+                      </div>
+
+                      {/* Judul Komoditas */}
+                      <h3 className="commodity-name-title">{grup.nama_komoditas}</h3>
+
+                      {/* Harga Utama (Rentang jika >1 harga berbeda, atau Harga Tunggal) */}
+                      <div className="commodity-price-amount smart-price-range">
+                        {grup.adaPerbedaanHarga ? (
+                          <>
+                            {analisisHargaService.formatRupiah(grup.hargaMin)}
+                            <span className="price-range-sep"> – </span>
+                            {analisisHargaService.formatRupiah(grup.hargaMax)}
+                          </>
+                        ) : (
+                          analisisHargaService.formatRupiah(grup.hargaMin)
+                        )}
+                      </div>
+
+                      {/* Strip Perbandingan Pasar Termurah vs Termahal */}
+                      <div className="card-market-compare-box">
+                        {grup.adaPerbedaanHarga ? (
+                          <>
+                            <div className="compare-line is-cheap">
+                              <span className="compare-tag">🟢 Termurah</span>
+                              <span className="compare-market" title={grup.pasarTermurah.nama_pasar}>
+                                {grup.pasarTermurah.nama_pasar}
+                              </span>
+                              <strong>{analisisHargaService.formatRupiah(grup.pasarTermurah.harga)}</strong>
+                            </div>
+                            <div className="compare-line is-expensive">
+                              <span className="compare-tag">🔴 Termahal</span>
+                              <span className="compare-market" title={grup.pasarTermahal.nama_pasar}>
+                                {grup.pasarTermahal.nama_pasar}
+                              </span>
+                              <strong>{analisisHargaService.formatRupiah(grup.pasarTermahal.harga)}</strong>
+                            </div>
+                          </>
+                        ) : grup.jumlahPasar > 1 ? (
+                          <div className="compare-single-line">
+                            <span>📍 Harga seragam di <strong>{grup.jumlahPasar} pasar</strong> terpilih</span>
+                          </div>
+                        ) : (
+                          <div className="compare-single-line">
+                            <span className="market-pill-badge" title={grup.pasarTermurah.nama_pasar}>
+                              📍 {grup.pasarTermurah.nama_pasar}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Baris Bawah: Tanggal & CTA Detail/Riwayat */}
+                      <div className="card-bottom-row">
+                        <span className="date-set-text">
+                          Ditetapkan {grup.tanggalPenetapanTerbaru}
+                        </span>
+                        <span className="card-detail-cta">
+                          Riwayat & Pasar →
+                        </span>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              /* MODE 2: DAFTAR SEMUA PASAR (FLAT CARD PER PASAR DENGAN BADGE TERMURAH/TERMAHAL) */
+              <div className="commodity-cards-grid">
+                {daftarSemuaPasar.map((item) => {
+                  const selisihDelta = item.delta ? Number(item.delta.selisih) || 0 : 0;
+                  return (
+                    <article
+                      key={item.id}
+                      className={`commodity-card-item smart-commodity-card ${
+                        item.posisiPasar === 'termurah'
+                          ? 'card-border-cheapest'
+                          : item.posisiPasar === 'termahal'
+                            ? 'card-border-expensive'
+                            : ''
+                      }`}
+                      onClick={() => setGrupDetailDipilih(item.grupKomoditas)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setGrupDetailDipilih(item.grupKomoditas);
+                        }
+                      }}
+                    >
+                      <div className="card-top-row">
+                        <span className="satuan-badge">SATUAN {item.satuan}</span>
+                        <span className="market-pill-badge" title={item.nama_pasar}>
+                          {item.nama_pasar}
+                        </span>
+                      </div>
+
+                      <div className="flat-title-row">
+                        <h3 className="commodity-name-title">{item.nama_komoditas}</h3>
+                        {item.posisiPasar === 'termurah' && <span className="pill-cheapest">🏆 Termurah</span>}
+                        {item.posisiPasar === 'termahal' && <span className="pill-expensive">⬆️ Termahal</span>}
+                      </div>
+
+                      <div className="commodity-price-amount">
+                        {analisisHargaService.formatRupiah(item.harga)}
+                      </div>
+
+                      <div className="card-bottom-row">
+                        <span className="date-set-text">
+                          {selisihDelta > 0
+                            ? `▲ +${analisisHargaService.formatRupiah(selisihDelta)}`
+                            : selisihDelta < 0
+                              ? `▼ -${analisisHargaService.formatRupiah(Math.abs(selisihDelta))}`
+                              : `Ditetapkan ${item.tanggal_penetapan || '-'}`}
+                        </span>
+                        <span className="card-detail-cta">Lihat Riwayat →</span>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </main>
+
+          {/* MODAL DETAIL KOMODITAS: PERBANDINGAN ANTAR PASAR & GRAFIK RIWAYAT RIIL */}
+          {grupDetailDipilih && (
+            <ModalDetailHargaWeb
+              grupKomoditas={grupDetailDipilih}
+              pasarTerpilihAwal={pasarTerpilih}
+              onTutup={() => setGrupDetailDipilih(null)}
+            />
+          )}
+
+          {/* Footer */}
+          <footer className="sipatokaan-footer">
+            <p>Sumber Data: Dinas Pangan Kota Manado • Bidang Cadangan dan Distribusi Pangan (100% Data Resmi Basis Data)</p>
+          </footer>
         </>
       )}
     </div>

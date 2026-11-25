@@ -137,6 +137,33 @@ class HargaPanganApiService {
         return this.ambilDataFallback(kategori, pasar, cari, status);
     }
 
+    // 1b. Mengambil data harga pangan TERBIT khusus portal publik (100% DATA RIIL DB, TANPA DUMMY FALLBACK)
+    async ambilPublikTerbit() {
+        // 1. Prioritaskan Cloud Supabase Database
+        try {
+            const dataCloud = await supabaseClient.getHargaPangan();
+            if (Array.isArray(dataCloud)) {
+                return dataCloud
+                    .filter(i => (i.status || '').toLowerCase() === 'terbit')
+                    .map(i => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
+            }
+        } catch (errCloud) {
+            // 2. Jika Supabase tidak terjangkau, coba API backend mandiri (jika aktif)
+            try {
+                const respon = await fetch(`${this.baseUrl}?status=Terbit`);
+                if (respon.ok) {
+                    const hasil = await respon.json();
+                    const list = Array.isArray(hasil.data) ? hasil.data : [];
+                    return list
+                        .filter(i => (i.status || '').toLowerCase() === 'terbit')
+                        .map(i => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
+                }
+            } catch (_) {}
+            throw new Error(errCloud?.message || 'Tidak dapat terhubung ke basis data harga pangan.');
+        }
+        return [];
+    }
+
     async ambilStatistik() {
         try {
             const respon = await fetch(`${this.baseUrl}/statistik`);

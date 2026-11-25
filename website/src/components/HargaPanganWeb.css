@@ -662,3 +662,371 @@
   cursor: pointer;
   font-weight: 600;
 }
+
+/* ─────────────────────────────────────────────
+   8. REVISI PORTAL PUBLIK: MULTI-PASAR, SORTIR, MODE TAMPILAN & SMART CARDS
+   ───────────────────────────────────────────── */
+.hero-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+}
+
+.public-controls-panel {
+  margin-bottom: 24px;
+}
+
+.enhanced-filter-card {
+  margin-bottom: 12px !important;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.multi-market-wrapper {
+  position: relative;
+  border-left: 1.5px solid #e5e7eb;
+  padding-left: 14px;
+}
+
+.multi-market-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 210px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.multi-market-trigger.has-selection {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #8b1e1e;
+}
+
+.chevron-icon {
+  font-size: 0.7rem;
+  opacity: 0.75;
+}
+
+.multi-market-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 14px;
+  width: 300px;
+  background: #ffffff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.16);
+  z-index: 200;
+  padding: 12px;
+}
+
+.popover-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.82rem;
+  color: #1e293b;
+}
+
+.popover-quick-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.popover-quick-btns button {
+  background: none;
+  border: none;
+  color: #8b1e1e;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.popover-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 8px 0;
+}
+
+.popover-market-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #334155;
+  transition: background 0.12s;
+}
+
+.popover-market-item:hover {
+  background: #f8fafc;
+}
+
+.popover-market-item.checked {
+  background: #fef2f2;
+  color: #8b1e1e;
+  font-weight: 700;
+}
+
+.popover-market-item input[type="checkbox"] {
+  accent-color: #8b1e1e;
+  width: 16px;
+  height: 16px;
+}
+
+.popover-empty-note,
+.popover-footer-note {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin: 6px 0 0 0;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.sort-select-wrapper {
+  min-width: 240px;
+  border-left: 1.5px solid #e5e7eb;
+  padding-left: 14px;
+}
+
+.subtoolbar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.subtoolbar-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary-count-text {
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+.active-market-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.active-market-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.active-market-chip button {
+  background: none;
+  border: none;
+  color: #991b1b;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.btn-clear-markets {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.view-mode-toggle {
+  display: inline-flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.mode-toggle-btn {
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mode-toggle-btn.active {
+  background: #ffffff;
+  color: #8b1e1e;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Smart Commodity Cards */
+.smart-commodity-card {
+  cursor: pointer;
+  justify-content: space-between;
+}
+
+.smart-commodity-card:focus-visible {
+  outline: 2px solid #8b1e1e;
+  outline-offset: 2px;
+}
+
+.card-border-cheapest { border-color: #86efac; }
+.card-border-expensive { border-color: #fca5a5; }
+
+.card-delta-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.card-delta-pill.is-up { background: #fee2e2; color: #b91c1c; }
+.card-delta-pill.is-down { background: #dcfce7; color: #15803d; }
+.card-delta-pill.is-stable { background: #f1f5f9; color: #475569; }
+
+.smart-price-range {
+  font-size: 1.38rem;
+  margin-bottom: 12px;
+}
+
+.price-range-sep {
+  font-weight: 500;
+  color: #9ca3af;
+}
+
+.card-market-compare-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 9px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.compare-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+}
+
+.compare-tag {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.compare-line.is-cheap .compare-tag { color: #15803d; }
+.compare-line.is-expensive .compare-tag { color: #dc2626; }
+
+.compare-market {
+  flex: 1;
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compare-line strong {
+  color: #0f172a;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.compare-single-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #334155;
+}
+
+.conv-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #0369a1;
+  background: #e0f2fe;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.flat-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.flat-conv-line {
+  font-size: 0.78rem;
+  color: #0369a1;
+  margin-top: -8px;
+  margin-bottom: 12px;
+}
+
+.card-detail-cta {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #8b1e1e;
+}
+
+.error-state-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  color: #991b1b;
+}
+
+@media (max-width: 900px) {
+  .multi-market-wrapper,
+  .sort-select-wrapper {
+    border-left: none;
+    border-top: 1px solid #e5e7eb;
+    padding-left: 0;
+    padding-top: 10px;
+    width: 100%;
+  }
+  .multi-market-trigger {
+    width: 100%;
+  }
+  .multi-market-popover {
+    left: 0;
+    width: 100%;
+  }
+}

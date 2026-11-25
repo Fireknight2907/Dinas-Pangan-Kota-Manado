@@ -131,13 +131,12 @@ class ModelHargaPangan {
         return !!(process.env.URL_SUPABASE && process.env.KUNCI_SUPABASE && klienBasisData);
     }
 
-    // Fungsi mengambil semua data komoditas dengan opsi filter kategori, pasar, status, dan pencarian nama
+    // Fungsi mengambil semua data komoditas dengan opsi filter kategori, multi-pasar, status, pencarian nama, dan urutan
     async ambilSemuaData(filter = {}) {
         if (this.apakahSupabaseAktif()) {
             let query = klienBasisData
                 .from(this.namaTabel)
-                .select('*')
-                .order('dibuat_pada', { ascending: false });
+                .select('*');
 
             if (filter.status) {
                 query = query.eq('status', filter.status);
@@ -147,7 +146,9 @@ class ModelHargaPangan {
                 query = query.eq('kategori', filter.kategori);
             }
 
-            if (filter.pasar && filter.pasar !== 'Semua') {
+            if (Array.isArray(filter.pasarList) && filter.pasarList.length > 0) {
+                query = query.in('nama_pasar', filter.pasarList);
+            } else if (filter.pasar && filter.pasar !== 'Semua') {
                 query = query.eq('nama_pasar', filter.pasar);
             }
 
@@ -155,27 +156,33 @@ class ModelHargaPangan {
                 query = query.ilike('nama_komoditas', `%${filter.cari}%`);
             }
 
+            if (filter.urutkan === 'termurah') {
+                query = query.order('harga', { ascending: true });
+            } else if (filter.urutkan === 'termahal') {
+                query = query.order('harga', { ascending: false });
+            } else if (filter.urutkan === 'abjad') {
+                query = query.order('nama_komoditas', { ascending: true });
+            } else {
+                query = query.order('diperbarui_pada', { ascending: false });
+            }
+
             const { data, error } = await query;
             if (error) throw error;
-            return data;
+            return Array.isArray(data) ? data : [];
         }
 
-        // Mode lokal/fallback
-        let data = [...this.dataCadangan];
-        if (filter.status) {
-            data = data.filter(item => item.status === filter.status);
-        }
-        if (filter.kategori && filter.kategori !== 'Semua') {
-            data = data.filter(item => item.kategori.toLowerCase() === filter.kategori.toLowerCase());
-        }
-        if (filter.pasar && filter.pasar !== 'Semua') {
-            data = data.filter(item => item.nama_pasar.toLowerCase() === filter.pasar.toLowerCase());
-        }
-        if (filter.cari) {
-            const keyword = filter.cari.toLowerCase();
-            data = data.filter(item => item.nama_komoditas.toLowerCase().includes(keyword));
-        }
-        return data;
+        // Mode tanpa koneksi database aktif mengembalikan kosong (bebas data dummy untuk tampilan publik)
+        return [];
+    }
+
+    // Fungsi mencatat jumlah klik lihat komoditas oleh masyarakat ke basis data
+    async tambahJumlahDilihat(namaKomoditas) {
+        if (!this.apakahSupabaseAktif() || !namaKomoditas) return false;
+        const { error } = await klienBasisData.rpc('rpc_tambah_lihat_komoditas', {
+            p_nama_komoditas: String(namaKomoditas).trim()
+        });
+        if (error) throw error;
+        return true;
     }
 
     // Mengambil ringkasan statistik untuk Dashboard Petugas (Sesuai Gambar 1)

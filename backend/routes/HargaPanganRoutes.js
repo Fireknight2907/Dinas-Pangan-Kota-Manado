@@ -24,6 +24,12 @@ router.get('/dashboard-stats', (req, res) => HargaPanganController.ambilStatisti
 // 3. Ambil daftar nama pasar yang terdaftar
 router.get('/pasar', (req, res) => HargaPanganController.daftarPasar(req, res));
 
+// 3b. Ambil riwayat perubahan harga pangan riil (?komoditas=&pasar=&hari=30)
+router.get('/riwayat', (req, res) => HargaPanganController.ambilRiwayat(req, res));
+
+// 3c. Catat jumlah dilihat komoditas dari portal publik
+router.post('/lihat', (req, res) => HargaPanganController.catatLihat(req, res));
+
 // 4. Ambil detail satu komoditas berdasarkan ID
 router.get('/:id', (req, res) => HargaPanganController.detailSatu(req, res));
 

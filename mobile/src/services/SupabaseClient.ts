@@ -63,27 +63,30 @@ export class SupabaseRestClient {
 
   // --- HARGA PANGAN ---
   async getHargaPangan(): Promise<any[]> {
-    return this.request<any[]>('harga_pangan?order=dibuat_pada.desc');
+    return this.request<any[]>('harga_pangan?order=diperbarui_pada.desc');
   }
 
   async tambahHargaPangan(item: any): Promise<any> {
-    const payload = {
+    const payload: any = {
       nama_komoditas: item.nama_komoditas,
       kategori: item.kategori || 'Bahan Pokok',
       satuan: item.satuan || 'kg',
       harga: Number(item.harga) || 0,
       nama_pasar: item.nama_pasar,
-      tanggal_penetapan: item.tanggal_penetapan || '14 Oktober 2026',
+      tanggal_penetapan: item.tanggal_penetapan || new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
       status: item.status || 'Terbit',
       catatan_perubahan: item.catatan_perubahan || '',
       bidang: item.bidang || 'Bidang Cadangan dan Distribusi Pangan'
     };
+    if (item.prioritas_tampil !== undefined) payload.prioritas_tampil = Number(item.prioritas_tampil);
     const res = await this.request<any[]>('harga_pangan', 'POST', payload);
     return Array.isArray(res) && res.length > 0 ? res[0] : res;
   }
 
   async updateHargaPangan(id: string, data: any): Promise<any> {
-    const payload: any = {};
+    const payload: any = {
+      diperbarui_pada: new Date().toISOString()
+    };
     if (data.nama_komoditas !== undefined) payload.nama_komoditas = data.nama_komoditas;
     if (data.kategori !== undefined) payload.kategori = data.kategori;
     if (data.satuan !== undefined) payload.satuan = data.satuan;
@@ -92,6 +95,7 @@ export class SupabaseRestClient {
     if (data.tanggal_penetapan !== undefined) payload.tanggal_penetapan = data.tanggal_penetapan;
     if (data.status !== undefined) payload.status = data.status;
     if (data.catatan_perubahan !== undefined) payload.catatan_perubahan = data.catatan_perubahan;
+    if (data.prioritas_tampil !== undefined) payload.prioritas_tampil = Number(data.prioritas_tampil);
 
     const res = await this.request<any[]>(`harga_pangan?id=eq.${encodeURIComponent(id)}`, 'PATCH', payload);
     if (Array.isArray(res)) {
@@ -102,6 +106,90 @@ export class SupabaseRestClient {
 
   async hapusHargaPangan(id: string): Promise<boolean> {
     await this.request(`harga_pangan?id=eq.${encodeURIComponent(id)}`, 'DELETE');
+    return true;
+  }
+
+  // --- RIWAYAT HARGA PANGAN & METRIK PUBLIK (DATA RIIL DB) ---
+  async getRiwayatHarga(opsi: { namaKomoditas?: string; rentangHari?: number; batas?: number } = {}): Promise<any[]> {
+    const { namaKomoditas = '', rentangHari = 30, batas = 500 } = opsi;
+    const params = ['order=dicatat_pada.asc'];
+    if (namaKomoditas && namaKomoditas.trim() !== '') {
+      params.push(`nama_komoditas=ilike.${encodeURIComponent(namaKomoditas.trim())}`);
+    }
+    const hariAngka = Number(rentangHari);
+    if (hariAngka > 0) {
+      const batasTanggal = new Date();
+      batasTanggal.setDate(batasTanggal.getDate() - hariAngka);
+      params.push(`dicatat_pada=gte.${encodeURIComponent(batasTanggal.toISOString())}`);
+    }
+    if (batas > 0) {
+      params.push(`limit=${Number(batas)}`);
+    }
+    return this.request<any[]>(`riwayat_harga_pangan?${params.join('&')}`);
+  }
+
+  async getRiwayatHargaTerbaru(batas: number = 400): Promise<any[]> {
+    return this.request<any[]>(`riwayat_harga_pangan?order=dicatat_pada.desc&limit=${Number(batas)}`);
+  }
+
+  async tambahJumlahDilihat(namaKomoditas: string): Promise<boolean> {
+    if (!namaKomoditas || !namaKomoditas.trim()) return false;
+    try {
+      await fetch(`${SUPABASE_CONFIG.url}/rest/v1/rpc/rpc_tambah_lihat_komoditas`, {
+        method: 'POST',
+        headers: {
+          'apikey': this.apikey,
+          'Authorization': `Bearer ${this.apikey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ p_nama_komoditas: namaKomoditas.trim() })
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // --- MASTER DATA RESMI (SATUAN TERKUNCI PER 1, PASAR, KECAMATAN) ---
+  async getMasterSatuan(): Promise<any[]> {
+    return this.request<any[]>('master_satuan?order=dibuat_pada.asc');
+  }
+
+  async tambahMasterSatuan(namaSatuan: string): Promise<any> {
+    const res = await this.request<any[]>('master_satuan', 'POST', { nama_satuan: namaSatuan });
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async hapusMasterSatuan(namaSatuan: string): Promise<boolean> {
+    await this.request(`master_satuan?nama_satuan=eq.${encodeURIComponent(namaSatuan)}`, 'DELETE');
+    return true;
+  }
+
+  async getMasterPasar(): Promise<any[]> {
+    return this.request<any[]>('master_pasar?order=nama_pasar.asc');
+  }
+
+  async tambahMasterPasar(namaPasar: string): Promise<any> {
+    const res = await this.request<any[]>('master_pasar', 'POST', { nama_pasar: namaPasar });
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async hapusMasterPasar(namaPasar: string): Promise<boolean> {
+    await this.request(`master_pasar?nama_pasar=eq.${encodeURIComponent(namaPasar)}`, 'DELETE');
+    return true;
+  }
+
+  async getMasterKecamatan(): Promise<any[]> {
+    return this.request<any[]>('master_kecamatan?order=nama_kecamatan.asc');
+  }
+
+  async tambahMasterKecamatan(namaKecamatan: string): Promise<any> {
+    const res = await this.request<any[]>('master_kecamatan', 'POST', { nama_kecamatan: namaKecamatan });
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async hapusMasterKecamatan(namaKecamatan: string): Promise<boolean> {
+    await this.request(`master_kecamatan?nama_kecamatan=eq.${encodeURIComponent(namaKecamatan)}`, 'DELETE');
     return true;
   }
 

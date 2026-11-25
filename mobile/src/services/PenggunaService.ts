@@ -148,7 +148,7 @@ class PenggunaMobileService {
           { id: 'grafik-pangan', label: 'Grafik Pangan', icon: '📈' },
           { id: 'laporan-gpm', label: 'Laporan GPM', icon: '📋' },
           { id: 'kelola-user', label: 'Kelola Pengguna', icon: '👥' },
-          { id: 'master-data', label: 'Master Pasar & Wilayah', icon: '🏛️' },
+          { id: 'master-data', label: 'Master Satuan, Pasar & Wilayah', icon: '🏛️' },
           { id: 'cek-gpm', label: 'Menu Cek GPM', icon: '🔍' }
         ];
 
@@ -156,7 +156,7 @@ class PenggunaMobileService {
         return [
           { id: 'dashboard', label: 'Beranda', icon: '📊' },
           { id: 'kelola-user', label: 'Kelola Pengguna', icon: '👥' },
-          { id: 'master-data', label: 'Master Pasar & Wilayah', icon: '🏛️' },
+          { id: 'master-data', label: 'Master Satuan, Pasar & Wilayah', icon: '🏛️' },
           { id: 'cek-gpm', label: 'Menu Cek GPM', icon: '🔍' }
         ];
 
