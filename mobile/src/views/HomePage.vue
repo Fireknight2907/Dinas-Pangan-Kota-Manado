@@ -1971,10 +1971,7 @@
           <!-- 6. Subheader InfoRow -->
           <div class="mobile-info-summary-row">
             <span class="info-found-text">
-              {{ totalTampilPublik }} {{ modeTampilanPublik === 'semua-pasar' ? 'catatan pasar' : 'varian komoditas' }}
-            </span>
-            <span class="info-unit-text">
-              {{ modeTampilanPublik === 'matriks' ? 'Geser tabel ↔ • Ketuk baris utk riwayat' : 'Ketuk kartu untuk riwayat & pasar' }}
+              Menampilkan {{ totalTampilPublik }} komoditas
             </span>
           </div>
 

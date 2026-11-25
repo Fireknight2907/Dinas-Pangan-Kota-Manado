@@ -552,9 +552,7 @@ export default function HargaPanganWeb({ onBukaLogin }) {
               <div className="subtoolbar-row">
                 <div className="subtoolbar-left">
                   <span className="summary-count-text">
-                    Menampilkan <strong>{totalTampil}</strong>{' '}
-                    {modeTampilan === 'semua-pasar' ? 'catatan harga pasar' : 'varian komoditas'}
-                    {' • Semua harga per 1 satuan resmi (Master Satuan)'}
+                    Menampilkan <strong>{totalTampil}</strong> komoditas
                   </span>
 
                   {(pasarTerpilih.length > 0 || kelompokAktif !== 'Semua' || varianAktif !== 'Semua') && (
