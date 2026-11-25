@@ -465,15 +465,15 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   const handleBatalEditStaf = () => {
     setIdEditHarga(null);
     setIdEditSementara(null);
-    setFormHarga({
+    setFormHarga((prev) => ({
       nama_komoditas: '',
       kategori: 'Bahan Pokok',
       satuan: daftarSatuan[0] || '1 KG',
       harga: '',
-      nama_pasar: daftarPasar[0] || 'Pasar Bersehati Karombasan',
+      nama_pasar: prev.nama_pasar || daftarPasar[0] || '',
       status: 'Draft',
       prioritas_tampil: 50
-    });
+    }));
   };
 
   // PK-14: Tambah / perbarui baris di Tabel Input Harga Sementara (belum kirim ke DB)
@@ -560,8 +560,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   };
 
   const handleAjukanDaftarSementara = async () => {
-    if (daftarSementaraHarga.length === 0) {
-      alert('Tabel input harga sementara masih kosong!');
+    const barisValid = daftarSementaraHarga.filter((r) => Number(r.harga) > 0);
+    if (barisValid.length === 0) {
+      alert('Minimal isi 1 harga komoditas (> 0) pada tabel sementara sebelum mengajukan!');
       return;
     }
     if (!formHarga.nama_pasar || !tanggalPengambilan) {
@@ -577,12 +578,12 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
     setSedangMenyimpan(true);
     try {
-      for (const row of daftarSementaraHarga) {
+      for (const row of barisValid) {
         await hargaPanganService.tambah({
           nama_komoditas: row.nama_komoditas,
           kategori: row.kategori,
           satuan: row.satuan,
-          harga: row.harga,
+          harga: Number(row.harga),
           nama_pasar: formHarga.nama_pasar,
           status: statusFinal,
           prioritas_tampil: row.prioritas_tampil,
@@ -590,7 +591,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         });
       }
       tampilkanPesan(
-        `✅ ${daftarSementaraHarga.length} komoditas untuk ${formHarga.nama_pasar} (${tglFormatted}) berhasil diajukan sebagai data baru!`
+        `✅ ${barisValid.length} komoditas untuk ${formHarga.nama_pasar} (${tglFormatted}) berhasil diajukan sebagai data baru!`
       );
       setDaftarSementaraHarga([]);
       setIdEditSementara(null);
@@ -650,16 +651,16 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         tampilkanPesan(`✅ Pengajuan harga "${formHarga.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diajukan ke Kepala Bidang untuk diverifikasi.`);
       }
 
-      // Reset form
-      setFormHarga({
+      // Reset form (pertahankan pasar yang sedang dipilih agar input tetap per pasar)
+      setFormHarga((prev) => ({
         nama_komoditas: '',
         kategori: 'Bahan Pokok',
         satuan: daftarSatuan[0] || '1 KG',
         harga: '',
-        nama_pasar: daftarPasar[0] || 'Pasar Bersehati Karombasan',
+        nama_pasar: prev.nama_pasar || daftarPasar[0] || '',
         status: 'Draft',
         prioritas_tampil: 50
-      });
+      }));
 
       await muatDataDashboard();
     } catch (error) {
@@ -1444,12 +1445,14 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                       <div className="form-field-group">
                         <label className="field-label-text">1. Pilih Pasar Terdaftar *</label>
                         <select
+                          required
                           className="field-select-box"
                           value={formHarga.nama_pasar}
                           disabled={daftarSementaraHarga.length > 0}
                           title={daftarSementaraHarga.length > 0 ? 'Ajukan atau kosongkan daftar sementara untuk ganti pasar' : ''}
                           onChange={(e) => setFormHarga({ ...formHarga, nama_pasar: e.target.value })}
                         >
+                          <option value="">-- Pilih Pasar Terlebih Dahulu --</option>
                           {daftarPasar.map((pasar, idx) => (
                             <option key={idx} value={pasar}>{pasar}</option>
                           ))}
@@ -1470,6 +1473,43 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                       <small style={{ color: '#0369a1', fontWeight: 600, display: 'block', marginTop: '6px' }}>
                         🔒 Sesi aktif terkunci untuk <strong>{formHarga.nama_pasar}</strong> tanggal <strong>{tanggalPengambilan}</strong> agar input terpisah per pasar.
                       </small>
+                    )}
+                    {formHarga.nama_pasar && daftarSementaraHarga.length === 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const barisOtomatis = daftarMasterKomoditas.map((k) => {
+                            const hargaLama = daftarHarga.find(
+                              (h) =>
+                                (h.nama_pasar || '').toLowerCase() === formHarga.nama_pasar.toLowerCase() &&
+                                (h.nama_komoditas || '').toLowerCase() === k.nama_komoditas.toLowerCase()
+                            );
+                            return {
+                              tempId: `tmp-${k.nama_komoditas}-${Date.now()}`,
+                              nama_komoditas: k.nama_komoditas,
+                              kategori: k.kategori || 'Bahan Pokok',
+                              satuan: formatSatuanTampil(k.satuan_bawaan || '1 KG'),
+                              harga: hargaLama ? Math.round(Number(hargaLama.harga) || 0) : '',
+                              prioritas_tampil: Number(k.prioritas_tampil) || 50
+                            };
+                          });
+                          setDaftarSementaraHarga(barisOtomatis);
+                        }}
+                        style={{
+                          marginTop: '10px',
+                          width: '100%',
+                          background: '#0f172a',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '9px 14px',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        📋 Isi Cepat: Muat Semua Komoditas ({daftarMasterKomoditas.length}) ke Tabel {formHarga.nama_pasar}
+                      </button>
                     )}
                   </div>
                 )}
@@ -1604,9 +1644,27 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                             <tbody>
                               {daftarSementaraHarga.map((row) => (
                                 <tr key={row.tempId} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                  <td style={{ padding: '8px', fontWeight: 700 }}>{row.nama_komoditas}</td>
+                                  <td style={{ padding: '8px', fontWeight: 700 }}>
+                                    <div>{row.nama_komoditas}</div>
+                                    <small style={{ color: '#64748b', fontWeight: 500 }}>{row.kategori}</small>
+                                  </td>
                                   <td style={{ padding: '8px' }}>{row.satuan}</td>
-                                  <td style={{ padding: '8px', fontWeight: 700, color: '#8b1e1e' }}>{formatRupiah(row.harga)}</td>
+                                  <td style={{ padding: '8px' }}>
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={row.harga}
+                                      placeholder="Rp..."
+                                      onKeyDown={hanyaBolehAngka}
+                                      onChange={(e) => {
+                                        const val = e.target.value.replace(/[^0-9]/g, '');
+                                        setDaftarSementaraHarga((prev) =>
+                                          prev.map((r) => (r.tempId === row.tempId ? { ...r, harga: val ? parseInt(val, 10) : '' } : r))
+                                        );
+                                      }}
+                                      style={{ width: '105px', padding: '5px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, color: '#8b1e1e', fontSize: '0.82rem' }}
+                                    />
+                                  </td>
                                   <td style={{ padding: '8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                                     <button type="button" onClick={() => handleMulaiEditSementara(row)} style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: '4px', padding: '3px 7px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', marginRight: '4px' }}>
                                       ✏️ Edit

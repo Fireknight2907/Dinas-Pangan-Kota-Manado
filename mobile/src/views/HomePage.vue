@@ -204,7 +204,17 @@
 
             <form @submit.prevent="simpanHargaPetugas('Terbit')" class="staff-entry-form">
               <div class="s-field">
-                <label>Komoditas / Varian Resmi (Master Admin)</label>
+                <label>1. Pilih Pasar Terlebih Dahulu *</label>
+                <select v-model="formPenetapan.nama_pasar" class="s-select-market" required>
+                  <option value="">-- Pilih Pasar --</option>
+                  <option v-for="p in Array.from(new Set([...daftarPasar, formPenetapan.nama_pasar].filter(Boolean)))" :key="p" :value="p">
+                    {{ p }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="s-field">
+                <label>2. Komoditas / Varian Resmi (Master Admin)</label>
                 <select
                   class="s-select-market"
                   :value="formPenetapan.nama_komoditas"
@@ -262,15 +272,6 @@
                     Terformat: {{ formatRupiah(parseInt(formPenetapan.harga, 10)) }}
                   </small>
                 </div>
-              </div>
-
-              <div class="s-field">
-                <label>Pasar</label>
-                <select v-model="formPenetapan.nama_pasar" class="s-select-market">
-                  <option v-for="p in Array.from(new Set([...daftarPasar, formPenetapan.nama_pasar].filter(Boolean)))" :key="p" :value="p">
-                    {{ p }}
-                  </option>
-                </select>
               </div>
 
               <div class="s-button-stack">
@@ -5052,7 +5053,7 @@ const batalEditItem = () => {
     kategori: 'Bahan Pokok',
     satuan: daftarSatuan.value[0] || '1 KG',
     harga: '',
-    nama_pasar: daftarPasar.value[0] || 'Pasar Tradisional Bahu',
+    nama_pasar: formPenetapan.value.nama_pasar || daftarPasar.value[0] || 'Pasar Tradisional Bahu',
     status: 'Terbit',
     prioritas_tampil: 50
   };
