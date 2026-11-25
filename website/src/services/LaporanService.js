@@ -1,9 +1,12 @@
 // ===================================================================================
 // MODUL LAYANAN LAPORAN RESMI DAN STATISTIK PANGAN (OOP)
 // Bidang: Cadangan dan Distribusi Pangan - Dinas Pangan Kota Manado
-// Berfungsi untuk mengolah data rekapitulasi, evaluasi pelaksanaan GPM,
-// analisis tren grafik pangan dengan data riil basis data, dan penyusunan dokumen laporan.
+// Fungsi: Mengolah tren fluktuasi harga pangan 100% dari tabel riwayat_harga_pangan
+//         Supabase (tanpa simulasi garis datar / tanpa harga palsu Rp 15.000),
+//         rekapitulasi GPM riil, dan ekspor CSV resmi dengan penandatangan dinamis.
 // ===================================================================================
+
+import { riwayatHargaService } from './RiwayatHargaService.js';
 
 class LaporanService {
     constructor() {
@@ -11,137 +14,176 @@ class LaporanService {
         this.bidangResmi = 'Bidang Cadangan dan Distribusi Pangan';
     }
 
-    // 1. Data Tren Fluktuasi Harga Komoditas untuk Tampilan Grafik Pangan Kadis (DATA RIIL DATABASE)
-    ambilDataTrenKomoditas(namaKomoditas = 'Beras Medium', periode = '7hari', namaPasar = 'Semua', dataHargaKoleksi = []) {
-        // Ambil sumber harga riil dari basis data Supabase
-        let sumberHarga = Array.isArray(dataHargaKoleksi) && dataHargaKoleksi.length > 0
-            ? dataHargaKoleksi
-            : [];
+    konversiPeriodeKeHari(periode = '7hari') {
+        if (periode === '7hari') return 7;
+        if (periode === '30hari') return 30;
+        if (periode === '3bulan') return 90;
+        return 30;
+    }
 
-        if (sumberHarga.length === 0) {
-            try {
-                const tersimpan = localStorage.getItem('sipatokaan_custom_items');
-                if (tersimpan) sumberHarga = JSON.parse(tersimpan);
-            } catch (_) { }
+    formatLabelTanggalTitik(isoString, tampilkanJam = false) {
+        if (!isoString) return '-';
+        const d = new Date(isoString);
+        if (Number.isNaN(d.getTime())) return String(isoString);
+        if (tampilkanJam) {
+            return d.toLocaleString('id-ID', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
         }
+        return d.toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'short'
+        });
+    }
 
-        if (!Array.isArray(sumberHarga)) sumberHarga = [];
+    // 1. Data Tren Fluktuasi Harga Komoditas Kadis — 100% RIIL dari tabel riwayat_harga_pangan Supabase
+    async ambilDataTrenKomoditas(namaKomoditas = '', periode = '7hari', namaPasar = 'Semua', dataHargaKoleksi = []) {
+        const namaBersih = String(namaKomoditas || '').trim();
+        const pasarBersih = String(namaPasar || 'Semua').trim() || 'Semua';
 
-        // Filter komoditas sesuai nama jenis pangan
-        let cocok = sumberHarga.filter(i =>
-            (i.nama_komoditas || '').toLowerCase().trim() === namaKomoditas.toLowerCase().trim()
-        );
+        const hasilKosong = {
+            adaData: false,
+            sumber: 'kosong',
+            jumlahCatatan: 0,
+            namaKomoditas: namaBersih,
+            periode,
+            pasar: pasarBersih,
+            hargaTerkini: 0,
+            hargaAwal: 0,
+            hargaTertinggi: 0,
+            hargaTerendah: 0,
+            rataRata: 0,
+            selisih: 0,
+            persentase: 0,
+            statusTren: 'Stabil',
+            titikData: []
+        };
 
-        if (namaPasar && namaPasar !== 'Semua') {
-            const cocokPasar = cocok.filter(i => (i.nama_pasar || '').toLowerCase() === namaPasar.toLowerCase());
-            if (cocokPasar.length > 0) cocok = cocokPasar;
-        }
+        if (!namaBersih) return hasilKosong;
 
-        // Ambil harga acuan riil dari database
-        const itemUtama = cocok[0];
-        const hargaTerkiniDB = itemUtama ? Number(itemUtama.harga) : 15000;
-        const pasarUtama = itemUtama ? itemUtama.nama_pasar : (namaPasar === 'Semua' ? 'Rata-rata Pasar' : namaPasar);
+        const rentangHari = this.konversiPeriodeKeHari(periode);
+        const pasarTerpilih = pasarBersih !== 'Semua' ? [pasarBersih] : [];
 
-        let titikData = [];
-        const hariIni = new Date();
-
-        if (namaPasar === 'Semua' && cocok.length > 1) {
-            // Jika ada lebih dari satu pasar untuk komoditas ini, tampilkan perbandingan riil antar pasar di Manado
-            titikData = cocok.map((c, idx) => ({
-                tanggal: c.nama_pasar ? c.nama_pasar.replace(/^Pasar\s+/i, '') : `Pasar ${idx + 1}`,
-                harga: Number(c.harga),
-                pasar: c.nama_pasar || 'Pasar Tradisional'
-            }));
-        } else {
-            // Tampilkan tren berbasis rentang tanggal resmi
-            const jumlahTitik = periode === '7hari' ? 7 : periode === '30hari' ? 5 : 6;
-            const lompatanHari = periode === '7hari' ? 1 : periode === '30hari' ? 7 : 15;
-
-            for (let i = jumlahTitik - 1; i >= 0; i--) {
-                const d = new Date(hariIni);
-                d.setDate(d.getDate() - (i * lompatanHari));
-                const tglStr = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-
-                titikData.push({
-                    tanggal: tglStr,
-                    harga: hargaTerkiniDB,
-                    pasar: pasarUtama
-                });
+        let riwayatKronologis = [];
+        try {
+            const hasilRiwayat = await riwayatHargaService.ambilRiwayatKomoditas(namaBersih, {
+                pasarTerpilih,
+                rentangHari
+            });
+            if (Array.isArray(hasilRiwayat?.riwayatKronologis)) {
+                riwayatKronologis = hasilRiwayat.riwayatKronologis;
             }
+        } catch (err) {
+            console.warn('Gagal memuat riwayat_harga_pangan untuk grafik Kadis:', err?.message);
         }
 
-        const hargaAngka = titikData.map(d => d.harga);
-        const hargaTerkini = hargaAngka[hargaAngka.length - 1] || hargaTerkiniDB;
-        const hargaAwal = hargaAngka[0] || hargaTerkiniDB;
-        const hargaTertinggi = Math.max(...hargaAngka);
-        const hargaTerendah = Math.min(...hargaAngka);
-        const rataRata = Math.round(hargaAngka.reduce((acc, c) => acc + c, 0) / (hargaAngka.length || 1));
+        // A. Prioritas Utama: Data historis riil dari tabel riwayat_harga_pangan
+        if (riwayatKronologis.length > 0) {
+            const potongan = riwayatKronologis.slice(-30);
+            const hariUnik = new Set(potongan.map(r => this.formatLabelTanggalTitik(r.dicatat_pada, false)));
+            const pakaiJam = potongan.length > 1 && hariUnik.size < potongan.length;
+
+            const titikData = potongan.map((r) => ({
+                tanggal: this.formatLabelTanggalTitik(r.dicatat_pada, pakaiJam),
+                tanggalLengkap: r.dicatat_pada
+                    ? new Date(r.dicatat_pada).toLocaleString('id-ID', {
+                        day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                    })
+                    : '-',
+                harga: Number(r.harga_baru) || 0,
+                hargaLama: r.harga_lama !== null && r.harga_lama !== undefined ? Number(r.harga_lama) : null,
+                selisih: Number(r.selisih) || 0,
+                pasar: r.nama_pasar || '-',
+                keterangan: r.keterangan || ''
+            }));
+
+            return this.hitungMetrikDariTitik({
+                namaKomoditas: namaBersih,
+                periode,
+                pasar: pasarBersih,
+                sumber: 'riwayat',
+                jumlahCatatan: riwayatKronologis.length,
+                titikData
+            });
+        }
+
+        // B. Jika belum ada riwayat perubahan pada rentang hari ini, tampilkan snapshot riil saat ini dari tabel harga_pangan (TANPA duplikasi tanggal fiktif)
+        const sumberHarga = Array.isArray(dataHargaKoleksi) ? dataHargaKoleksi : [];
+        let cocok = sumberHarga.filter(i =>
+            (i.nama_komoditas || '').toLowerCase().trim() === namaBersih.toLowerCase()
+        );
+        if (pasarBersih !== 'Semua') {
+            cocok = cocok.filter(i => (i.nama_pasar || '').toLowerCase().trim() === pasarBersih.toLowerCase());
+        }
+
+        if (cocok.length > 0) {
+            const titikData = cocok.map((c, idx) => ({
+                tanggal: cocok.length > 1
+                    ? (c.nama_pasar ? c.nama_pasar.replace(/^Pasar\s+/i, '') : `Pasar ${idx + 1}`)
+                    : (c.tanggal_penetapan || 'Terkini'),
+                tanggalLengkap: `${c.nama_pasar || '-'} (${c.tanggal_penetapan || 'Terkini'})`,
+                harga: Number(c.harga) || 0,
+                hargaLama: null,
+                selisih: 0,
+                pasar: c.nama_pasar || '-',
+                keterangan: 'Harga acuan terkini (belum ada riwayat perubahan pada periode ini)'
+            }));
+
+            return this.hitungMetrikDariTitik({
+                namaKomoditas: namaBersih,
+                periode,
+                pasar: pasarBersih,
+                sumber: 'snapshot',
+                jumlahCatatan: titikData.length,
+                titikData
+            });
+        }
+
+        // C. Jika memang tidak ada data sama sekali di database, kembalikan kosong jujur (BUKAN Rp 15.000)
+        return hasilKosong;
+    }
+
+    hitungMetrikDariTitik({ namaKomoditas, periode, pasar, sumber, jumlahCatatan, titikData }) {
+        const hargaAngka = titikData.map(d => Number(d.harga) || 0);
+        const hargaAwal = hargaAngka[0] || 0;
+        const hargaTerkini = hargaAngka[hargaAngka.length - 1] || 0;
+        const hargaTertinggi = hargaAngka.length > 0 ? Math.max(...hargaAngka) : 0;
+        const hargaTerendah = hargaAngka.length > 0 ? Math.min(...hargaAngka) : 0;
+        const rataRata = hargaAngka.length > 0
+            ? Math.round(hargaAngka.reduce((acc, c) => acc + c, 0) / hargaAngka.length)
+            : 0;
 
         const selisih = hargaTerkini - hargaAwal;
-        const persentase = hargaAwal > 0 ? ((selisih / hargaAwal) * 100).toFixed(1) : '0.0';
+        const persentase = hargaAwal > 0 ? Number(((selisih / hargaAwal) * 100).toFixed(1)) : 0;
 
         let statusTren = 'Stabil';
-        if (selisih > 50) statusTren = 'Naik';
-        else if (selisih < -50) statusTren = 'Turun';
+        if (selisih > 0) statusTren = 'Naik';
+        else if (selisih < 0) statusTren = 'Turun';
 
         return {
+            adaData: titikData.length > 0,
+            sumber,
+            jumlahCatatan,
             namaKomoditas,
             periode,
-            pasar: namaPasar,
+            pasar,
             hargaTerkini,
+            hargaAwal,
             hargaTertinggi,
             hargaTerendah,
             rataRata,
             selisih,
-            persentase: Math.abs(Number(persentase)),
+            persentase: Math.abs(persentase),
             statusTren,
             titikData
         };
     }
 
-    // 2. Data Rekapitulasi Pelaksanaan GPM (DATA RIIL DATABASE & KEGIATAN)
-    ambilRekapitulasiGPM() {
-        let daftarAcara = [];
-        try {
-            const aktif = localStorage.getItem('sipatokaan_daftar_gpm');
-            const riwayat = localStorage.getItem('sipatokaan_riwayat_gpm');
-            if (aktif) daftarAcara.push(...JSON.parse(aktif));
-            if (riwayat) daftarAcara.push(...JSON.parse(riwayat));
-        } catch (_) { }
-
-        let daftarPendaftar = [];
-        try {
-            const p = localStorage.getItem('sipatokaan_pendaftar_gpm_cache');
-            if (p) daftarPendaftar = JSON.parse(p);
-        } catch (_) { }
-
-        if (!Array.isArray(daftarPendaftar)) daftarPendaftar = [];
-
-        if (daftarAcara.length > 0) {
-            return daftarAcara.map(a => {
-                const pendaftarAcara = daftarPendaftar.filter(p => p.acara_id === a.id);
-                const terdaftarCount = Math.max(pendaftarAcara.length, a.antrean_terisi || 0);
-                const terlayaniCount = pendaftarAcara.filter(p => p.status_kehadiran === 'Hadir').length;
-                return {
-                    id: a.id,
-                    nama_acara: a.nama_acara,
-                    lokasi: a.lokasi,
-                    kecamatan: a.kecamatan || 'Wenang',
-                    tanggal: a.tanggal,
-                    target_kuota: a.kuota_maksimal || 250,
-                    terdaftar: terdaftarCount,
-                    terlayani: terlayaniCount,
-                    status: a.status || 'Aktif',
-                    komoditas_tersedia: a.komoditas_tersedia || '-'
-                };
-            });
-        }
-
-        return [];
-    }
-
-    // 3. Ekspor Laporan Komoditas Pangan ke Format CSV (Kompatibel Excel dengan Kop Surat & Spacing Rapi)
-    eksporLaporanHargaCSV(daftarKomoditas) {
+    // 2. Ekspor Laporan Komoditas Pangan ke Format CSV (Kop Surat Resmi + Penandatangan Dinamis Tanpa Nama/NIP Fiktif)
+    eksporLaporanHargaCSV(daftarKomoditas, penandatangan = {}) {
         if (!daftarKomoditas || daftarKomoditas.length === 0) {
             alert('Tidak ada data komoditas pangan untuk diunduh.');
             return;
@@ -151,6 +193,12 @@ class LaporanService {
         const totalTerbit = daftarKomoditas.filter(i => (i.status || '').toLowerCase() === 'terbit').length;
         const totalDraft = totalKomoditas - totalTerbit;
         const tanggalCetak = new Date().toLocaleString('id-ID');
+
+        const namaPejabat = (penandatangan?.nama || '').trim();
+        const barisNama = namaPejabat ? `( ${namaPejabat} )` : '( ........................................ )';
+        const barisNip = (penandatangan?.nip && String(penandatangan.nip).trim())
+            ? `NIP. ${String(penandatangan.nip).trim()}`
+            : 'NIP. ........................................';
 
         let csv = '\uFEFF'; // Karakter UTF-8 BOM untuk kompatibilitas penuh Microsoft Excel
         csv += 'PEMERINTAH KOTA MANADO\n';
@@ -177,7 +225,7 @@ class LaporanService {
             const kategori = `"${(item.kategori || 'Bahan Pokok').replace(/"/g, '""')}"`;
             const satuan = `"${(item.satuan || '1 KG').replace(/"/g, '""')}"`;
             const harga = item.harga || 0;
-            const pasar = `"${(item.nama_pasar || 'Pasar Tradisional').replace(/"/g, '""')}"`;
+            const pasar = `"${(item.nama_pasar || '-').replace(/"/g, '""')}"`;
             const tgl = `"${(item.tanggal_penetapan || '-').replace(/"/g, '""')}"`;
             const status = `"${(item.status || 'Terbit').replace(/"/g, '""')}"`;
             const instansi = `"${this.bidangResmi}"`;
@@ -188,8 +236,8 @@ class LaporanService {
         csv += 'Mengetahui dan Mengesahkan:\n';
         csv += 'Kepala Bidang Cadangan dan Distribusi Pangan\n';
         csv += 'Dinas Pangan Pemerintah Kota Manado\n\n\n';
-        csv += '( MEITY RONDONUWU, S.Pt, M.Si )\n';
-        csv += 'NIP. 19780815 200501 2 008\n';
+        csv += `${barisNama}\n`;
+        csv += `${barisNip}\n`;
 
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);

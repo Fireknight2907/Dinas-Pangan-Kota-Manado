@@ -84,14 +84,14 @@ export default function PetugasGPMManager({ token, pengguna }) {
   const [formGPM, setFormGPM] = useState({
     nama_acara: '',
     lokasi: '',
-    kecamatan: 'Wenang',
+    kecamatan: '',
     tanggal: new Date().toISOString().split('T')[0],
     jam_mulai: '08:00',
     jam_selesai: '13:00',
     latitude: 1.4883,
     longitude: 124.8436,
-    kuota_maksimal: 250,
-    komoditas_tersedia: 'Beras SPHP 5kg, Minyakita 1L, Gula Pasir 1kg, Telur Ayam',
+    kuota_maksimal: 100,
+    komoditas_tersedia: '',
     deskripsi: ''
   });
   const [sedangSimpanAcara, setSedangSimpanAcara] = useState(false);
@@ -1544,7 +1544,7 @@ export default function PetugasGPMManager({ token, pengguna }) {
                     </div>
                     <div className="meta-stats-row">
                       <div className="stat-pill">
-                        <span className="stat-pill-num">{acara.kuota_maksimal || 250}</span>
+                        <span className="stat-pill-num">{acara.kuota_maksimal || 0}</span>
                         <span className="stat-pill-label">Total Kuota</span>
                       </div>
                       <div className="stat-pill">
@@ -1765,7 +1765,7 @@ export default function PetugasGPMManager({ token, pengguna }) {
                   <input
                     type="text"
                     required
-                    placeholder="Contoh: Meity Rondonuwu"
+                    placeholder="Masukkan nama lengkap warga"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
                     value={modalTambahManual.nama}
                     onChange={(e) => {

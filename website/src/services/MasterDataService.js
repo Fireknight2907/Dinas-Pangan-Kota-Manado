@@ -2,8 +2,8 @@
 // Modul Layanan Master Data Resmi - Admin & Superadmin (OOP)
 // Fungsi: Mengelola daftar Master Satuan (terkunci per 1 unit seperti 1 KG, 1 Liter,
 //         1 Baki), Master Komoditas Terstruktur (Induk, Varian & Sinonim Pencarian),
-//         Master Pasar, dan Master Kecamatan langsung ke basis data Supabase
-//         agar tersinkron otomatis ke formulir Staf/Kabid dan portal publik.
+//         Master Pasar, dan Master Kecamatan 100% langsung ke basis data Supabase
+//         tanpa array data dummy hardcoded dan tanpa silent error.
 // ===================================================================================
 
 import { supabaseClient } from './SupabaseClient.js';
@@ -14,35 +14,6 @@ export class MasterDataService {
         this.kunciCachePasar = 'sipatokaan_master_pasar';
         this.kunciCacheKecamatan = 'sipatokaan_master_kecamatan';
         this.kunciCacheKomoditas = 'sipatokaan_master_komoditas';
-        this.satuanDasar = ['1 KG', '1 Liter', '1 Baki', '1 Ikat', '1 Ekor', '1 Bungkus'];
-        this.pasarDasar = [
-            'Pasar Bersehati Karombasan',
-            'Pasar Tradisional Bahu',
-            'Pasar Tradisional Tuminting',
-            'Pasar Bersehati Sario'
-        ];
-        this.kecamatanDasar = [
-            'Wenang', 'Tikala', 'Wanea', 'Sario', 'Malalayang',
-            'Tuminting', 'Singkil', 'Mapanget', 'Paal Dua', 'Bunaken', 'Bunaken Kepulauan'
-        ];
-        this.komoditasDasar = [
-            { kelompok_komoditas: 'Beras', nama_komoditas: 'Beras SPHP', kategori: 'Bahan Pokok', satuan_bawaan: '1 KG', kata_kunci: 'beras bulog, beras murah, beras subsidi, beras biasa', prioritas_tampil: 10 },
-            { kelompok_komoditas: 'Beras', nama_komoditas: 'Beras Medium', kategori: 'Bahan Pokok', satuan_bawaan: '1 KG', kata_kunci: 'beras biasa, beras standar, beras lokal, beras harian', prioritas_tampil: 11 },
-            { kelompok_komoditas: 'Beras', nama_komoditas: 'Beras Premium', kategori: 'Bahan Pokok', satuan_bawaan: '1 KG', kata_kunci: 'beras super, beras pulen, beras kepala, beras bagus', prioritas_tampil: 12 },
-            { kelompok_komoditas: 'Minyak Goreng', nama_komoditas: 'Minyakita', kategori: 'Bahan Pokok', satuan_bawaan: '1 Liter', kata_kunci: 'minyak subsidi, minyak pemerintah, minyak murah', prioritas_tampil: 15 },
-            { kelompok_komoditas: 'Minyak Goreng', nama_komoditas: 'Minyak Goreng Kemasan', kategori: 'Bahan Pokok', satuan_bawaan: '1 Liter', kata_kunci: 'minyak goreng, minyak kemasan, minyak premium', prioritas_tampil: 16 },
-            { kelompok_komoditas: 'Minyak Goreng', nama_komoditas: 'Minyak Goreng Curah', kategori: 'Bahan Pokok', satuan_bawaan: '1 Liter', kata_kunci: 'minyak curah, minyak biasa', prioritas_tampil: 17 },
-            { kelompok_komoditas: 'Gula', nama_komoditas: 'Gula Pasir', kategori: 'Bahan Pokok', satuan_bawaan: '1 KG', kata_kunci: 'gula putih, gula kristal, gula konsumsi', prioritas_tampil: 20 },
-            { kelompok_komoditas: 'Cabai', nama_komoditas: 'Cabai Rawit Merah', kategori: 'Sayuran', satuan_bawaan: '1 KG', kata_kunci: 'rica, rica merah, lombok, cabai setan, cabai kecil', prioritas_tampil: 22 },
-            { kelompok_komoditas: 'Cabai', nama_komoditas: 'Cabai Keriting', kategori: 'Sayuran', satuan_bawaan: '1 KG', kata_kunci: 'rica keriting, cabai merah keriting, lombok merah', prioritas_tampil: 23 },
-            { kelompok_komoditas: 'Bawang', nama_komoditas: 'Bawang Merah', kategori: 'Sayuran', satuan_bawaan: '1 KG', kata_kunci: 'bawang merah lokal, rempah', prioritas_tampil: 25 },
-            { kelompok_komoditas: 'Bawang', nama_komoditas: 'Bawang Putih', kategori: 'Sayuran', satuan_bawaan: '1 KG', kata_kunci: 'bawang putih honan, bawang putih kating', prioritas_tampil: 26 },
-            { kelompok_komoditas: 'Telur', nama_komoditas: 'Telur Ayam', kategori: 'Hewani', satuan_bawaan: '1 KG', kata_kunci: 'telur ayam ras, telur biasa, telur baki', prioritas_tampil: 30 },
-            { kelompok_komoditas: 'Daging', nama_komoditas: 'Daging Ayam', kategori: 'Hewani', satuan_bawaan: '1 KG', kata_kunci: 'ayam ras, ayam potong, daging ayam segar', prioritas_tampil: 35 },
-            { kelompok_komoditas: 'Ikan', nama_komoditas: 'Ikan Tongkol', kategori: 'Hewani', satuan_bawaan: '1 KG', kata_kunci: 'ikan laut, ikan segar, cakalang, deho', prioritas_tampil: 36 },
-            { kelompok_komoditas: 'Daging', nama_komoditas: 'Daging Sapi', kategori: 'Hewani', satuan_bawaan: '1 KG', kata_kunci: 'daging sapi segar, paha belakang, sapi murni', prioritas_tampil: 40 },
-            { kelompok_komoditas: 'Tepung', nama_komoditas: 'Tepung Terigu', kategori: 'Bahan Pokok', satuan_bawaan: '1 KG', kata_kunci: 'terigu, tepung segitiga, tepung gandum', prioritas_tampil: 42 }
-        ];
     }
 
     // Menebak nama kelompok induk komoditas dari nama varian secara konsisten
@@ -68,7 +39,6 @@ export class MasterDataService {
         let teks = String(input || '').replace(/[\/]+/g, '').trim();
         if (!teks) throw new Error('Nama satuan tidak boleh kosong!');
 
-        // Tolak jika mengandung angka selain 1 di awal (karena satuan dikunci per 1)
         const cocokAngka = teks.match(/^(\d+(?:[.,]\d+)?)\s*(.*)$/);
         if (cocokAngka) {
             const angka = parseFloat(cocokAngka[1].replace(',', '.'));
@@ -91,28 +61,28 @@ export class MasterDataService {
     }
 
     // ─────────────────────────────────────────────
-    // 1. MASTER SATUAN (TERKUNCI PER 1)
+    // 1. MASTER SATUAN (TERKUNCI PER 1, 100% SUPABASE)
     // ─────────────────────────────────────────────
     async ambilDaftarSatuan() {
         try {
             const rows = await supabaseClient.getMasterSatuan();
-            if (Array.isArray(rows) && rows.length > 0) {
+            if (Array.isArray(rows)) {
                 const list = rows.map((r) => r.nama_satuan).filter(Boolean);
-                localStorage.setItem(this.kunciCacheSatuan, JSON.stringify(list));
+                try { localStorage.setItem(this.kunciCacheSatuan, JSON.stringify(list)); } catch (_) {}
                 return list;
             }
         } catch (err) {
-            console.warn('Tabel master_satuan belum dimigrasi / offline, menggunakan cache:', err?.message);
+            console.warn('Gagal mengambil master_satuan dari Supabase:', err?.message);
         }
 
         try {
             const cache = localStorage.getItem(this.kunciCacheSatuan);
             if (cache) {
                 const parsed = JSON.parse(cache);
-                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                if (Array.isArray(parsed)) return parsed;
             }
         } catch (_) {}
-        return [...this.satuanDasar];
+        return [];
     }
 
     async tambahSatuan(inputSatuan) {
@@ -126,12 +96,10 @@ export class MasterDataService {
         try {
             await supabaseClient.tambahMasterSatuan(satuanResmi);
         } catch (err) {
-            console.warn('Gagal simpan master_satuan ke Supabase, tersimpan di cache lokal:', err?.message);
+            throw new Error(String(err?.message || 'Gagal menyimpan satuan ke basis data Supabase.').replace(/^Supabase Error:\s*/i, ''));
         }
 
-        const terbaru = [...daftarSekarang, satuanResmi];
-        localStorage.setItem(this.kunciCacheSatuan, JSON.stringify(terbaru));
-        return terbaru;
+        return this.ambilDaftarSatuan();
     }
 
     async hapusSatuan(namaSatuan) {
@@ -143,12 +111,10 @@ export class MasterDataService {
         try {
             await supabaseClient.hapusMasterSatuan(namaSatuan);
         } catch (err) {
-            console.warn('Gagal hapus master_satuan di Supabase:', err?.message);
+            throw new Error(String(err?.message || 'Gagal menghapus satuan dari basis data Supabase.').replace(/^Supabase Error:\s*/i, ''));
         }
 
-        const terbaru = daftarSekarang.filter((s) => s !== namaSatuan);
-        localStorage.setItem(this.kunciCacheSatuan, JSON.stringify(terbaru));
-        return terbaru;
+        return this.ambilDaftarSatuan();
     }
 
     // ─────────────────────────────────────────────
@@ -181,7 +147,6 @@ export class MasterDataService {
         };
     }
 
-    // Mengambil daftar pasar LENGKAP beserta titik peta murni dari Supabase (0% data dummy)
     async ambilDaftarPasarLengkap() {
         const rows = await supabaseClient.getMasterPasar();
         if (!Array.isArray(rows)) {
@@ -214,7 +179,7 @@ export class MasterDataService {
             const cache = localStorage.getItem(this.kunciCachePasar);
             if (cache) {
                 const parsed = JSON.parse(cache);
-                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                if (Array.isArray(parsed)) return parsed;
             }
         } catch (_) {}
         return [];
@@ -247,11 +212,7 @@ export class MasterDataService {
         try {
             await supabaseClient.tambahMasterPasar(payload);
         } catch (err) {
-            const msg = String(err?.message || '');
-            if (msg.toLowerCase().includes('column') && msg.toLowerCase().includes('does not exist')) {
-                throw new Error('Kolom lokasi belum ada di Supabase. Silakan jalankan file migrasi_master_pasar_lokasi.sql di Supabase SQL Editor terlebih dahulu.');
-            }
-            throw new Error(msg.replace(/^Supabase Error:\s*/i, '') || 'Gagal menyimpan pasar ke basis data Supabase.');
+            throw new Error(String(err?.message || 'Gagal menyimpan pasar ke basis data Supabase.').replace(/^Supabase Error:\s*/i, ''));
         }
 
         return this.ambilDaftarPasarLengkap();
@@ -291,11 +252,7 @@ export class MasterDataService {
                 await supabaseClient.sinkronNamaPasarDiHarga(namaLamaAsli, payload.nama_pasar);
             }
         } catch (err) {
-            const msg = String(err?.message || '');
-            if (msg.toLowerCase().includes('column') && msg.toLowerCase().includes('does not exist')) {
-                throw new Error('Kolom lokasi belum ada di Supabase. Silakan jalankan file migrasi_master_pasar_lokasi.sql di Supabase SQL Editor terlebih dahulu.');
-            }
-            throw new Error(msg.replace(/^Supabase Error:\s*/i, '') || 'Gagal memperbarui data pasar di Supabase.');
+            throw new Error(String(err?.message || 'Gagal memperbarui data pasar di Supabase.').replace(/^Supabase Error:\s*/i, ''));
         }
 
         return this.ambilDaftarPasarLengkap();
@@ -311,28 +268,28 @@ export class MasterDataService {
     }
 
     // ─────────────────────────────────────────────
-    // 3. MASTER KECAMATAN (SINKRON SUPABASE)
+    // 3. MASTER KECAMATAN (100% SUPABASE)
     // ─────────────────────────────────────────────
     async ambilDaftarKecamatan() {
         try {
             const rows = await supabaseClient.getMasterKecamatan();
-            if (Array.isArray(rows) && rows.length > 0) {
+            if (Array.isArray(rows)) {
                 const list = rows.map((r) => r.nama_kecamatan).filter(Boolean);
-                localStorage.setItem(this.kunciCacheKecamatan, JSON.stringify(list));
+                try { localStorage.setItem(this.kunciCacheKecamatan, JSON.stringify(list)); } catch (_) {}
                 return list;
             }
         } catch (err) {
-            console.warn('Tabel master_kecamatan belum dimigrasi / offline, menggunakan cache:', err?.message);
+            console.warn('Gagal mengambil master_kecamatan dari Supabase:', err?.message);
         }
 
         try {
             const cache = localStorage.getItem(this.kunciCacheKecamatan);
             if (cache) {
                 const parsed = JSON.parse(cache);
-                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                if (Array.isArray(parsed)) return parsed;
             }
         } catch (_) {}
-        return [...this.kecamatanDasar];
+        return [];
     }
 
     async tambahKecamatan(namaKecamatan) {
@@ -347,12 +304,10 @@ export class MasterDataService {
         try {
             await supabaseClient.tambahMasterKecamatan(bersih);
         } catch (err) {
-            console.warn('Gagal simpan master_kecamatan ke Supabase:', err?.message);
+            throw new Error(String(err?.message || 'Gagal menyimpan kecamatan ke basis data Supabase.').replace(/^Supabase Error:\s*/i, ''));
         }
 
-        const terbaru = [...daftarSekarang, bersih].sort((a, b) => a.localeCompare(b, 'id-ID'));
-        localStorage.setItem(this.kunciCacheKecamatan, JSON.stringify(terbaru));
-        return terbaru;
+        return this.ambilDaftarKecamatan();
     }
 
     async hapusKecamatan(namaKecamatan) {
@@ -364,16 +319,14 @@ export class MasterDataService {
         try {
             await supabaseClient.hapusMasterKecamatan(namaKecamatan);
         } catch (err) {
-            console.warn('Gagal hapus master_kecamatan di Supabase:', err?.message);
+            throw new Error(String(err?.message || 'Gagal menghapus kecamatan di basis data Supabase.').replace(/^Supabase Error:\s*/i, ''));
         }
 
-        const terbaru = daftarSekarang.filter((k) => k !== namaKecamatan);
-        localStorage.setItem(this.kunciCacheKecamatan, JSON.stringify(terbaru));
-        return terbaru;
+        return this.ambilDaftarKecamatan();
     }
 
     // ─────────────────────────────────────────────
-    // 4. MASTER KOMODITAS RESMI (INDUK, VARIAN & SINONIM)
+    // 4. MASTER KOMODITAS RESMI (INDUK, VARIAN & SINONIM — 100% SUPABASE)
     // ─────────────────────────────────────────────
     urutkanKomoditas(daftar = []) {
         return [...daftar].sort((a, b) => {
@@ -389,7 +342,7 @@ export class MasterDataService {
     async ambilDaftarKomoditas() {
         try {
             const rows = await supabaseClient.getMasterKomoditas();
-            if (Array.isArray(rows) && rows.length > 0) {
+            if (Array.isArray(rows)) {
                 const rapi = this.urutkanKomoditas(
                     rows
                         .filter((r) => r?.nama_komoditas)
@@ -403,21 +356,21 @@ export class MasterDataService {
                             prioritas_tampil: Number(r.prioritas_tampil) || 50
                         }))
                 );
-                localStorage.setItem(this.kunciCacheKomoditas, JSON.stringify(rapi));
+                try { localStorage.setItem(this.kunciCacheKomoditas, JSON.stringify(rapi)); } catch (_) {}
                 return rapi;
             }
         } catch (err) {
-            console.warn('Tabel master_komoditas belum dimigrasi / offline, menggunakan cache:', err?.message);
+            console.warn('Gagal mengambil master_komoditas dari Supabase:', err?.message);
         }
 
         try {
             const cache = localStorage.getItem(this.kunciCacheKomoditas);
             if (cache) {
                 const parsed = JSON.parse(cache);
-                if (Array.isArray(parsed) && parsed.length > 0) return this.urutkanKomoditas(parsed);
+                if (Array.isArray(parsed)) return this.urutkanKomoditas(parsed);
             }
         } catch (_) {}
-        return this.urutkanKomoditas(this.komoditasDasar);
+        return [];
     }
 
     async tambahKomoditas({
@@ -449,15 +402,12 @@ export class MasterDataService {
         };
 
         try {
-            const saved = await supabaseClient.tambahMasterKomoditas(itemBaru);
-            if (saved?.id) itemBaru.id = saved.id;
+            await supabaseClient.tambahMasterKomoditas(itemBaru);
         } catch (err) {
-            console.warn('Gagal simpan master_komoditas ke Supabase, tersimpan di cache lokal:', err?.message);
+            throw new Error(String(err?.message || 'Gagal menyimpan komoditas ke basis data Supabase.').replace(/^Supabase Error:\s*/i, ''));
         }
 
-        const terbaru = this.urutkanKomoditas([...daftarSekarang, itemBaru]);
-        localStorage.setItem(this.kunciCacheKomoditas, JSON.stringify(terbaru));
-        return terbaru;
+        return this.ambilDaftarKomoditas();
     }
 
     async hapusKomoditas(namaKomoditas) {
@@ -469,12 +419,10 @@ export class MasterDataService {
         try {
             await supabaseClient.hapusMasterKomoditas(namaKomoditas);
         } catch (err) {
-            console.warn('Gagal hapus master_komoditas di Supabase:', err?.message);
+            throw new Error(String(err?.message || 'Gagal menghapus komoditas dari basis data Supabase.').replace(/^Supabase Error:\s*/i, ''));
         }
 
-        const terbaru = daftarSekarang.filter((k) => k.nama_komoditas !== namaKomoditas);
-        localStorage.setItem(this.kunciCacheKomoditas, JSON.stringify(terbaru));
-        return terbaru;
+        return this.ambilDaftarKomoditas();
     }
 
     // Mengelompokkan Master Komoditas berdasarkan Komoditas Induk untuk dropdown <optgroup> & manajemen Admin

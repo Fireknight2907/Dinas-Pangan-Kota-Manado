@@ -34,9 +34,6 @@
         <div class="mobile-welcome-text">
           <h3>Selamat Datang</h3>
           <p>Masuk ke akun Anda untuk melanjutkan</p>
-          <div class="m-login-hint-badge">
-            💡 Akun default: <strong>admin</strong> / Sandi: <strong>admin</strong>
-          </div>
         </div>
 
         <!-- Form Login Mobile -->
@@ -184,7 +181,7 @@
               type="button"
               class="btn-m-super-csv"
               style="background: #166534; color: #ffffff; padding: 6px 12px; font-size: 0.78rem; border-radius: 6px;"
-              @click="laporanMobileService.eksporLaporanHargaCSV(semuaKomoditas)"
+              @click="unduhLaporanPanganKabid"
             >
               📥 Unduh CSV
             </button>
@@ -330,7 +327,7 @@
                     <span class="unit-text"> / {{ formatSatuanTampil(item.satuan) }}</span>
                   </div>
                   <div class="item-sub-meta">
-                    {{ item.nama_pasar }} · {{ item.tanggal_penetapan || '14 Oktober 2026' }}
+                    {{ item.nama_pasar }} · {{ item.tanggal_penetapan || '-' }}
                   </div>
                 </div>
 
@@ -1497,11 +1494,11 @@
           </div>
         </div>
 
-        <!-- SUB-VIEW I: GRAFIK TREN PANGAN (KHUSUS KADIS) -->
+        <!-- SUB-VIEW I: GRAFIK TREN PANGAN (KHUSUS KADIS — 100% DATA RIIL RIWAYAT SUPABASE) -->
         <div v-if="menuPetugas === 'grafik-pangan'" class="staff-view-container">
           <div class="staff-heading-area">
             <h1 class="staff-view-title">Grafik Tren Fluktuasi Harga</h1>
-            <p class="staff-view-desc">Monitoring visual pergerakan dan stabilitas harga komoditas pangan Kota Manado</p>
+            <p class="staff-view-desc">Monitoring visual pergerakan dan stabilitas harga komoditas pangan Kota Manado dari riwayat resmi database</p>
           </div>
 
           <!-- Filter Selector Kadis -->
@@ -1509,8 +1506,17 @@
             <div class="m-kadis-filter-grid">
               <div class="s-field">
                 <label>Komoditas Pangan</label>
-                <select v-model="komoditasTren" @change="muatTrenKadis">
+                <select v-model="komoditasTren" @change="muatTrenKadis" :disabled="daftarKomoditasTersediaKadis.length === 0">
+                  <option v-if="daftarKomoditasTersediaKadis.length === 0" value="">Belum ada data komoditas di database</option>
                   <option v-for="k in daftarKomoditasTersediaKadis" :key="String(k)" :value="k">{{ k }}</option>
+                </select>
+              </div>
+
+              <div class="s-field">
+                <label>Pasar Pantauan</label>
+                <select v-model="pasarTren" @change="muatTrenKadis">
+                  <option value="Semua">Semua Pasar</option>
+                  <option v-for="p in daftarPasarTersediaKadis" :key="p" :value="p">{{ p }}</option>
                 </select>
               </div>
 
@@ -1525,68 +1531,120 @@
             </div>
           </div>
 
-          <!-- Metric Cards -->
-          <div v-if="dataTren" class="staff-stats-grid" style="margin-top: 14px;">
-            <div class="stat-box-card">
-              <div class="stat-val" style="font-size: 1.15rem;">{{ formatRupiah(dataTren.hargaTerkini) }}</div>
-              <div class="stat-lbl">Harga Terkini</div>
-              <div class="stat-sub">
-                <span :class="['m-trend-tag', 'trend-' + dataTren.statusTren.toLowerCase()]">
-                  {{ dataTren.statusTren === 'Naik' ? '▲' : dataTren.statusTren === 'Turun' ? '▼' : '●' }} {{ dataTren.persentase }}% ({{ dataTren.statusTren }})
-                </span>
+          <div v-if="sedangMuatTrenMobile" class="staff-form-panel" style="margin-top: 14px; text-align: center; color: #64748b; font-size: 0.85rem;">
+            ⏳ Memuat riwayat fluktuasi harga dari basis data Supabase...
+          </div>
+
+          <div v-else-if="!dataTren || !dataTren.adaData" class="staff-form-panel" style="margin-top: 14px; text-align: center; color: #64748b;">
+            <div style="font-size: 1.6rem; margin-bottom: 6px;">📉</div>
+            <strong style="color: #1e293b; display: block; margin-bottom: 4px;">Belum Ada Data Harga / Riwayat</strong>
+            <p style="margin: 0; font-size: 0.8rem;">
+              Grafik menampilkan 100% catatan harga resmi dari database (tanpa simulasi/dummy). Pilih komoditas atau pasar lain.
+            </p>
+          </div>
+
+          <template v-else>
+            <!-- Metric Cards -->
+            <div class="staff-stats-grid" style="margin-top: 14px;">
+              <div class="stat-box-card">
+                <div class="stat-val" style="font-size: 1.15rem;">{{ formatRupiah(dataTren.hargaTerkini) }}</div>
+                <div class="stat-lbl">Harga Terkini</div>
+                <div class="stat-sub">
+                  <span :class="['m-trend-tag', 'trend-' + dataTren.statusTren.toLowerCase()]">
+                    {{ dataTren.statusTren === 'Naik' ? '▲' : dataTren.statusTren === 'Turun' ? '▼' : '●' }} {{ dataTren.persentase }}% ({{ dataTren.statusTren }})
+                  </span>
+                </div>
+              </div>
+              <div class="stat-box-card">
+                <div class="stat-val" style="font-size: 1.15rem;">{{ formatRupiah(dataTren.rataRata) }}</div>
+                <div class="stat-lbl">Rata-Rata Periode</div>
+                <div class="stat-sub">dari {{ dataTren.titikData.length }} catatan</div>
+              </div>
+              <div class="stat-box-card">
+                <div class="stat-val" style="font-size: 1.15rem;">{{ formatRupiah(dataTren.hargaTertinggi) }}</div>
+                <div class="stat-lbl">Harga Tertinggi</div>
+                <div class="stat-sub">puncak fluktuasi</div>
+              </div>
+              <div class="stat-box-card">
+                <div class="stat-val" style="font-size: 1.15rem;">{{ formatRupiah(dataTren.hargaTerendah) }}</div>
+                <div class="stat-lbl">Harga Terendah</div>
+                <div class="stat-sub">titik minimum</div>
               </div>
             </div>
-            <div class="stat-box-card">
-              <div class="stat-val" style="font-size: 1.15rem;">{{ formatRupiah(dataTren.rataRata) }}</div>
-              <div class="stat-lbl">Rata-Rata Periode</div>
-              <div class="stat-sub">stabilitas harga</div>
-            </div>
-            <div class="stat-box-card">
-              <div class="stat-val" style="font-size: 1.15rem;">{{ formatRupiah(dataTren.hargaTertinggi) }}</div>
-              <div class="stat-lbl">Harga Tertinggi</div>
-              <div class="stat-sub">puncak fluktuasi</div>
-            </div>
-            <div class="stat-box-card">
-              <div class="stat-val" style="font-size: 1.15rem;">{{ formatRupiah(dataTren.hargaTerendah) }}</div>
-              <div class="stat-lbl">Harga Terendah</div>
-              <div class="stat-sub">titik minimum</div>
-            </div>
-          </div>
 
-          <!-- SVG Interactive Line & Point Chart -->
-          <div v-if="dataTren" class="staff-form-panel" style="margin-top: 14px;">
-            <div class="panel-title-row">
-              <span class="plus-icon-red">📈</span>
-              <h3>Pergerakan Harga {{ dataTren.namaKomoditas }}</h3>
-            </div>
-            <div class="m-svg-chart-container">
-              <svg viewBox="0 0 500 220" class="m-svg-chart">
-                <line x1="40" y1="30" x2="480" y2="30" stroke="#f1f5f9" stroke-width="1" />
-                <line x1="40" y1="80" x2="480" y2="80" stroke="#f1f5f9" stroke-width="1" />
-                <line x1="40" y1="130" x2="480" y2="130" stroke="#f1f5f9" stroke-width="1" />
-                <line x1="40" y1="180" x2="480" y2="180" stroke="#e2e8f0" stroke-width="1" />
+            <!-- SVG Interactive Line & Point Chart (100% Riil) -->
+            <div class="staff-form-panel" style="margin-top: 14px;">
+              <div class="panel-title-row" style="justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="plus-icon-red">📈</span>
+                  <h3>Pergerakan Harga {{ dataTren.namaKomoditas }}</h3>
+                </div>
+                <span :style="{
+                  fontSize: '0.7rem',
+                  fontWeight: '700',
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  background: dataTren.sumber === 'riwayat' ? '#dcfce7' : '#fef3c7',
+                  color: dataTren.sumber === 'riwayat' ? '#166534' : '#92400e'
+                }">
+                  {{ dataTren.sumber === 'riwayat' ? `Riwayat Resmi (${dataTren.jumlahCatatan})` : `Harga Terkini (${dataTren.jumlahCatatan})` }}
+                </span>
+              </div>
 
-                <polyline
-                  fill="none"
-                  stroke="#8b1e1e"
-                  stroke-width="3.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  :points="hitungTitikSVG(dataTren.titikData)"
-                />
+              <p v-if="dataTren.titikData.length === 1" style="font-size: 0.76rem; color: #475569; background: #f8fafc; padding: 8px 10px; border-radius: 6px; margin: 6px 0 10px 0;">
+                ℹ️ Baru terdapat 1 catatan harga resmi pada rentang ini. Garis tren akan terbentuk otomatis saat ada pembaruan harga berikutnya.
+              </p>
 
-                <g v-for="(titik, idx) in hitungKoordinatTitik(dataTren.titikData)" :key="idx">
-                  <circle :cx="titik.x" :cy="titik.y" r="5" fill="#8b1e1e" stroke="#ffffff" stroke-width="2" />
-                  <text :x="titik.x" :y="titik.y - 10" text-anchor="middle" font-size="10" font-weight="700" fill="#1e293b">
-                    {{ (titik.harga / 1000).toFixed(1) }}k
-                  </text>
-                  <text :x="titik.x" y="200" text-anchor="middle" font-size="10" fill="#64748b">
-                    {{ titik.tanggal }}
-                  </text>
-                </g>
-              </svg>
+              <div class="m-svg-chart-container">
+                <svg viewBox="0 0 500 220" class="m-svg-chart">
+                  <line x1="40" y1="30" x2="480" y2="30" stroke="#f1f5f9" stroke-width="1" />
+                  <line x1="40" y1="80" x2="480" y2="80" stroke="#f1f5f9" stroke-width="1" />
+                  <line x1="40" y1="130" x2="480" y2="130" stroke="#f1f5f9" stroke-width="1" />
+                  <line x1="40" y1="180" x2="480" y2="180" stroke="#e2e8f0" stroke-width="1" />
+
+                  <polyline
+                    v-if="dataTren.titikData.length >= 2"
+                    fill="none"
+                    stroke="#8b1e1e"
+                    stroke-width="3.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    :points="hitungTitikSVG(dataTren.titikData)"
+                  />
+
+                  <g v-for="(titik, idx) in hitungKoordinatTitik(dataTren.titikData)" :key="idx">
+                    <circle :cx="titik.x" :cy="titik.y" r="5" fill="#8b1e1e" stroke="#ffffff" stroke-width="2" />
+                    <text :x="titik.x" :y="titik.y - 10" text-anchor="middle" font-size="10" font-weight="700" fill="#1e293b">
+                      {{ (titik.harga / 1000).toFixed(1) }}k
+                    </text>
+                    <text :x="titik.x" y="200" text-anchor="middle" font-size="9.5" fill="#64748b">
+                      {{ titik.tanggal }}
+                    </text>
+                  </g>
+                </svg>
+              </div>
+
+              <!-- Rincian Catatan Riwayat Riil -->
+              <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px;">
+                <div
+                  v-for="(t, i) in [...dataTren.titikData].reverse()"
+                  :key="i"
+                  style="display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 0.78rem;"
+                >
+                  <div>
+                    <strong style="color: #0f172a; display: block;">{{ t.pasar }}</strong>
+                    <span style="color: #64748b; font-size: 0.72rem;">{{ t.tanggalLengkap }}</span>
+                  </div>
+                  <div style="text-align: right;">
+                    <strong style="color: #8b1e1e; display: block;">{{ formatRupiah(t.harga) }}</strong>
+                    <span :style="{ fontSize: '0.7rem', fontWeight: '700', color: t.selisih > 0 ? '#dc2626' : t.selisih < 0 ? '#166534' : '#64748b' }">
+                      {{ t.selisih > 0 ? `▲ +${formatRupiah(t.selisih)}` : t.selisih < 0 ? `▼ ${formatRupiah(t.selisih)}` : '▬ Tetap' }}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          </template>
         </div>
 
         <!-- SUB-VIEW J: LAPORAN EKSEKUTIF GPM (KHUSUS KADIS) -->
@@ -1655,7 +1713,7 @@
 
               <div style="margin-top: 12px; background: #f8fafc; padding: 10px; border-radius: 6px;">
                 <span style="font-size: 0.78rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">🌾 Komoditas Disediakan:</span>
-                <p style="margin: 0; font-size: 0.8rem; color: #334155;">{{ rekap.komoditas_tersedia || 'Beras SPHP 5kg, Minyakita 1L, Gula Pasir 1kg' }}</p>
+                <p style="margin: 0; font-size: 0.8rem; color: #334155;">{{ rekap.komoditas_tersedia || '-' }}</p>
               </div>
 
               <div class="m-super-actions" style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
@@ -2984,7 +3042,7 @@
                 type="text" 
                 required 
                 v-model="modalTambahManualMobile.nama" 
-                placeholder="Contoh: Meity Rondonuwu"
+                placeholder="Masukkan nama lengkap warga"
                 @input="modalTambahManualMobile.nama = modalTambahManualMobile.nama.replace(/[^a-zA-Z\s'.]/g, '')"
               />
             </div>
@@ -4032,16 +4090,17 @@ const formEditKabid = ref({
   kategori: 'Bahan Pokok',
   satuan: '1 KG',
   harga: '',
-  nama_pasar: 'Pasar Tradisional Bahu',
+  nama_pasar: '',
   status: 'Terbit',
   prioritas_tampil: 50
 });
 
-// ─── KADIS: GRAFIK PANGAN & LAPORAN EKSEKUTIF GPM ─────────────────
-const komoditasTren = ref('Beras Medium');
+// ─── KADIS: GRAFIK PANGAN & LAPORAN EKSEKUTIF GPM (100% DATA RIIL) ──
+const komoditasTren = ref('');
 const periodeTren = ref('7hari');
 const pasarTren = ref('Semua');
 const dataTren = ref<DataTrenKomoditas | null>(null);
+const sedangMuatTrenMobile = ref(false);
 const daftarRekapGPMKadis = ref<ItemRekapGPM[]>([]);
 
 // State Modal Detail Pendaftar Warga (Mobile)
@@ -4062,10 +4121,15 @@ interface NotifMobileItem {
 }
 const daftarNotifMobile = ref<NotifMobileItem[]>([]);
 
-// Computed Komoditas Lengkap untuk Grafik Kadis (Tarik dari Seluruh DB)
+// Computed Komoditas & Pasar Lengkap untuk Grafik Kadis (100% dari Database Supabase)
 const daftarKomoditasTersediaKadis = computed(() => {
-  const unik = Array.from(new Set(semuaKomoditas.value.map((i: any) => i.nama_komoditas).filter(Boolean)));
-  return unik.length > 0 ? unik : ['Beras Medium', 'Beras Premium', 'Minyak Goreng Kemasan', 'Gula Pasir', 'Telur Ayam'];
+  return Array.from(new Set(semuaKomoditas.value.map((i: any) => i.nama_komoditas).filter(Boolean)));
+});
+const daftarPasarTersediaKadis = computed(() => {
+  return Array.from(new Set([
+    ...daftarPasar.value,
+    ...semuaKomoditas.value.map((i: any) => i.nama_pasar).filter(Boolean)
+  ])).sort((a, b) => a.localeCompare(b, 'id-ID'));
 });
 
 // Computed Pendaftar Tersaring untuk Modal Detail Warga Mobile
@@ -4107,9 +4171,9 @@ const formSandiMandiri = ref({
 });
 const inputFotoProfilUrl = ref('');
 
-// State Login Mobile (Gambar 4)
+// State Login Mobile (Gambar 4 — Tanpa Pre-Fill / Hint Akun Default)
 const loginInput = ref({
-  email: 'admin',
+  email: '',
   password: '',
   ingatSaya: false // Default: Centang MATI sesuai instruksi pimpinan
 });
@@ -5113,16 +5177,35 @@ const simpanEditKabid = async () => {
   }
 };
 
+const ambilNamaPenandatanganMobile = (peranTarget: 'Kabid' | 'Kadis'): string => {
+  if (peranAktif.value === peranTarget && userAktif.value?.nama?.trim()) {
+    return userAktif.value.nama.trim();
+  }
+  const pejabatDB = daftarSemuaPengguna.value.find(
+    u => penggunaMobileService.normalisasiPeran(u.peran) === peranTarget && u.nama?.trim()
+  );
+  return pejabatDB ? pejabatDB.nama.trim() : '';
+};
+
 const unduhLaporanPanganKabid = () => {
-  laporanMobileService.eksporLaporanHargaCSV(semuaKomoditas.value);
+  laporanMobileService.eksporLaporanHargaCSV(semuaKomoditas.value, {
+    nama: ambilNamaPenandatanganMobile('Kabid')
+  });
 };
 
 // ─────────────────────────────────────────────────────────────
 // METODE ADMIN: KELOLA PENGGUNA & MASTER PASAR / WILAYAH
 // ─────────────────────────────────────────────────────────────
 const muatSemuaPengguna = async () => {
-  daftarSemuaPengguna.value = await penggunaMobileService.ambilSemuaPengguna();
-  daftarKecamatan.value = hargaPanganMobileService.ambilKecamatan();
+  try {
+    daftarSemuaPengguna.value = await penggunaMobileService.ambilSemuaPengguna();
+  } catch (e) {
+    console.warn('Gagal memuat daftar pengguna dari Supabase:', e);
+    daftarSemuaPengguna.value = [];
+  }
+  try {
+    daftarKecamatan.value = await masterDataMobileService.ambilDaftarKecamatan();
+  } catch (_) {}
 };
 
 const tambahPenggunaBaru = async () => {
@@ -5135,7 +5218,7 @@ const tambahPenggunaBaru = async () => {
     return;
   }
   try {
-    await penggunaMobileService.adminTambahPengguna(userAktif.value?.id || 'usr-admin', formPenggunaBaru.value);
+    await penggunaMobileService.adminTambahPengguna(userAktif.value?.id || '', formPenggunaBaru.value);
     modalTambahUserBuka.value = false;
     formPenggunaBaru.value = {
       nama: '',
@@ -5171,7 +5254,7 @@ const eksekusiResetSandi = async () => {
   }
   try {
     await penggunaMobileService.adminResetPassword(
-      userAktif.value?.id || 'usr-admin',
+      userAktif.value?.id || '',
       targetResetUser.value.id,
       inputSandiResetBaru.value
     );
@@ -5198,7 +5281,7 @@ const eksekusiUbahUsername = async () => {
   }
   try {
     await penggunaMobileService.adminUbahUsername(
-      userAktif.value?.id || 'usr-admin',
+      userAktif.value?.id || '',
       targetUbahUsername.value.id,
       baru
     );
@@ -5225,7 +5308,7 @@ const eksekusiUbahEmail = async () => {
   }
   try {
     await penggunaMobileService.adminUbahEmail(
-      userAktif.value?.id || 'usr-admin',
+      userAktif.value?.id || '',
       targetUbahEmail.value.id,
       baru
     );
@@ -5242,7 +5325,7 @@ const eksekusiUbahPeran = async (user: AkunPengguna, peranBaru: string) => {
   if (!ok) return;
   try {
     await penggunaMobileService.adminUbahPeran(
-      userAktif.value?.id || 'usr-admin',
+      userAktif.value?.id || '',
       user.id,
       peranBaru
     );
@@ -5262,7 +5345,7 @@ const eksekusiHapusUser = async (user: AkunPengguna) => {
   if (!ok) return;
   try {
     await penggunaMobileService.adminHapusPengguna(
-      userAktif.value?.id || 'usr-admin',
+      userAktif.value?.id || '',
       user.id
     );
     await muatSemuaPengguna();
@@ -5368,15 +5451,30 @@ const hapusKecamatan = async (nama: string) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// METODE KADIS: GRAFIK PANGAN & REKAPITULASI EKSEKUTIF GPM
+// METODE KADIS: GRAFIK PANGAN & REKAPITULASI EKSEKUTIF GPM (100% DATA RIIL)
 // ─────────────────────────────────────────────────────────────
-const muatTrenKadis = () => {
-  dataTren.value = laporanMobileService.ambilDataTrenKomoditas(
-    komoditasTren.value,
-    periodeTren.value,
-    pasarTren.value,
-    semuaKomoditas.value
-  );
+const muatTrenKadis = async () => {
+  const daftarKom = daftarKomoditasTersediaKadis.value;
+  if (daftarKom.length > 0 && (!komoditasTren.value || !daftarKom.includes(komoditasTren.value))) {
+    komoditasTren.value = daftarKom[0];
+  } else if (daftarKom.length === 0) {
+    komoditasTren.value = '';
+  }
+
+  sedangMuatTrenMobile.value = true;
+  try {
+    dataTren.value = await laporanMobileService.ambilDataTrenKomoditas(
+      komoditasTren.value,
+      periodeTren.value,
+      pasarTren.value,
+      semuaKomoditas.value
+    );
+  } catch (err) {
+    console.error('Gagal memuat tren grafik pangan Kadis mobile:', err);
+    dataTren.value = null;
+  } finally {
+    sedangMuatTrenMobile.value = false;
+  }
 };
 
 const muatRekapGPMKadis = () => {
@@ -5387,7 +5485,7 @@ const muatRekapGPMKadis = () => {
         id: a.id,
         nama_acara: a.nama_acara,
         lokasi: a.lokasi,
-        kecamatan: a.kecamatan || 'Wenang',
+        kecamatan: a.kecamatan || '-',
         tanggal: a.tanggal,
         target_kuota: st.kuotaMaks,
         terdaftar: st.terisi,
@@ -5397,7 +5495,7 @@ const muatRekapGPMKadis = () => {
       };
     });
   } else {
-    daftarRekapGPMKadis.value = laporanMobileService.ambilRekapitulasiGPM();
+    daftarRekapGPMKadis.value = [];
   }
 };
 
@@ -5431,7 +5529,9 @@ const unduhRekapAcaraMobile = async (acara: any) => {
 };
 
 const unduhLaporanEksekutifGPM = () => {
-  laporanMobileService.eksporRekapitulasiSemuaGPMCSV(daftarRekapGPMKadis.value);
+  laporanMobileService.eksporRekapitulasiSemuaGPMCSV(daftarRekapGPMKadis.value, {
+    nama: ambilNamaPenandatanganMobile('Kadis')
+  });
 };
 
 const pilihFotoDariPerangkat = () => {
@@ -5550,16 +5650,26 @@ const bukaNotifTarget = (target?: string) => {
 
 const hitungKoordinatTitik = (titikData: any[]) => {
   if (!titikData || titikData.length === 0) return [];
+  if (titikData.length === 1) {
+    const d = titikData[0];
+    return [{
+      x: 250,
+      y: 105,
+      harga: d.harga,
+      tanggal: d.tanggal,
+      pasar: d.pasar
+    }];
+  }
   const hargaList = titikData.map(d => d.harga);
   const min = Math.min(...hargaList);
   const max = Math.max(...hargaList);
   const range = max === min ? 1 : max - min;
   const count = titikData.length;
-  const stepX = (450 - 50) / (count - 1 || 1);
+  const stepX = (450 - 50) / (count - 1);
 
   return titikData.map((d, i) => {
     const x = Math.round(50 + i * stepX);
-    const y = Math.round(160 - ((d.harga - min) / range) * 110);
+    const y = max === min ? 105 : Math.round(160 - ((d.harga - min) / range) * 110);
     return {
       x,
       y,

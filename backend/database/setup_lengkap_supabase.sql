@@ -71,7 +71,7 @@ CREATE TABLE harga_pangan (
     satuan VARCHAR(20) NOT NULL DEFAULT 'kg',
     harga NUMERIC(12, 2) NOT NULL,
     nama_pasar VARCHAR(150) NOT NULL,
-    tanggal_penetapan VARCHAR(50) NOT NULL DEFAULT '14 Oktober 2026',
+    tanggal_penetapan VARCHAR(50) NOT NULL DEFAULT '',
     status VARCHAR(30) NOT NULL DEFAULT 'Terbit',
     prioritas_tampil INT NOT NULL DEFAULT 50,
     jumlah_dilihat INT NOT NULL DEFAULT 0,

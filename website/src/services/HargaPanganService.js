@@ -1,76 +1,29 @@
-// Modul Layanan Harga Pangan - Dinas Pangan Kota Manado
-// Berfungsi untuk mengelola komunikasi data harga komoditas pasar dengan Cloud Supabase dan penyimpanan lokal
-// Penerapan Konsep Pemrograman Berorientasi Objek (OOP)
+// ===================================================================================
+// MODUL LAYANAN HARGA PANGAN - DINAS PANGAN KOTA MANADO (OOP)
+// Fungsi: Mengelola komunikasi data harga komoditas pasar secara murni ke Cloud
+//         Supabase (0% data dummy, 0% tanggal palsu, 0% notifikasi fiktif).
+// ===================================================================================
 
 import { supabaseClient } from './SupabaseClient.js';
+import { penggunaService } from './PenggunaService.js';
+import { jadwalGPMService } from './JadwalGPMService.js';
 
 class HargaPanganApiService {
     constructor() {
         this.apiRoot = import.meta.env.VITE_API_ROOT || 'http://localhost:3000/api';
         this.baseUrl = `${this.apiRoot}/harga-pangan`;
-        this.inisialisasiMasterData();
+        // Bersihkan sisa kunci notifikasi dummy warisan lama
+        try {
+            localStorage.removeItem('sipatokaan_notifikasi');
+        } catch (_) { }
     }
 
-    inisialisasiMasterData() {
-        // Master Kecamatan (Ditambah oleh Kepala Bagian/Admin, Staf hanya memilih)
-        if (!localStorage.getItem('sipatokaan_master_kecamatan')) {
-            const defaultKecamatan = [
-                'Wenang',
-                'Tikala',
-                'Wanea',
-                'Sario',
-                'Malalayang',
-                'Tuminting',
-                'Singkil',
-                'Mapanget',
-                'Paal Dua',
-                'Bunaken',
-                'Bunaken Kepulauan'
-            ];
-            localStorage.setItem('sipatokaan_master_kecamatan', JSON.stringify(defaultKecamatan));
-        }
-
-        // Master Pasar (Ditambah oleh Kepala Bagian/Admin, Staf hanya memilih)
-        if (!localStorage.getItem('sipatokaan_master_pasar')) {
-            const defaultPasar = [
-                'Pasar Tradisional Bahu',
-                'Pasar Bersehati Karombasan',
-                'Pasar Tradisional Tuminting',
-                'Pasar Bersehati Sario'
-            ];
-            localStorage.setItem('sipatokaan_master_pasar', JSON.stringify(defaultPasar));
-        }
-
-        // Master Notifikasi
-        if (!localStorage.getItem('sipatokaan_notifikasi')) {
-            const defaultNotif = [
-                {
-                    id: 'notif-1',
-                    judul: 'Pendaftar Baru GPM',
-                    pesan: 'Budi Santoso mendaftar di GPM Lapangan Tikala (#001)',
-                    waktu: '5 menit lalu',
-                    dibaca: false,
-                    tipe: 'gpm'
-                },
-                {
-                    id: 'notif-2',
-                    judul: 'Pembaruan Harga Komoditas',
-                    pesan: 'Staf Effrend menetapkan harga Beras Medium Rp 13.500/kg',
-                    waktu: '20 menit lalu',
-                    dibaca: false,
-                    tipe: 'harga'
-                },
-                {
-                    id: 'notif-3',
-                    judul: 'Pengingat Laporan Pangan',
-                    pesan: 'Rekapitulasi harga pangan pekan ini siap ditinjau oleh Kepala Bagian',
-                    waktu: '1 jam lalu',
-                    dibaca: false,
-                    tipe: 'laporan'
-                }
-            ];
-            localStorage.setItem('sipatokaan_notifikasi', JSON.stringify(defaultNotif));
-        }
+    formatTanggalHariIni() {
+        return new Date().toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        });
     }
 
     normalisasiSatuan(satuan) {
@@ -88,37 +41,43 @@ class HargaPanganApiService {
         return s;
     }
 
+    saringDaftar(daftar, kategori = 'Semua', pasar = 'Semua', cari = '', status = '') {
+        let hasil = Array.isArray(daftar) ? [...daftar] : [];
+        if (status) {
+            hasil = hasil.filter(i => (i.status || 'Terbit').toLowerCase() === status.toLowerCase());
+        }
+        if (kategori && kategori !== 'Semua') {
+            hasil = hasil.filter(i => (i.kategori || '').toLowerCase() === kategori.toLowerCase());
+        }
+        if (pasar && pasar !== 'Semua') {
+            hasil = hasil.filter(i => (i.nama_pasar || '').toLowerCase() === pasar.toLowerCase());
+        }
+        if (cari && cari.trim() !== '') {
+            const c = cari.toLowerCase().trim();
+            hasil = hasil.filter(i => (i.nama_komoditas || '').toLowerCase().includes(c));
+        }
+        return hasil;
+    }
+
     // ─────────────────────────────────────────────
-    // 1. DATA KOMODITAS
+    // 1. DATA KOMODITAS (100% DATA RIIL BASIS DATA, TANPA DUMMY FALLBACK)
     // ─────────────────────────────────────────────
     async ambilSemua(kategori = 'Semua', pasar = 'Semua', cari = '', status = '') {
-        // 1. Prioritaskan Cloud Supabase Database (HP & Web Real-time Sync)
+        // 1. Prioritaskan Cloud Supabase Database (mengembalikan [] jika memang kosong — bukan data dummy)
         try {
             const dataCloud = await supabaseClient.getHargaPangan();
-            if (Array.isArray(dataCloud) && dataCloud.length > 0) {
+            if (Array.isArray(dataCloud)) {
                 const cleaned = dataCloud.map(i => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
-                localStorage.setItem('sipatokaan_custom_items', JSON.stringify(cleaned));
-                let hasil = [...cleaned];
-                if (status) {
-                    hasil = hasil.filter(i => (i.status || 'Terbit').toLowerCase() === status.toLowerCase());
-                }
-                if (kategori && kategori !== 'Semua') {
-                    hasil = hasil.filter(i => (i.kategori || '').toLowerCase() === kategori.toLowerCase());
-                }
-                if (pasar && pasar !== 'Semua') {
-                    hasil = hasil.filter(i => (i.nama_pasar || '').toLowerCase() === pasar.toLowerCase());
-                }
-                if (cari && cari.trim() !== '') {
-                    const c = cari.toLowerCase().trim();
-                    hasil = hasil.filter(i => (i.nama_komoditas || '').toLowerCase().includes(c));
-                }
-                return hasil;
+                try {
+                    localStorage.setItem('sipatokaan_custom_items', JSON.stringify(cleaned));
+                } catch (_) { }
+                return this.saringDaftar(cleaned, kategori, pasar, cari, status);
             }
         } catch (err) {
-            console.warn('Supabase getHargaPangan offline, beralih ke local / API:', err);
+            console.warn('Supabase getHargaPangan gagal, mencoba API backend mandiri:', err?.message);
         }
 
-        // 2. Coba API server jika tersedia
+        // 2. Fallback ke API backend mandiri jika sedang dijalankan lokal
         try {
             const params = new URLSearchParams();
             if (kategori && kategori !== 'Semua') params.append('kategori', kategori);
@@ -130,16 +89,17 @@ class HargaPanganApiService {
             const respon = await fetch(url);
             if (respon.ok) {
                 const hasil = await respon.json();
-                if (hasil.data) return hasil.data;
+                if (Array.isArray(hasil.data)) {
+                    return hasil.data.map(i => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
+                }
             }
-        } catch (error) {}
+        } catch (_) { }
 
-        return this.ambilDataFallback(kategori, pasar, cari, status);
+        return [];
     }
 
     // 1b. Mengambil data harga pangan TERBIT khusus portal publik (100% DATA RIIL DB, TANPA DUMMY FALLBACK)
     async ambilPublikTerbit() {
-        // 1. Prioritaskan Cloud Supabase Database
         try {
             const dataCloud = await supabaseClient.getHargaPangan();
             if (Array.isArray(dataCloud)) {
@@ -148,7 +108,6 @@ class HargaPanganApiService {
                     .map(i => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
             }
         } catch (errCloud) {
-            // 2. Jika Supabase tidak terjangkau, coba API backend mandiri (jika aktif)
             try {
                 const respon = await fetch(`${this.baseUrl}?status=Terbit`);
                 if (respon.ok) {
@@ -158,438 +117,113 @@ class HargaPanganApiService {
                         .filter(i => (i.status || '').toLowerCase() === 'terbit')
                         .map(i => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
                 }
-            } catch (_) {}
+            } catch (_) { }
             throw new Error(errCloud?.message || 'Tidak dapat terhubung ke basis data harga pangan.');
         }
         return [];
     }
 
+    // Statistik kategori dihitung 100% dari data riil Supabase
     async ambilStatistik() {
-        try {
-            const respon = await fetch(`${this.baseUrl}/statistik`);
-            if (!respon.ok) throw new Error('Gagal mengambil statistik');
-            const hasil = await respon.json();
-            return hasil.data;
-        } catch (error) {
-            return {
-                Semua: 9,
-                'Bahan Pokok': 4,
-                Hewani: 3,
-                Sayuran: 2,
-                Buah: 0,
-                Lainnya: 0
-            };
-        }
+        const list = await this.ambilSemua();
+        const terbit = list.filter(i => (i.status || '').toLowerCase() === 'terbit');
+        return {
+            Semua: terbit.length,
+            'Bahan Pokok': terbit.filter(i => i.kategori === 'Bahan Pokok').length,
+            Hewani: terbit.filter(i => i.kategori === 'Hewani').length,
+            Sayuran: terbit.filter(i => i.kategori === 'Sayuran').length,
+            Buah: terbit.filter(i => i.kategori === 'Buah').length,
+            Lainnya: terbit.filter(i => !['Bahan Pokok', 'Hewani', 'Sayuran', 'Buah'].includes(i.kategori)).length
+        };
     }
 
-    async ambilStatistikDashboard() {
-        try {
-            const respon = await fetch(`${this.baseUrl}/dashboard-stats`);
-            if (!respon.ok) throw new Error('Gagal mengambil statistik beranda');
-            const hasil = await respon.json();
-            return hasil.data;
-        } catch (error) {
-            const items = this.ambilDataFallback();
-            const terbit = items.filter(i => i.status === 'Terbit').length;
-            const draft = items.filter(i => i.status === 'Draft').length;
-            return {
-                harga_ditetapkan: terbit,
-                draft_harga: draft,
-                gpm_terjadwal: 2,
-                gpm_selesai: 1
-            };
+    // Statistik dashboard petugas dihitung 100% dari data riil Supabase + status waktu WITA
+    async ambilStatistikDashboard(itemsHarga = null, daftarAcara = null) {
+        const items = Array.isArray(itemsHarga) ? itemsHarga : await this.ambilSemua();
+        let acaraList = Array.isArray(daftarAcara) ? daftarAcara : [];
+        if (!Array.isArray(daftarAcara)) {
+            try {
+                const resAcara = await supabaseClient.getAcaraGPM();
+                if (Array.isArray(resAcara)) acaraList = resAcara;
+            } catch (_) {
+                acaraList = [];
+            }
         }
+
+        const terbit = items.filter(i => (i.status || '').toLowerCase() === 'terbit').length;
+        const draft = items.filter(i => (i.status || '').toLowerCase() === 'draft').length;
+
+        let gpmTerjadwal = 0;
+        let gpmSelesai = 0;
+        acaraList.forEach(a => {
+            const st = jadwalGPMService.hitungStatusOperasional(a);
+            if (st.sudahBerakhir) {
+                gpmSelesai += 1;
+            } else {
+                gpmTerjadwal += 1;
+            }
+        });
+
+        return {
+            harga_ditetapkan: terbit,
+            draft_harga: draft,
+            gpm_terjadwal: gpmTerjadwal,
+            gpm_selesai: gpmSelesai
+        };
     }
 
     // ─────────────────────────────────────────────
-    // 2. MASTER PASAR (KEPALA BAGIAN & ADMIN BISA ADD)
-    // ─────────────────────────────────────────────
-    async ambilDaftarPasar() {
-        const tersimpan = localStorage.getItem('sipatokaan_master_pasar');
-        if (tersimpan) {
-            try { return JSON.parse(tersimpan); } catch (e) {}
-        }
-        return [
-            'Pasar Tradisional Bahu',
-            'Pasar Bersehati Karombasan',
-            'Pasar Tradisional Tuminting',
-            'Pasar Bersehati Sario'
-        ];
-    }
-
-    tambahPasar(namaPasar) {
-        if (!namaPasar || !namaPasar.trim()) throw new Error('Nama pasar tidak boleh kosong');
-        const daftar = JSON.parse(localStorage.getItem('sipatokaan_master_pasar') || '[]');
-        if (daftar.some(p => p.toLowerCase() === namaPasar.trim().toLowerCase())) {
-            throw new Error(`Pasar "${namaPasar}" sudah terdaftar.`);
-        }
-        daftar.push(namaPasar.trim());
-        localStorage.setItem('sipatokaan_master_pasar', JSON.stringify(daftar));
-        return daftar;
-    }
-
-    hapusPasar(namaPasar) {
-        let daftar = JSON.parse(localStorage.getItem('sipatokaan_master_pasar') || '[]');
-        daftar = daftar.filter(p => p !== namaPasar);
-        localStorage.setItem('sipatokaan_master_pasar', JSON.stringify(daftar));
-        return daftar;
-    }
-
-    // ─────────────────────────────────────────────
-    // 3. MASTER KECAMATAN (KEPALA BAGIAN & ADMIN BISA ADD)
-    // ─────────────────────────────────────────────
-    ambilKecamatan() {
-        const tersimpan = localStorage.getItem('sipatokaan_master_kecamatan');
-        if (tersimpan) {
-            try { return JSON.parse(tersimpan); } catch (e) {}
-        }
-        return [
-            'Wenang', 'Tikala', 'Wanea', 'Sario', 'Malalayang',
-            'Tuminting', 'Singkil', 'Mapanget', 'Paal Dua', 'Bunaken', 'Bunaken Kepulauan'
-        ];
-    }
-
-    tambahKecamatan(namaKecamatan) {
-        if (!namaKecamatan || !namaKecamatan.trim()) throw new Error('Nama kecamatan tidak boleh kosong');
-        const daftar = this.ambilKecamatan();
-        if (daftar.some(k => k.toLowerCase() === namaKecamatan.trim().toLowerCase())) {
-            throw new Error(`Kecamatan "${namaKecamatan}" sudah ada di sistem.`);
-        }
-        daftar.push(namaKecamatan.trim());
-        localStorage.setItem('sipatokaan_master_kecamatan', JSON.stringify(daftar));
-        return daftar;
-    }
-
-    hapusKecamatan(namaKecamatan) {
-        let daftar = this.ambilKecamatan();
-        daftar = daftar.filter(k => k !== namaKecamatan);
-        localStorage.setItem('sipatokaan_master_kecamatan', JSON.stringify(daftar));
-        return daftar;
-    }
-
-    // ─────────────────────────────────────────────
-    // 4. CRUD HARGA KOMODITAS
+    // 2. CRUD HARGA KOMODITAS (100% LANGSUNG KE SUPABASE CLOUD)
     // ─────────────────────────────────────────────
     async tambah(dataBaru) {
-        // 1. Simpan ke Supabase Cloud
-        try {
-            const itemMasuk = await supabaseClient.tambahHargaPangan(dataBaru);
-            if (itemMasuk && itemMasuk.id) {
-                const list = this.ambilDataFallback();
-                list.unshift(itemMasuk);
-                localStorage.setItem('sipatokaan_custom_items', JSON.stringify(list));
-                return itemMasuk;
-            }
-        } catch (err) {
-            console.warn('Supabase tambah offline, beralih ke local / API:', err);
-        }
-
-        // 2. Coba API server
-        try {
-            const respon = await fetch(this.baseUrl, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.ambilToken() || ''}`
-                },
-                body: JSON.stringify(dataBaru)
-            });
-            const hasil = await respon.json();
-            if (respon.ok && hasil.data) return hasil.data;
-        } catch (e) {}
-
-        // 3. Fallback lokal
-        const list = this.ambilDataFallback();
-        const itemBaru = {
-            id: 'komoditas-' + Date.now(),
+        const payload = {
             ...dataBaru,
-            tanggal_penetapan: dataBaru.tanggal_penetapan || '14 Oktober 2026'
+            satuan: this.normalisasiSatuan(dataBaru.satuan),
+            tanggal_penetapan: dataBaru.tanggal_penetapan || this.formatTanggalHariIni()
         };
-        list.unshift(itemBaru);
-        localStorage.setItem('sipatokaan_custom_items', JSON.stringify(list));
-        return itemBaru;
+
+        const itemMasuk = await supabaseClient.tambahHargaPangan(payload);
+        if (!itemMasuk || !itemMasuk.id) {
+            throw new Error('Gagal menyimpan data komoditas ke basis data Supabase.');
+        }
+        return { ...itemMasuk, satuan: this.normalisasiSatuan(itemMasuk.satuan) };
     }
 
     async perbarui(id, dataUpdate) {
-        // 1. Update ke Supabase Cloud
-        try {
-            const itemUpdate = await supabaseClient.updateHargaPangan(id, dataUpdate);
-            if (itemUpdate && itemUpdate.id) {
-                const list = this.ambilDataFallback();
-                const idx = list.findIndex(i => String(i.id) === String(id));
-                if (idx !== -1) {
-                    list[idx] = { ...list[idx], ...itemUpdate };
-                } else {
-                    list.unshift(itemUpdate);
-                }
-                localStorage.setItem('sipatokaan_custom_items', JSON.stringify(list));
-                return list[idx] || itemUpdate;
-            }
-        } catch (err) {
-            console.warn('Supabase update offline, beralih ke local / API:', err);
+        const payload = { ...dataUpdate };
+        if (payload.satuan) {
+            payload.satuan = this.normalisasiSatuan(payload.satuan);
         }
 
-        // 2. Coba API server
-        try {
-            const respon = await fetch(`${this.baseUrl}/${id}`, {
-                method: 'PUT',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.ambilToken() || ''}`
-                },
-                body: JSON.stringify(dataUpdate)
-            });
-            const hasil = await respon.json();
-            if (respon.ok && hasil.data) return hasil.data;
-        } catch (e) {}
-
-        // 3. Fallback lokal
-        const list = this.ambilDataFallback();
-        const idx = list.findIndex(i => String(i.id) === String(id));
-        if (idx !== -1) {
-            list[idx] = { ...list[idx], ...dataUpdate };
-            localStorage.setItem('sipatokaan_custom_items', JSON.stringify(list));
-            return list[idx];
+        const itemUpdate = await supabaseClient.updateHargaPangan(id, payload);
+        if (!itemUpdate) {
+            throw new Error('Gagal memperbarui data harga pangan di basis data Supabase.');
         }
-        const itemBaru = { id, ...dataUpdate };
-        list.unshift(itemBaru);
-        localStorage.setItem('sipatokaan_custom_items', JSON.stringify(list));
-        return itemBaru;
+        return { ...itemUpdate, satuan: this.normalisasiSatuan(itemUpdate.satuan) };
     }
 
     async hapus(id) {
-        // 1. Hapus dari Supabase Cloud
-        try {
-            await supabaseClient.hapusHargaPangan(id);
-            let list = this.ambilDataFallback();
-            list = list.filter(i => String(i.id) !== String(id));
-            localStorage.setItem('sipatokaan_custom_items', JSON.stringify(list));
-            return { sukses: true };
-        } catch (err) {
-            console.warn('Supabase hapus offline, beralih ke local / API:', err);
-        }
-
-        // 2. Coba API server
-        try {
-            await fetch(`${this.baseUrl}/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${this.ambilToken() || ''}` }
-            });
-        } catch (e) {}
-
-        // 3. Fallback lokal
-        let list = this.ambilDataFallback();
-        list = list.filter(i => String(i.id) !== String(id));
-        localStorage.setItem('sipatokaan_custom_items', JSON.stringify(list));
+        await supabaseClient.hapusHargaPangan(id);
         return { sukses: true };
     }
 
     // ─────────────────────────────────────────────
-    // 5. AUTENTIKASI & KELOLA PENGGUNA (ROLE-BASED)
-    // ─────────────────────────────────────────────
-    async login(emailOrUsername, kata_sandi) {
-        const inputBersih = (emailOrUsername || '').toLowerCase().trim();
-        const users = this.ambilSemuaPengguna();
-
-        const userCocok = users.find(u => 
-            u.username.toLowerCase() === inputBersih || 
-            u.email.toLowerCase() === inputBersih
-        );
-
-        if (!userCocok) {
-            throw new Error('Akun dengan username atau email tersebut tidak terdaftar!');
-        }
-
-        if (userCocok.kata_sandi !== kata_sandi) {
-            throw new Error('Kata sandi yang Anda masukkan salah!');
-        }
-
-        const dataAman = { ...userCocok };
-        delete dataAman.kata_sandi;
-        const mockToken = `token-sipatokaan-${dataAman.id}-${Date.now()}`;
-        this.simpanSesi(mockToken, dataAman);
-        return { token: mockToken, pengguna: dataAman };
-    }
-
-    ambilSemuaPengguna() {
-        const tersimpan = localStorage.getItem('sipatokaan_master_users');
-        if (tersimpan) {
-            try { return JSON.parse(tersimpan); } catch (e) {}
-        }
-        return [];
-    }
-
-    tambahPengguna(dataPenggunaBaru) {
-        if (!dataPenggunaBaru.nama || !dataPenggunaBaru.username || !dataPenggunaBaru.kata_sandi) {
-            throw new Error('Nama, username, dan kata sandi wajib diisi!');
-        }
-        if (dataPenggunaBaru.kata_sandi.length < 8) {
-            throw new Error('Kata sandi minimal 8 karakter untuk keamanan!');
-        }
-
-        const users = this.ambilSemuaPengguna();
-        if (users.some(u => u.username.toLowerCase() === dataPenggunaBaru.username.toLowerCase().trim())) {
-            throw new Error(`Username "${dataPenggunaBaru.username}" sudah digunakan!`);
-        }
-
-        const userBaru = {
-            id: 'usr-' + Date.now(),
-            nama: dataPenggunaBaru.nama.trim(),
-            username: dataPenggunaBaru.username.trim(),
-            email: dataPenggunaBaru.email || `${dataPenggunaBaru.username.toLowerCase().trim()}@manado.go.id`,
-            kata_sandi: dataPenggunaBaru.kata_sandi,
-            peran: dataPenggunaBaru.peran || 'Staf', // 'Admin', 'Kepala Bagian', 'Staf'
-            bidang: dataPenggunaBaru.bidang || 'Bidang Cadangan dan Distribusi Pangan',
-            foto_profil: ''
-        };
-
-        users.push(userBaru);
-        localStorage.setItem('sipatokaan_master_users', JSON.stringify(users));
-        return userBaru;
-    }
-
-    ubahRolePengguna(id, peranBaru) {
-        const users = this.ambilSemuaPengguna();
-        const idx = users.findIndex(u => u.id === id);
-        if (idx === -1) throw new Error('Pengguna tidak ditemukan');
-        users[idx].peran = peranBaru;
-        localStorage.setItem('sipatokaan_master_users', JSON.stringify(users));
-        return users[idx];
-    }
-
-    hapusPengguna(id) {
-        let users = this.ambilSemuaPengguna();
-        users = users.filter(u => u.id !== id);
-        localStorage.setItem('sipatokaan_master_users', JSON.stringify(users));
-        return true;
-    }
-
-    gantiPassword(idPengguna, sandiLama, sandiBaru) {
-        if (!sandiBaru || sandiBaru.length < 8) {
-            throw new Error('Kata sandi baru minimal 8 karakter demi keamanan!');
-        }
-        const users = this.ambilSemuaPengguna();
-        const idx = users.findIndex(u => u.id === idPengguna);
-        if (idx === -1) throw new Error('Pengguna tidak ditemukan!');
-
-        if (users[idx].kata_sandi !== sandiLama) {
-            throw new Error('Kata sandi lama yang Anda masukkan tidak sesuai!');
-        }
-
-        users[idx].kata_sandi = sandiBaru;
-        localStorage.setItem('sipatokaan_master_users', JSON.stringify(users));
-
-        // Update sesi aktif jika pengguna saat ini yang mengubah
-        const aktif = this.ambilUser();
-        if (aktif && aktif.id === idPengguna) {
-            this.simpanSesi(this.ambilToken(), { ...aktif });
-        }
-        return true;
-    }
-
-    gantiFotoProfil(idPengguna, fotoUrl) {
-        const users = this.ambilSemuaPengguna();
-        const idx = users.findIndex(u => u.id === idPengguna);
-        if (idx !== -1) {
-            users[idx].foto_profil = fotoUrl;
-            localStorage.setItem('sipatokaan_master_users', JSON.stringify(users));
-        }
-
-        const aktif = this.ambilUser();
-        if (aktif && aktif.id === idPengguna) {
-            aktif.foto_profil = fotoUrl;
-            this.simpanSesi(this.ambilToken(), aktif);
-        }
-        return true;
-    }
-
-    // ─────────────────────────────────────────────
-    // 6. NOTIFIKASI
-    // ─────────────────────────────────────────────
-    ambilNotifikasi() {
-        const tersimpan = localStorage.getItem('sipatokaan_notifikasi');
-        if (tersimpan) {
-            try { return JSON.parse(tersimpan); } catch (e) {}
-        }
-        return [];
-    }
-
-    tandaiSemuaDibaca() {
-        const list = this.ambilNotifikasi().map(n => ({ ...n, dibaca: true }));
-        localStorage.setItem('sipatokaan_notifikasi', JSON.stringify(list));
-        return list;
-    }
-
-    // ─────────────────────────────────────────────
-    // 7. MANAJEMEN SESI (Sesi Sementara sessionStorage & Sesi Permanen localStorage)
+    // 3. DELEGASI MANAJEMEN SESI (TERPUSAT DI PENGGUNASERVICE)
     // ─────────────────────────────────────────────
     simpanSesi(token, pengguna, ingatSaya = false) {
-        if (ingatSaya) {
-            localStorage.setItem('sipatokaan_token', token);
-            localStorage.setItem('sipatokaan_user', JSON.stringify(pengguna));
-            sessionStorage.removeItem('sipatokaan_token');
-            sessionStorage.removeItem('sipatokaan_user');
-        } else {
-            sessionStorage.setItem('sipatokaan_token', token);
-            sessionStorage.setItem('sipatokaan_user', JSON.stringify(pengguna));
-            localStorage.removeItem('sipatokaan_token');
-            localStorage.removeItem('sipatokaan_user');
-        }
+        penggunaService.simpanSesi(token, pengguna, ingatSaya);
     }
 
     ambilUser() {
-        const dariSession = sessionStorage.getItem('sipatokaan_user');
-        if (dariSession) {
-            try { return JSON.parse(dariSession); } catch (e) {}
-        }
-        const data = localStorage.getItem('sipatokaan_user');
-        if (data) {
-            try { return JSON.parse(data); } catch (e) { return null; }
-        }
-        return null;
+        return penggunaService.ambilUserSesi();
     }
 
     ambilToken() {
-        return sessionStorage.getItem('sipatokaan_token') || localStorage.getItem('sipatokaan_token');
+        return penggunaService.ambilToken();
     }
 
     keluar() {
-        sessionStorage.removeItem('sipatokaan_token');
-        sessionStorage.removeItem('sipatokaan_user');
-        localStorage.removeItem('sipatokaan_token');
-        localStorage.removeItem('sipatokaan_user');
-    }
-
-    // Fallback data bawaan jika server backend offline
-    ambilDataFallback(kategori, pasar, cari, status) {
-        const kustom = localStorage.getItem('sipatokaan_custom_items');
-        let items = kustom ? JSON.parse(kustom) : [
-            { id: '1', nama_komoditas: 'Beras Medium', kategori: 'Bahan Pokok', satuan: '1 KG', harga: 13500, nama_pasar: 'Pasar Bersehati Karombasan', tanggal_penetapan: '14 Oktober 2026', status: 'Terbit' },
-            { id: '2', nama_komoditas: 'Minyak Goreng Kemasan', kategori: 'Bahan Pokok', satuan: '1 KG', harga: 18000, nama_pasar: 'Pasar Tradisional Tuminting', tanggal_penetapan: '14 Oktober 2026', status: 'Draft' },
-            { id: '3', nama_komoditas: 'Gula Pasir', kategori: 'Bahan Pokok', satuan: '1 KG', harga: 16000, nama_pasar: 'Pasar Bersehati Sario', tanggal_penetapan: '14 Oktober 2026', status: 'Terbit' },
-            { id: '4', nama_komoditas: 'Beras Premium', kategori: 'Bahan Pokok', satuan: '1 KG', harga: 15500, nama_pasar: 'Pasar Bersehati Karombasan', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' },
-            { id: '5', nama_komoditas: 'Telur Ayam', kategori: 'Hewani', satuan: '1 KG', harga: 28000, nama_pasar: 'Pasar Bersehati Sario', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' },
-            { id: '6', nama_komoditas: 'Daging Ayam', kategori: 'Hewani', satuan: '1 KG', harga: 38000, nama_pasar: 'Pasar Bersehati Sario', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' },
-            { id: '7', nama_komoditas: 'Daging Sapi', kategori: 'Hewani', satuan: '1 KG', harga: 135000, nama_pasar: 'Pasar Tradisional Bahu', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' },
-            { id: '8', nama_komoditas: 'Bawang Merah', kategori: 'Sayuran', satuan: '1 KG', harga: 32000, nama_pasar: 'Pasar Tradisional Bahu', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' },
-            { id: '9', nama_komoditas: 'Bawang Putih', kategori: 'Sayuran', satuan: '1 KG', harga: 35000, nama_pasar: 'Pasar Bersehati Karombasan', tanggal_penetapan: '8 Oktober 2026', status: 'Terbit' }
-        ];
-
-        items = items.map(i => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
-
-        if (status) {
-            items = items.filter(i => i.status === status);
-        }
-        if (kategori && kategori !== 'Semua') {
-            items = items.filter(i => i.kategori.toLowerCase() === kategori.toLowerCase());
-        }
-        if (pasar && pasar !== 'Semua') {
-            items = items.filter(i => i.nama_pasar.toLowerCase() === pasar.toLowerCase());
-        }
-        if (cari) {
-            items = items.filter(i => i.nama_komoditas.toLowerCase().includes(cari.toLowerCase()));
-        }
-        return items;
+        penggunaService.logout();
     }
 }
 

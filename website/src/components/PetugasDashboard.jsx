@@ -15,6 +15,7 @@ import { masterDataService } from '../services/MasterDataService';
 import { analisisHargaService } from '../services/AnalisisHargaService';
 import { laporanService } from '../services/LaporanService';
 import { gpmService } from '../services/GPMService';
+import { jadwalGPMService } from '../services/JadwalGPMService';
 import PetugasGPMManager from './PetugasGPMManager';
 import AdminMasterPasarPanel from './AdminMasterPasarPanel';
 import './PetugasDashboard.css';
@@ -55,7 +56,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   });
   const [daftarHarga, setDaftarHarga] = useState([]);
   const [daftarMasterKomoditas, setDaftarMasterKomoditas] = useState([]);
-  const [daftarSatuan, setDaftarSatuan] = useState(['1 KG', '1 Liter']);
+  const [daftarSatuan, setDaftarSatuan] = useState([]);
   const [daftarPasar, setDaftarPasar] = useState([]);
   const [daftarPasarLengkap, setDaftarPasarLengkap] = useState([]);
   const [daftarKecamatan, setDaftarKecamatan] = useState([]);
@@ -149,11 +150,12 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     pesan: ''
   });
 
-  // State Grafik Pangan (Khusus Kadis)
-  const [komoditasTren, setKomoditasTren] = useState('Beras Medium');
+  // State Grafik Pangan (Khusus Kadis — 100% Data Riil riwayat_harga_pangan)
+  const [komoditasTren, setKomoditasTren] = useState('');
   const [periodeTren, setPeriodeTren] = useState('7hari');
   const [pasarTren, setPasarTren] = useState('Semua');
   const [dataTren, setDataTren] = useState(null);
+  const [sedangMuatTren, setSedangMuatTren] = useState(false);
 
   // Data Riil Pelaksanaan GPM & Pendaftar Warga (Kadis, Admin, Kabid)
   const [daftarAcaraGPM, setDaftarAcaraGPM] = useState([]);
@@ -185,44 +187,76 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   useEffect(() => {
     muatDataDashboard();
     muatMasterData();
-
-    if (isKadis) {
-      const tren = laporanService.ambilDataTrenKomoditas(komoditasTren, periodeTren, pasarTren, daftarHarga);
-      setDataTren(tren);
-    }
   }, [peran]);
 
+  // Sinkronkan pilihan komoditas pertama dari data riil Supabase untuk Grafik Kadis
   useEffect(() => {
-    if (isKadis) {
-      const tren = laporanService.ambilDataTrenKomoditas(komoditasTren, periodeTren, pasarTren, daftarHarga);
-      setDataTren(tren);
+    if (!isKadis) return;
+    const daftarNamaUnik = Array.from(new Set(daftarHarga.map(i => i.nama_komoditas).filter(Boolean)));
+    if (daftarNamaUnik.length === 0) {
+      if (komoditasTren !== '') setKomoditasTren('');
+      return;
     }
-  }, [komoditasTren, periodeTren, pasarTren, daftarHarga]);
+    if (!komoditasTren || !daftarNamaUnik.includes(komoditasTren)) {
+      setKomoditasTren(daftarNamaUnik[0]);
+    }
+  }, [isKadis, daftarHarga]);
+
+  // Muat grafik tren riil dari tabel riwayat_harga_pangan setiap filter berubah
+  useEffect(() => {
+    if (!isKadis) return;
+    let masihAktif = true;
+    const muatTren = async () => {
+      setSedangMuatTren(true);
+      try {
+        const tren = await laporanService.ambilDataTrenKomoditas(
+          komoditasTren,
+          periodeTren,
+          pasarTren,
+          daftarHarga
+        );
+        if (masihAktif) setDataTren(tren);
+      } catch (err) {
+        console.error('Gagal memuat tren grafik pangan Kadis:', err);
+        if (masihAktif) setDataTren(null);
+      } finally {
+        if (masihAktif) setSedangMuatTren(false);
+      }
+    };
+    muatTren();
+    return () => { masihAktif = false; };
+  }, [isKadis, komoditasTren, periodeTren, pasarTren, daftarHarga]);
 
   const muatDataDashboard = async () => {
     try {
-      const stats = await hargaPanganService.ambilStatistikDashboard();
-      if (stats) setStatsDashboard(stats);
+      const [itemsRes, acaraRes, pendaftarRes, usersRes] = await Promise.all([
+        hargaPanganService.ambilSemua(),
+        gpmService.ambilSemuaAcara(),
+        gpmService.ambilPendaftarAcara(),
+        (isAdmin || isKabid || isKadis)
+          ? penggunaService.ambilSemuaPengguna().catch(() => [])
+          : Promise.resolve([])
+      ]);
 
-      const items = await hargaPanganService.ambilSemua();
-      setDaftarHarga(Array.isArray(items) ? items : []);
-
-      const acara = await gpmService.ambilSemuaAcara();
-      setDaftarAcaraGPM(Array.isArray(acara) ? acara : []);
-
-      const pendaftarRes = await gpmService.ambilPendaftarAcara();
+      const items = Array.isArray(itemsRes) ? itemsRes : [];
+      const acara = Array.isArray(acaraRes) ? acaraRes : [];
       const listPendaftar = Array.isArray(pendaftarRes)
         ? pendaftarRes
         : (Array.isArray(pendaftarRes?.data) ? pendaftarRes.data : []);
+      const users = Array.isArray(usersRes) ? usersRes : [];
+
+      setDaftarHarga(items);
+      setDaftarAcaraGPM(acara);
       setDaftarPendaftarGPM(listPendaftar);
-
-      const users = isAdmin ? await penggunaService.ambilSemuaPengguna() : [];
-      muatNotifikasiDinamis(items, acara, users);
-
-      if (isKadis) {
-        const tren = laporanService.ambilDataTrenKomoditas(komoditasTren, periodeTren, pasarTren, items);
-        setDataTren(tren);
+      if (users.length > 0 || isAdmin) {
+        setDaftarPengguna(users);
       }
+
+      // Hitung kartu KPI Dashboard 100% dari data riil Supabase + status waktu WITA
+      const stats = await hargaPanganService.ambilStatistikDashboard(items, acara);
+      if (stats) setStatsDashboard(stats);
+
+      muatNotifikasiDinamis(items, acara, users);
     } catch (error) {
       console.error('Gagal memuat data dashboard:', error);
     }
@@ -304,7 +338,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       notifs.push({
         id: 'notif-kadis-tren',
         judul: '📈 Fluktuasi Harga Pasar',
-        pesan: 'Grafik komoditas diperbarui otomatis dari 15 data pangan pokok di pasar Manado.',
+        pesan: `Grafik komoditas terhubung langsung ke ${itemsHarga.length} data pangan pokok di pasar Manado.`,
         waktu: 'Terkini',
         target: 'grafik-pangan'
       });
@@ -320,7 +354,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         waktu: 'Terkini',
         target: 'input-harga'
       });
-      const gpmAktif = acaraGPM.find(a => a.status === 'Aktif' || a.status === 'Berlangsung');
+      const gpmAktif = acaraGPM.find(a => !jadwalGPMService.hitungStatusOperasional(a).sudahBerakhir);
       if (gpmAktif) {
         notifs.push({
           id: 'notif-staf-gpm-aktif',
@@ -336,7 +370,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       notifs.push({
         id: 'notif-admin-supervisi',
         judul: '🛡️ Pengawasan Sistem & Akun',
-        pesan: `Sistem mencatat ${users.length || 4} akun kedinasan aktif dan ${acaraGPM.length} agenda GPM dalam basis data.`,
+        pesan: `Sistem mencatat ${users.length} akun kedinasan aktif dan ${acaraGPM.length} agenda GPM dalam basis data.`,
         waktu: 'Terkini',
         target: 'kelola-user'
       });
@@ -867,23 +901,38 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     : (Array.isArray(daftarPendaftarGPM?.data) ? daftarPendaftarGPM.data : []);
   const listAcaraAman = Array.isArray(daftarAcaraGPM) ? daftarAcaraGPM : [];
 
+  // Helper penandatangan resmi dinamis (dari profil login atau akun pejabat terdaftar di Supabase — 0% nama/NIP fiktif)
+  const ambilNamaPenandatangan = (peranTarget) => {
+    if (peran === peranTarget && userState?.nama && String(userState.nama).trim()) {
+      return String(userState.nama).trim();
+    }
+    const pejabatDB = (Array.isArray(daftarPengguna) ? daftarPengguna : []).find(
+      u => penggunaService.normalisasiPeran(u.peran) === peranTarget && u.nama && String(u.nama).trim()
+    );
+    return pejabatDB ? String(pejabatDB.nama).trim() : '';
+  };
+
   const rekapitulasiGPMList = listAcaraAman.map(a => {
-    const pendaftarAcara = listPendaftarAman.filter(p => p.acara_id === a.id);
-    const terdaftarCount = Math.max(pendaftarAcara.length, a.terdaftar || 0);
-    const terlayaniCount = pendaftarAcara.filter(p => p.status_kehadiran === 'Hadir').length || (a.terlayani || 0);
+    const pendaftarAcara = listPendaftarAman.filter(p => String(p.acara_id) === String(a.id));
+    const st = jadwalGPMService.hitungStatusOperasional(a);
+    const terdaftarCount = Math.max(pendaftarAcara.length, st.terisi || 0);
+    const terlayaniCount = Math.max(
+      pendaftarAcara.filter(p => p.status_kehadiran === 'Hadir').length,
+      st.totalHadir || 0
+    );
     return {
       id: a.id,
       nama_acara: a.nama_acara,
       lokasi: a.lokasi,
-      kecamatan: a.kecamatan || 'Wenang',
+      kecamatan: a.kecamatan || '-',
       tanggal: a.tanggal,
       jam_mulai: a.jam_mulai,
       jam_selesai: a.jam_selesai,
-      target_kuota: a.kuota_maksimal || 250,
+      target_kuota: st.kuotaMaks,
       terdaftar: terdaftarCount,
       terlayani: terlayaniCount,
-      status: a.status || 'Aktif',
-      komoditas_tersedia: a.komoditas_tersedia || 'Beras SPHP 5kg, Minyakita 1L, Gula Pasir 1kg',
+      status: st.sudahBerakhir ? 'Selesai' : 'Aktif',
+      komoditas_tersedia: a.komoditas_tersedia || '-',
       daftar_warga: pendaftarAcara
     };
   });
@@ -994,8 +1043,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   <strong style={{ fontSize: '0.9rem', color: '#1e293b' }}>🔔 Notifikasi Respon Sistem</strong>
                   <button
                     onClick={() => {
-                      const updated = hargaPanganService.tandaiSemuaDibaca();
-                      setDaftarNotif(updated);
+                      setDaftarNotif(prev => prev.map(n => ({ ...n, dibaca: true })));
                     }}
                     style={{ background: 'none', border: 'none', color: '#8b1e1e', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700 }}
                   >
@@ -1632,7 +1680,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                     <div style={{ fontSize: '0.82rem', marginBottom: '14px' }}>
                       <strong>🌾 Komoditas Disediakan:</strong>
                       <div style={{ marginTop: '4px', color: '#475569', lineHeight: 1.4 }}>
-                        {gpm.komoditas_tersedia || 'Beras SPHP 5kg, Minyakita 1L, Gula Pasir 1kg'}
+                        {gpm.komoditas_tersedia || '-'}
                       </div>
                     </div>
 
@@ -1679,7 +1727,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button
-                  onClick={() => laporanService.eksporLaporanHargaCSV(daftarHarga)}
+                  onClick={() => laporanService.eksporLaporanHargaCSV(daftarHarga, { nama: ambilNamaPenandatangan('Kabid') })}
                   style={{
                     background: '#166534',
                     color: '#ffffff',
@@ -1763,8 +1811,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   <div>Manado, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
                   <div style={{ fontWeight: 800, marginTop: '4px' }}>Kepala Bidang Cadangan & Distribusi Pangan</div>
                   <div style={{ height: '70px' }}></div>
-                  <div style={{ fontWeight: 800, textDecoration: 'underline' }}>{userState.nama || 'Mareta'}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>NIP. 19850412 201001 2 003</div>
+                  <div style={{ fontWeight: 800, textDecoration: 'underline' }}>
+                    {ambilNamaPenandatangan('Kabid') || '( ........................................ )'}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>NIP. ........................................</div>
                 </div>
               </div>
             </div>
@@ -2214,22 +2264,42 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               </p>
             </div>
 
-            {/* Filter Komoditas & Periode */}
+            {/* Filter Komoditas, Pasar & Periode (100% Data Riil Database) */}
             <div style={{ background: '#ffffff', padding: '18px 24px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '20px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px' }}>Komoditas</label>
                 <select
                   value={komoditasTren}
                   onChange={(e) => setKomoditasTren(e.target.value)}
+                  disabled={daftarHarga.length === 0}
                   style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 600 }}
                 >
                   {(() => {
                     const daftarNama = Array.from(new Set(daftarHarga.map(i => i.nama_komoditas).filter(Boolean)));
-                    const daftarOpsi = daftarNama.length > 0 ? daftarNama : ['Beras Medium', 'Beras Premium', 'Minyak Goreng Kemasan', 'Gula Pasir', 'Telur Ayam'];
-                    return daftarOpsi.map(nama => (
+                    if (daftarNama.length === 0) {
+                      return <option value="">Belum ada data komoditas di database</option>;
+                    }
+                    return daftarNama.map(nama => (
                       <option key={nama} value={nama}>{nama}</option>
                     ));
                   })()}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px' }}>Pasar Pantauan</label>
+                <select
+                  value={pasarTren}
+                  onChange={(e) => setPasarTren(e.target.value)}
+                  style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 600 }}
+                >
+                  <option value="Semua">Semua Pasar</option>
+                  {Array.from(new Set([
+                    ...daftarPasar,
+                    ...daftarHarga.map(i => i.nama_pasar).filter(Boolean)
+                  ])).sort((a, b) => a.localeCompare(b, 'id-ID')).map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
                 </select>
               </div>
 
@@ -2258,20 +2328,34 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               </div>
             </div>
 
-            {/* Metrik Statistik Tren */}
-            {dataTren && (
+            {/* Metrik & Grafik Tren 100% Riil dari Tabel riwayat_harga_pangan */}
+            {sedangMuatTren ? (
+              <div style={{ background: '#ffffff', padding: '32px', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center', color: '#64748b' }}>
+                ⏳ Memuat data riwayat fluktuasi harga dari basis data Supabase...
+              </div>
+            ) : !dataTren || !dataTren.adaData ? (
+              <div style={{ background: '#ffffff', padding: '32px', borderRadius: '12px', border: '1px dashed #cbd5e1', textAlign: 'center', color: '#64748b' }}>
+                <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>📉</div>
+                <strong style={{ color: '#1e293b', display: 'block', marginBottom: '4px' }}>
+                  Belum Ada Data Harga / Riwayat untuk Pilihan Ini
+                </strong>
+                <span style={{ fontSize: '0.84rem' }}>
+                  Grafik menampilkan 100% catatan harga resmi dari database (tanpa simulasi/data dummy). Pilih komoditas/pasar lain atau tunggu penetapan harga dari bidang terkait.
+                </span>
+              </div>
+            ) : (
               <>
                 <div className="dashboard-stat-cards-grid" style={{ marginBottom: '24px' }}>
                   <div className="stat-card-white">
                     <div className="stat-title-label">Harga Terkini</div>
                     <div className="stat-number-big" style={{ color: '#8b1e1e' }}>{formatRupiah(dataTren.hargaTerkini)}</div>
-                    <div className="stat-caption-sub">acuan saat ini</div>
+                    <div className="stat-caption-sub">acuan terbaru tercatat</div>
                   </div>
 
                   <div className="stat-card-white">
                     <div className="stat-title-label">Rata-rata Harga</div>
                     <div className="stat-number-big">{formatRupiah(dataTren.rataRata)}</div>
-                    <div className="stat-caption-sub">selama periode terpilih</div>
+                    <div className="stat-caption-sub">dari {dataTren.titikData.length} catatan riil</div>
                   </div>
 
                   <div className="stat-card-white">
@@ -2290,52 +2374,102 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                     }}>
                       {dataTren.statusTren === 'Naik' ? '▲ Naik' : dataTren.statusTren === 'Turun' ? '▼ Turun' : '▬ Stabil'}
                     </div>
-                    <div className="stat-caption-sub">selisih {formatRupiah(dataTren.selisih)} ({dataTren.persentase}%)</div>
+                    <div className="stat-caption-sub">
+                      selisih {dataTren.selisih > 0 ? '+' : ''}{formatRupiah(dataTren.selisih)} ({dataTren.persentase}%)
+                    </div>
                   </div>
                 </div>
 
-                {/* Visualisasi Grafik Tren Interaktif */}
+                {/* Visualisasi Grafik Tren Interaktif (100% Data Riil) */}
                 <div style={{ background: '#ffffff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', width: '100%', maxWidth: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
                     <h3 style={{ margin: 0, color: '#1e293b', fontSize: '1.05rem' }}>
-                      Pergerakan Harga Komoditas: {dataTren.namaKomoditas}
+                      Pergerakan Harga Komoditas: {dataTren.namaKomoditas} {dataTren.pasar !== 'Semua' ? `(${dataTren.pasar})` : '(Semua Pasar)'}
                     </h3>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b', background: '#f1f5f9', padding: '3px 8px', borderRadius: '4px', fontWeight: 600 }}>
-                      📊 Grafik Batang Riil
+                    <span style={{
+                      fontSize: '0.75rem',
+                      color: dataTren.sumber === 'riwayat' ? '#166534' : '#92400e',
+                      background: dataTren.sumber === 'riwayat' ? '#dcfce7' : '#fef3c7',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontWeight: 700
+                    }}>
+                      {dataTren.sumber === 'riwayat'
+                        ? `📊 Riwayat Perubahan Harga Resmi (${dataTren.jumlahCatatan} catatan)`
+                        : `📌 Harga Acuan Terkini (${dataTren.jumlahCatatan} pasar)`}
                     </span>
                   </div>
 
+                  {dataTren.titikData.length === 1 && (
+                    <div style={{ fontSize: '0.8rem', color: '#475569', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px' }}>
+                      ℹ️ Baru terdapat <strong>1 catatan harga resmi</strong> pada rentang waktu ini. Titik tren fluktuasi akan bertambah otomatis setiap kali terjadi pembaruan harga terbit oleh Kepala Bidang.
+                    </div>
+                  )}
+
                   <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '6px' }}>
-                    <div style={{ minWidth: '520px', height: '220px', display: 'flex', alignItems: 'flex-end', gap: '14px', padding: '20px 10px 10px 10px', background: '#f8fafc', borderRadius: '8px', borderBottom: '2px solid #cbd5e1' }}>
-                      {Array.isArray(dataTren.titikData) && dataTren.titikData.map((titik, idx) => {
-                        const rasio = (titik.harga - dataTren.hargaTerendah * 0.9) / (dataTren.hargaTertinggi - dataTren.hargaTerendah * 0.9 || 1);
+                    <div style={{ minWidth: `${Math.max(320, dataTren.titikData.length * 88)}px`, height: '220px', display: 'flex', alignItems: 'flex-end', gap: '14px', padding: '20px 10px 10px 10px', background: '#f8fafc', borderRadius: '8px', borderBottom: '2px solid #cbd5e1' }}>
+                      {dataTren.titikData.map((titik, idx) => {
+                        const rasio = dataTren.hargaTertinggi === dataTren.hargaTerendah
+                          ? 0.72
+                          : (titik.harga - dataTren.hargaTerendah * 0.9) / (dataTren.hargaTertinggi - dataTren.hargaTerendah * 0.9 || 1);
                         const tinggiPersen = Math.max(25, Math.min(100, Math.round(rasio * 100)));
                         return (
-                          <div key={idx} style={{ flex: 1, minWidth: '55px', display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+                          <div key={idx} style={{ flex: 1, minWidth: '72px', display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
                             <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#8b1e1e', marginBottom: '6px', whiteSpace: 'nowrap' }}>
                               {formatRupiah(titik.harga)}
                             </span>
                             <div
                               style={{
                                 width: '100%',
-                                maxWidth: '44px',
+                                maxWidth: '48px',
                                 height: `${tinggiPersen}%`,
                                 background: 'linear-gradient(180deg, #8b1e1e 0%, #b91c1c 100%)',
                                 borderRadius: '6px 6px 0 0',
                                 transition: 'all 0.3s ease'
                               }}
-                              title={`${titik.tanggal}: ${formatRupiah(titik.harga)}`}
+                              title={`${titik.tanggalLengkap} · ${titik.pasar}: ${formatRupiah(titik.harga)}`}
                             />
-                            <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '8px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                            <span style={{ fontSize: '0.7rem', color: '#475569', marginTop: '8px', fontWeight: 600, whiteSpace: 'nowrap' }}>
                               {titik.tanggal}
                             </span>
+                            {dataTren.pasar === 'Semua' && titik.pasar && (
+                              <span style={{ fontSize: '0.65rem', color: '#94a3b8', maxWidth: '84px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={titik.pasar}>
+                                {titik.pasar.replace(/^Pasar\s+/i, '')}
+                              </span>
+                            )}
                           </div>
                         );
                       })}
                     </div>
                   </div>
                   <div style={{ fontSize: '0.72rem', color: '#94a3b8', textAlign: 'right', marginTop: '6px' }}>
-                    💡 Geser ke samping jika grafik terpotong di layar ponsel
+                    💡 Arahkan kursor pada batang untuk melihat detail waktu & pasar. Geser ke samping jika grafik lebar.
+                  </div>
+
+                  {/* Tabel Rincian Catatan Riwayat Riil */}
+                  <div style={{ marginTop: '18px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', minWidth: '520px' }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+                          <th style={{ padding: '8px 10px' }}>Waktu Tercatat</th>
+                          <th style={{ padding: '8px 10px' }}>Pasar</th>
+                          <th style={{ padding: '8px 10px' }}>Harga Tercatat</th>
+                          <th style={{ padding: '8px 10px' }}>Perubahan</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...dataTren.titikData].reverse().map((t, i) => (
+                          <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '8px 10px', color: '#475569' }}>{t.tanggalLengkap}</td>
+                            <td style={{ padding: '8px 10px', fontWeight: 600 }}>{t.pasar}</td>
+                            <td style={{ padding: '8px 10px', fontWeight: 800, color: '#8b1e1e' }}>{formatRupiah(t.harga)}</td>
+                            <td style={{ padding: '8px 10px', fontWeight: 700, color: t.selisih > 0 ? '#dc2626' : t.selisih < 0 ? '#166534' : '#64748b' }}>
+                              {t.selisih > 0 ? `▲ +${formatRupiah(t.selisih)}` : t.selisih < 0 ? `▼ ${formatRupiah(t.selisih)}` : '▬ Tetap / Baru'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </>
@@ -3502,8 +3636,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 <div style={{ fontSize: '9.5pt' }}>Manado, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
                 <div style={{ fontWeight: 800, fontSize: '9.5pt', marginTop: '2px' }}>Kepala Bidang Cadangan & Distribusi Pangan</div>
                 <div style={{ height: '65px' }}></div>
-                <div style={{ fontWeight: 800, fontSize: '10pt', textDecoration: 'underline' }}>MEITY RONDONUWU, S.Pt, M.Si</div>
-                <div style={{ fontSize: '8.5pt', color: '#444' }}>NIP. 19780815 200501 2 008</div>
+                <div style={{ fontWeight: 800, fontSize: '10pt', textDecoration: 'underline' }}>
+                  {ambilNamaPenandatangan('Kabid') || '( ........................................ )'}
+                </div>
+                <div style={{ fontSize: '8.5pt', color: '#444' }}>NIP. ........................................</div>
               </div>
             </div>
           </div>
@@ -3556,8 +3692,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 <div style={{ fontSize: '9.5pt' }}>Manado, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
                 <div style={{ fontWeight: 800, fontSize: '9.5pt', marginTop: '2px' }}>Kepala Dinas Pangan Kota Manado</div>
                 <div style={{ height: '65px' }}></div>
-                <div style={{ fontWeight: 800, fontSize: '10pt', textDecoration: 'underline' }}>Ir. PHILIPS H. SONDY, M.Si</div>
-                <div style={{ fontSize: '8.5pt', color: '#444' }}>NIP. 19681120 199303 1 004</div>
+                <div style={{ fontWeight: 800, fontSize: '10pt', textDecoration: 'underline' }}>
+                  {ambilNamaPenandatangan('Kadis') || '( ........................................ )'}
+                </div>
+                <div style={{ fontSize: '8.5pt', color: '#444' }}>NIP. ........................................</div>
               </div>
             </div>
           </div>
@@ -3611,8 +3749,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 <div style={{ fontSize: '9.5pt' }}>Manado, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
                 <div style={{ fontWeight: 800, fontSize: '9.5pt', marginTop: '2px' }}>Kepala Dinas Pangan Kota Manado</div>
                 <div style={{ height: '65px' }}></div>
-                <div style={{ fontWeight: 800, fontSize: '10pt', textDecoration: 'underline' }}>Ir. PHILIPS H. SONDY, M.Si</div>
-                <div style={{ fontSize: '8.5pt', color: '#444' }}>NIP. 19681120 199303 1 004</div>
+                <div style={{ fontWeight: 800, fontSize: '10pt', textDecoration: 'underline' }}>
+                  {ambilNamaPenandatangan('Kadis') || '( ........................................ )'}
+                </div>
+                <div style={{ fontSize: '8.5pt', color: '#444' }}>NIP. ........................................</div>
               </div>
             </div>
           </div>
