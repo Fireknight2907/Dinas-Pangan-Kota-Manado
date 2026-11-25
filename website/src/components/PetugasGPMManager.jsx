@@ -15,7 +15,8 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import QRCodeComponent from './QRCodeComponent';
 import { gpmService } from '../services/GPMService';
-import { hargaPanganService } from '../services/HargaPanganService';
+import { jadwalGPMService } from '../services/JadwalGPMService';
+import { masterDataService } from '../services/MasterDataService';
 import './PetugasGPMManager.css';
 
 // Ikon Pin Peta Petugas Leaflet
@@ -114,6 +115,15 @@ export default function PetugasGPMManager({ token, pengguna }) {
     pesanError: ''
   });
 
+  // Modal Tambah / Ubah Kuota Acara GPM (Khusus Kepala Bidang & Superadmin)
+  const [modalUbahKuota, setModalUbahKuota] = useState({
+    buka: false,
+    acara: null,
+    kuotaBaru: '',
+    sedangSimpan: false,
+    pesanError: ''
+  });
+
   // State Riwayat Kegiatan GPM & Ekspor Rekapitulasi
   const [daftarRiwayat, setDaftarRiwayat] = useState([]);
   const [modalRiwayatDetail, setModalRiwayatDetail] = useState({
@@ -124,7 +134,7 @@ export default function PetugasGPMManager({ token, pengguna }) {
   });
   const [sedangSelesaikanAcara, setSedangSelesaikanAcara] = useState(false);
 
-  // Master Komoditas Pangan dari Informasi Harga untuk Dropdown Checklist Form GPM
+  // Master Komoditas Pangan dari Master Komoditas Resmi Supabase untuk Dropdown Checklist Form GPM
   const [daftarKomoditasMaster, setDaftarKomoditasMaster] = useState([]);
   const [dropdownKomoditasBuka, setDropdownKomoditasBuka] = useState(false);
 
@@ -139,30 +149,13 @@ export default function PetugasGPMManager({ token, pengguna }) {
 
   const muatMasterKomoditas = async () => {
     try {
-      const listPangan = await hargaPanganService.ambilSemua();
-      const namaDariHarga = Array.isArray(listPangan)
-        ? listPangan.map(p => p.nama_komoditas ? p.nama_komoditas.trim() : '').filter(Boolean)
+      const listMaster = await masterDataService.ambilDaftarKomoditas();
+      const namaResmi = Array.isArray(listMaster)
+        ? listMaster.map((k) => `${k.nama_komoditas} (${k.satuan_bawaan || '1 KG'})`).filter(Boolean)
         : [];
-      
-      const paketBawaanGPM = [
-        'Beras SPHP 5kg',
-        'Beras Premium 5kg',
-        'Beras Medium 5kg',
-        'Minyakita 1L',
-        'Minyak Goreng Kemasan 1L',
-        'Gula Pasir 1kg',
-        'Telur Ayam 1 Baki',
-        'Daging Ayam 1 KG',
-        'Daging Sapi 1 KG',
-        'Bawang Merah 1 KG',
-        'Bawang Putih 1 KG',
-        'Cabai Rawit 1 KG'
-      ];
-      
-      const gabungan = Array.from(new Set([...namaDariHarga, ...paketBawaanGPM]));
-      setDaftarKomoditasMaster(gabungan);
+      setDaftarKomoditasMaster(Array.from(new Set(namaResmi)));
     } catch (e) {
-      console.warn('[PetugasGPM] Gagal memuat komoditas master harga pangan:', e);
+      console.warn('[PetugasGPM] Gagal memuat master komoditas:', e);
     }
   };
 
@@ -187,18 +180,23 @@ export default function PetugasGPMManager({ token, pengguna }) {
     setFormGPM(prev => ({ ...prev, komoditas_tersedia: '' }));
   };
 
-  const muatKecamatan = () => {
-    const list = hargaPanganService.ambilKecamatan();
-    setDaftarKecamatan(list);
-    if (list.length > 0 && !formGPM.kecamatan) {
-      setFormGPM(prev => ({ ...prev, kecamatan: list[0] }));
+  const muatKecamatan = async () => {
+    try {
+      const list = await masterDataService.ambilDaftarKecamatan();
+      setDaftarKecamatan(list);
+      if (list.length > 0 && !formGPM.kecamatan) {
+        setFormGPM(prev => ({ ...prev, kecamatan: list[0] }));
+      }
+    } catch (e) {
+      console.warn('[PetugasGPM] Gagal memuat master kecamatan:', e);
     }
   };
 
   const muatDataAwal = async () => {
     try {
-      const acaraAktif = await gpmService.ambilSemuaAcara('Aktif');
-      const riwayat = await gpmService.ambilRiwayatAcara();
+      const semuaAcara = await gpmService.ambilSemuaAcara('Semua');
+      const acaraAktif = jadwalGPMService.urutkanAcaraAktif(semuaAcara);
+      const riwayat = jadwalGPMService.urutkanRiwayatSelesai(semuaAcara);
       setDaftarAcara(acaraAktif);
       setDaftarRiwayat(riwayat);
 
@@ -213,10 +211,57 @@ export default function PetugasGPMManager({ token, pengguna }) {
         setDaftarPendaftar([]);
       }
 
-      const stat = await gpmService.ambilStatistik();
-      setStatistikGlobal(stat);
+      const totalAntrean = semuaAcara.reduce((acc, a) => acc + (Number(a.antrean_terisi) || 0), 0);
+      const totalHadir = semuaAcara.reduce((acc, a) => acc + (Number(a.total_hadir) || 0), 0);
+      setStatistikGlobal({
+        total_gpm: semuaAcara.length,
+        gpm_aktif: acaraAktif.length,
+        gpm_selesai: riwayat.length,
+        total_antrean: totalAntrean,
+        total_hadir: totalHadir,
+        total_menunggu: Math.max(0, totalAntrean - totalHadir)
+      });
     } catch (err) {
       console.error('[PetugasGPM] Error muat data:', err);
+    }
+  };
+
+  // Kabid / Superadmin: Buka & Simpan Ubah/Tambah Kuota Acara Aktif
+  const handleBukaModalUbahKuota = (acara) => {
+    if (!isKabid || !acara) return;
+    setModalUbahKuota({
+      buka: true,
+      acara,
+      kuotaBaru: String(acara.kuota_maksimal || 250),
+      sedangSimpan: false,
+      pesanError: ''
+    });
+  };
+
+  const handleSimpanUbahKuota = async (e) => {
+    e.preventDefault();
+    const { acara, kuotaBaru } = modalUbahKuota;
+    if (!acara) return;
+    const angka = parseInt(String(kuotaBaru || '').replace(/[^0-9]/g, ''), 10);
+    const terisi = Number(acara.antrean_terisi) || 0;
+    if (!angka || angka < 1) {
+      setModalUbahKuota(prev => ({ ...prev, pesanError: 'Kuota maksimal harus berupa angka minimal 1.' }));
+      return;
+    }
+    if (angka < terisi) {
+      setModalUbahKuota(prev => ({ ...prev, pesanError: `Kuota baru (${angka}) tidak boleh lebih kecil dari warga yang sudah terdaftar (${terisi}).` }));
+      return;
+    }
+
+    setModalUbahKuota(prev => ({ ...prev, sedangSimpan: true, pesanError: '' }));
+    try {
+      await gpmService.ubahKuotaAcara(acara.id, angka);
+      setModalUbahKuota({ buka: false, acara: null, kuotaBaru: '', sedangSimpan: false, pesanError: '' });
+      setNotifSukses(`✅ Kuota kegiatan "${acara.nama_acara}" berhasil diperbarui menjadi ${angka} antrean!`);
+      setTimeout(() => setNotifSukses(''), 4500);
+      await muatDataAwal();
+    } catch (err) {
+      setModalUbahKuota(prev => ({ ...prev, sedangSimpan: false, pesanError: err?.message || 'Gagal memperbarui kuota.' }));
     }
   };
 
@@ -473,56 +518,48 @@ export default function PetugasGPMManager({ token, pengguna }) {
     }
   };
 
-  // ─────────────────────────────────────────────
-  // 4. TAMBAH KECAMATAN OLEH KEPALA BAGIAN
-  // ─────────────────────────────────────────────
-  const handleTambahKecamatan = (e) => {
+  // 4. TAMBAH KECAMATAN OLEH KEPALA BAGIAN (SINKRON SUPABASE)
+  const handleTambahKecamatan = async (e) => {
     e.preventDefault();
     if (!tambahKecamatanBaruInput.trim()) return;
     try {
-      const updated = hargaPanganService.tambahKecamatan(tambahKecamatanBaruInput.trim());
+      const nama = tambahKecamatanBaruInput.trim();
+      const updated = await masterDataService.tambahKecamatan(nama);
       setDaftarKecamatan(updated);
-      setFormGPM(prev => ({ ...prev, kecamatan: tambahKecamatanBaruInput.trim() }));
+      setFormGPM(prev => ({ ...prev, kecamatan: nama }));
       setTambahKecamatanBaruInput('');
       setTampilkanFormKecamatan(false);
-      alert(`✅ Kecamatan baru "${tambahKecamatanBaruInput.trim()}" berhasil ditambahkan dan otomatis tersedia untuk staf!`);
+      alert(`✅ Kecamatan baru "${nama}" berhasil disimpan ke database Master Kecamatan!`);
     } catch (err) {
       alert(err.message);
     }
   };
 
-  // ─────────────────────────────────────────────
-  // 5. FITUR TAMBAH ACARA GPM BARU
-  // ─────────────────────────────────────────────
+  // 5. FITUR TAMBAH ACARA GPM BARU (TERVALIDASI WITA & AUTO-CLOSE)
   const handleSimpanAcaraGPM = async (e) => {
     e.preventDefault();
-    if (!formGPM.nama_acara.trim() || !formGPM.lokasi.trim()) {
-      alert('Nama acara dan lokasi wajib diisi!');
-      return;
-    }
-
     setSedangSimpanAcara(true);
     try {
+      jadwalGPMService.validasiFormAcaraBaru(formGPM);
       await gpmService.tambahAcara(formGPM);
-      setNotifSukses('✅ Acara Gerakan Pangan Murah (GPM) baru berhasil dijadwalkan dan muncul di peta publik!');
-      setTimeout(() => setNotifSukses(''), 4000);
+      setNotifSukses('✅ Acara Gerakan Pangan Murah (GPM) baru berhasil dijadwalkan dan otomatis akan berakhir tepat sesuai jam selesai WITA!');
+      setTimeout(() => setNotifSukses(''), 4500);
 
-      // Reset form
       setFormGPM({
         nama_acara: '',
         lokasi: '',
         kecamatan: daftarKecamatan[0] || 'Wenang',
         tanggal: new Date().toISOString().split('T')[0],
         jam_mulai: '08:00',
-        jam_selesai: '13:00',
+        jam_selesai: '16:00',
         latitude: 1.4883,
         longitude: 124.8436,
         kuota_maksimal: 250,
-        komoditas_tersedia: 'Beras SPHP 5kg, Minyakita 1L, Gula Pasir 1kg, Telur Ayam',
+        komoditas_tersedia: '',
         deskripsi: ''
       });
 
-      muatDataAwal();
+      await muatDataAwal();
     } catch (err) {
       alert('Gagal menambah acara GPM: ' + err.message);
     } finally {
@@ -550,14 +587,15 @@ export default function PetugasGPMManager({ token, pengguna }) {
     }));
   };
 
-  // Toggle kehadiran di tabel
+  // Toggle kehadiran di tabel (FIX: tombol Batalkan benar-benar mengembalikan status ke 'Menunggu' + terkunci jika lewat jam)
   const handleToggleKehadiranTabel = async (pendaftar) => {
+    const statusTarget = String(pendaftar.status_kehadiran || '').toLowerCase() === 'hadir' ? 'Menunggu' : 'Hadir';
     try {
-      await gpmService.verifikasiKehadiran(pendaftar.kode_barcode);
-      muatPendaftar(acaraTerpilihId);
-      muatDataAwal();
+      await gpmService.verifikasiKehadiran(pendaftar.kode_barcode, statusTarget);
+      await muatPendaftar(acaraTerpilihId);
+      await muatDataAwal();
     } catch (err) {
-      alert('Gagal mengubah kehadiran: ' + err.message);
+      alert(err.message || 'Gagal mengubah status kehadiran.');
     }
   };
 
@@ -830,13 +868,17 @@ export default function PetugasGPMManager({ token, pengguna }) {
                     </div>
                   </div>
 
-                  {parsedScan.status_kehadiran === 'Hadir' ? (
+                  {parsedScan.acara?.terkunci_waktu || String(parsedScan.acara?.status || '').toLowerCase() === 'selesai' ? (
+                    <div style={{ background: '#fef2f2', color: '#991b1b', border: '1.5px solid #fca5a5', padding: '12px 16px', borderRadius: '10px', fontWeight: 700, fontSize: '0.88rem', marginTop: '12px' }}>
+                      🔒 Verifikasi QR Dikunci: Jadwal kegiatan GPM ini telah berakhir ({parsedScan.acara?.jam_selesai || '-'} WITA / Selesai). Tiket tidak dapat diverifikasi lagi.
+                    </div>
+                  ) : parsedScan.status_kehadiran === 'Hadir' ? (
                     <div className="badge-verified-done">
                       ✅ Warga ini telah diverifikasi hadir dan berhak menerima paket pangan murah.
                     </div>
                   ) : (
                     <button className="btn-verify-success" onClick={handleKonfirmasiKehadiran}>
-                      <span>✓</span> Konfirmasi Kehadiran & Layani Antrean #{parsedScan.nomor_antrean}
+                      <span>✓</span> Konfirmasi Kehadiran &amp; Layani Antrean #{parsedScan.nomor_antrean}
                     </button>
                   )}
                 </div>
@@ -891,41 +933,92 @@ export default function PetugasGPMManager({ token, pengguna }) {
               </div>
             </div>
 
-            {/* Tombol Aksi Acara: Tambah Manual, Unduh CSV & Selesaikan GPM */}
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="btn-tambah-manual"
-                onClick={handleBukaModalManual}
-                title="Daftarkan warga yang hadir di tempat tanpa membawa HP/smartphone"
-              >
-                ➕ Tambah Manual (Di Tempat)
-              </button>
+            {/* Tombol Aksi Acara: Tambah Manual (Tunduk Kuota), Ubah Kuota (Kabid), Unduh CSV & Selesaikan Lebih Awal */}
+            {(() => {
+              const acaraAktifDipilih = daftarAcara.find((a) => a.id === acaraTerpilihId);
+              const stAcara = acaraAktifDipilih?.statusOperasional || null;
+              const penuhAtauSelesai = Boolean(stAcara && !stAcara.bisaDaftar);
+              return (
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn-tambah-manual"
+                    onClick={handleBukaModalManual}
+                    disabled={!acaraAktifDipilih || penuhAtauSelesai}
+                    style={!acaraAktifDipilih || penuhAtauSelesai ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+                    title={
+                      penuhAtauSelesai
+                        ? 'Kuota habis atau acara berakhir. Kepala Bidang dapat menambah kuota terlebih dahulu.'
+                        : 'Daftarkan warga yang hadir di tempat tanpa membawa HP/smartphone (mengikuti kuota acara)'
+                    }
+                  >
+                    {stAcara?.kuotaPenuh ? '🚫 Kuota Penuh' : '➕ Tambah Manual (Di Tempat)'}
+                  </button>
 
-              {daftarAcara.find(a => a.id === acaraTerpilihId) && (
-                <button
-                  type="button"
-                  onClick={() => gpmService.eksporKeCSV(daftarAcara.find(a => a.id === acaraTerpilihId), daftarPendaftar)}
-                  className="btn-export-csv"
-                  title="Unduh rekapitulasi data pendaftar & nomor antrean dalam format Excel/CSV"
-                >
-                  📥 Export Data (CSV)
-                </button>
-              )}
+                  {acaraAktifDipilih && isKabid && (
+                    <button
+                      type="button"
+                      onClick={() => handleBukaModalUbahKuota(acaraAktifDipilih)}
+                      style={{
+                        background: '#eff6ff',
+                        color: '#1d4ed8',
+                        border: '1.5px solid #93c5fd',
+                        padding: '9px 14px',
+                        borderRadius: '8px',
+                        fontWeight: 700,
+                        fontSize: '0.84rem',
+                        cursor: 'pointer'
+                      }}
+                      title="Atur atau tambah kuota antrean acara ini (Khusus Kepala Bidang / Superadmin)"
+                    >
+                      🔧 Atur Kuota ({stAcara?.terisi ?? 0}/{stAcara?.kuotaMaks ?? acaraAktifDipilih.kuota_maksimal})
+                    </button>
+                  )}
 
-              {daftarAcara.find(a => a.id === acaraTerpilihId) && isKabid && (
-                <button
-                  type="button"
-                  onClick={() => handleSelesaikanAcara(acaraTerpilihId)}
-                  disabled={sedangSelesaikanAcara}
-                  className="btn-selesaikan-gpm"
-                  title="Kunci kegiatan dan pindahkan ke Riwayat GPM (Khusus Kepala Bidang)"
-                >
-                  {sedangSelesaikanAcara ? 'Memproses...' : '🔒 Selesaikan Kegiatan GPM'}
-                </button>
-              )}
-            </div>
+                  {acaraAktifDipilih && (
+                    <button
+                      type="button"
+                      onClick={() => gpmService.eksporKeCSV(acaraAktifDipilih, daftarPendaftar)}
+                      className="btn-export-csv"
+                      title="Unduh rekapitulasi data pendaftar & nomor antrean dalam format Excel/CSV"
+                    >
+                      📥 Export Data (CSV)
+                    </button>
+                  )}
+
+                  {acaraAktifDipilih && isKabid && (
+                    <button
+                      type="button"
+                      onClick={() => handleSelesaikanAcara(acaraTerpilihId)}
+                      disabled={sedangSelesaikanAcara}
+                      className="btn-selesaikan-gpm"
+                      title="Tutup lebih awal sebelum jam selesai WITA dan arsipkan ke Riwayat GPM (Khusus Kepala Bidang)"
+                    >
+                      {sedangSelesaikanAcara ? 'Memproses...' : '🔒 Selesaikan Lebih Awal'}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
           </div>
+
+          {/* Info Kuota & Jadwal Auto-Close Acara Terpilih */}
+          {(() => {
+            const acaraAktifDipilih = daftarAcara.find((a) => a.id === acaraTerpilihId);
+            if (!acaraAktifDipilih) return null;
+            const st = acaraAktifDipilih.statusOperasional;
+            return (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', background: st.kuotaPenuh ? '#fef2f2' : '#f8fafc', border: st.kuotaPenuh ? '1px solid #fecaca' : '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 14px', marginBottom: '14px', fontSize: '0.84rem' }}>
+                <div>
+                  <strong>{st.label}</strong> · Kuota terisi: <strong>{st.terisi} / {st.kuotaMaks}</strong> (Sisa: <strong style={{ color: st.kuotaPenuh ? '#dc2626' : '#15803d' }}>{st.sisaKuota}</strong>)
+                  {st.kuotaPenuh && !isKabid && <span style={{ color: '#b91c1c', marginLeft: '8px' }}>— Minta Kepala Bidang untuk menambah kuota jika ada stok tambahan.</span>}
+                </div>
+                <span style={{ color: '#64748b', fontWeight: 600 }}>
+                  ⏰ Auto-close otomatis: {acaraAktifDipilih.tanggal} pukul {acaraAktifDipilih.jam_selesai} WITA
+                </span>
+              </div>
+            );
+          })()}
 
           <div style={{ overflowX: 'auto' }}>
             <table className="pendaftar-data-table">
@@ -1113,11 +1206,11 @@ export default function PetugasGPMManager({ token, pengguna }) {
             <div style={{ display: 'flex', gap: '10px' }}>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
-                  Jam Mulai
+                  Jam Mulai (WITA)
                 </label>
                 <input
-                  type="text"
-                  placeholder="08:00"
+                  type="time"
+                  required
                   className="event-input-box"
                   value={formGPM.jam_mulai}
                   onChange={(e) => setFormGPM({ ...formGPM, jam_mulai: e.target.value })}
@@ -1125,11 +1218,11 @@ export default function PetugasGPMManager({ token, pengguna }) {
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
-                  Jam Selesai
+                  Jam Selesai (Auto-Close WITA)
                 </label>
                 <input
-                  type="text"
-                  placeholder="13:00"
+                  type="time"
+                  required
                   className="event-input-box"
                   value={formGPM.jam_selesai}
                   onChange={(e) => setFormGPM({ ...formGPM, jam_selesai: e.target.value })}
@@ -1724,6 +1817,92 @@ export default function PetugasGPMManager({ token, pengguna }) {
                   disabled={modalTambahManual.sedangKirim}
                 >
                   {modalTambahManual.sedangKirim ? 'Menyimpan...' : '💾 Simpan & Daftarkan Warga'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL UBAH / TAMBAH KUOTA ACARA GPM (KHUSUS KEPALA BIDANG & SUPERADMIN) */}
+      {modalUbahKuota.buka && modalUbahKuota.acara && (
+        <div className="modal-overlay-backdrop" onClick={() => setModalUbahKuota({ buka: false, acara: null, kuotaBaru: '', sedangSimpan: false, pesanError: '' })}>
+          <div className="modal-history-content" style={{ maxWidth: '460px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-history-header">
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.12rem', color: '#1e293b' }}>🔧 Atur / Tambah Kuota GPM</h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: '#64748b' }}>
+                  {modalUbahKuota.acara.nama_acara}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-close-modal"
+                onClick={() => setModalUbahKuota({ buka: false, acara: null, kuotaBaru: '', sedangSimpan: false, pesanError: '' })}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSimpanUbahKuota}>
+              <div className="modal-history-body" style={{ padding: '20px' }}>
+                <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '14px', fontSize: '0.85rem' }}>
+                  <div>Warga sudah terdaftar: <strong>{modalUbahKuota.acara.antrean_terisi || 0} orang</strong></div>
+                  <div>Kuota saat ini: <strong>{modalUbahKuota.acara.kuota_maksimal} antrean</strong></div>
+                </div>
+
+                {modalUbahKuota.pesanError && (
+                  <div style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', padding: '10px 12px', borderRadius: '8px', marginBottom: '12px', fontSize: '0.84rem' }}>
+                    ⚠️ {modalUbahKuota.pesanError}
+                  </div>
+                )}
+
+                <label style={{ display: 'block', fontWeight: 700, fontSize: '0.85rem', marginBottom: '6px', color: '#334155' }}>
+                  Kuota Maksimal Baru (Min. {Math.max(1, modalUbahKuota.acara.antrean_terisi || 0)})
+                </label>
+                <input
+                  type="number"
+                  min={Math.max(1, modalUbahKuota.acara.antrean_terisi || 0)}
+                  required
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', fontSize: '1rem', fontWeight: 700 }}
+                  value={modalUbahKuota.kuotaBaru}
+                  onChange={(e) => setModalUbahKuota(prev => ({ ...prev, kuotaBaru: e.target.value }))}
+                />
+
+                <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
+                  {[25, 50, 100].map((tambah) => (
+                    <button
+                      key={tambah}
+                      type="button"
+                      onClick={() =>
+                        setModalUbahKuota((prev) => ({
+                          ...prev,
+                          kuotaBaru: String((parseInt(prev.kuotaBaru, 10) || prev.acara.kuota_maksimal || 0) + tambah)
+                        }))
+                      }
+                      style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '5px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      +{tambah} Kuota
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="modal-history-footer">
+                <button
+                  type="button"
+                  className="btn-close-secondary"
+                  onClick={() => setModalUbahKuota({ buka: false, acara: null, kuotaBaru: '', sedangSimpan: false, pesanError: '' })}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="btn-tambah-manual"
+                  disabled={modalUbahKuota.sedangSimpan}
+                  style={{ background: '#1d4ed8' }}
+                >
+                  {modalUbahKuota.sedangSimpan ? 'Menyimpan...' : '💾 Simpan Kuota Baru'}
                 </button>
               </div>
             </form>

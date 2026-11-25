@@ -17,6 +17,7 @@ DROP TABLE IF EXISTS pendaftar_gpm CASCADE;
 DROP TABLE IF EXISTS acara_gpm CASCADE;
 DROP TABLE IF EXISTS harga_pangan CASCADE;
 DROP TABLE IF EXISTS pengguna CASCADE;
+DROP TABLE IF EXISTS master_komoditas CASCADE;
 DROP TABLE IF EXISTS master_satuan CASCADE;
 DROP TABLE IF EXISTS master_pasar CASCADE;
 DROP TABLE IF EXISTS master_kecamatan CASCADE;
@@ -72,6 +73,9 @@ CREATE TABLE pendaftar_gpm (
 
 CREATE INDEX idx_pendaftar_acara ON pendaftar_gpm(acara_id);
 CREATE INDEX idx_pendaftar_barcode ON pendaftar_gpm(kode_barcode);
+CREATE INDEX idx_acara_gpm_jadwal ON acara_gpm (status, tanggal ASC, jam_mulai ASC, dibuat_pada ASC);
+CREATE UNIQUE INDEX idx_pendaftar_gpm_acara_nik_unik
+    ON pendaftar_gpm (acara_id, nik) WHERE nik IS NOT NULL AND TRIM(nik) <> '';
 
 -- 6. Tabel Harga Pangan (Pemantauan Pasar)
 CREATE TABLE harga_pangan (
@@ -198,7 +202,18 @@ CREATE TRIGGER trg_catat_riwayat_harga_terbit
     AFTER INSERT OR UPDATE ON harga_pangan
     FOR EACH ROW EXECUTE FUNCTION fn_catat_riwayat_harga_terbit();
 
--- 7. Tabel Master Wilayah, Pasar & Satuan (Terkunci per 1)
+-- 7. Tabel Master Komoditas, Satuan (Terkunci per 1), Wilayah & Pasar
+CREATE TABLE master_komoditas (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    kelompok_komoditas VARCHAR(100) NOT NULL,
+    nama_komoditas VARCHAR(150) UNIQUE NOT NULL,
+    kategori VARCHAR(50) NOT NULL DEFAULT 'Bahan Pokok',
+    satuan_bawaan VARCHAR(50) NOT NULL DEFAULT '1 KG',
+    kata_kunci TEXT DEFAULT '',
+    prioritas_tampil INT NOT NULL DEFAULT 50,
+    dibuat_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE master_satuan (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nama_satuan VARCHAR(50) UNIQUE NOT NULL,
@@ -213,7 +228,12 @@ CREATE TABLE master_kecamatan (
 CREATE TABLE master_pasar (
     id SERIAL PRIMARY KEY,
     nama_pasar VARCHAR(150) UNIQUE NOT NULL,
-    kecamatan VARCHAR(100) DEFAULT 'Manado'
+    alamat TEXT DEFAULT '',
+    kecamatan VARCHAR(100) DEFAULT '',
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    dibuat_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    diperbarui_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ====================================================================

@@ -9,6 +9,7 @@ DROP TABLE IF EXISTS pendaftar_gpm CASCADE;
 DROP TABLE IF EXISTS acara_gpm CASCADE;
 DROP TABLE IF EXISTS harga_pangan CASCADE;
 DROP TABLE IF EXISTS pengguna CASCADE;
+DROP TABLE IF EXISTS master_komoditas CASCADE;
 DROP TABLE IF EXISTS master_satuan CASCADE;
 DROP TABLE IF EXISTS master_pasar CASCADE;
 DROP TABLE IF EXISTS master_kecamatan CASCADE;
@@ -101,6 +102,19 @@ CREATE INDEX idx_riwayat_harga_komoditas_waktu ON riwayat_harga_pangan (LOWER(TR
 CREATE INDEX idx_riwayat_harga_id ON riwayat_harga_pangan (harga_pangan_id, dicatat_pada DESC);
 
 -- 5c. Buat Tabel Master Data Resmi (Dikelola Admin & Superadmin)
+CREATE TABLE master_komoditas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    kelompok_komoditas VARCHAR(100) NOT NULL,
+    nama_komoditas VARCHAR(150) UNIQUE NOT NULL,
+    kategori VARCHAR(50) NOT NULL DEFAULT 'Bahan Pokok',
+    satuan_bawaan VARCHAR(50) NOT NULL DEFAULT '1 KG',
+    kata_kunci TEXT DEFAULT '',
+    prioritas_tampil INT NOT NULL DEFAULT 50,
+    dibuat_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_master_komoditas_kelompok ON master_komoditas (prioritas_tampil ASC, LOWER(kelompok_komoditas), LOWER(nama_komoditas));
+
 CREATE TABLE master_satuan (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nama_satuan VARCHAR(50) UNIQUE NOT NULL,
@@ -110,8 +124,15 @@ CREATE TABLE master_satuan (
 CREATE TABLE master_pasar (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nama_pasar VARCHAR(150) UNIQUE NOT NULL,
-    dibuat_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    alamat TEXT DEFAULT '',
+    kecamatan VARCHAR(100) DEFAULT '',
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    dibuat_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    diperbarui_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_master_pasar_nama ON master_pasar (LOWER(nama_pasar));
 
 CREATE TABLE master_kecamatan (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -128,6 +149,7 @@ ALTER TABLE acara_gpm ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pendaftar_gpm ENABLE ROW LEVEL SECURITY;
 ALTER TABLE harga_pangan ENABLE ROW LEVEL SECURITY;
 ALTER TABLE riwayat_harga_pangan ENABLE ROW LEVEL SECURITY;
+ALTER TABLE master_komoditas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_satuan ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_pasar ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_kecamatan ENABLE ROW LEVEL SECURITY;
@@ -165,6 +187,9 @@ CREATE POLICY "Akses kelola harga pangan" ON harga_pangan FOR ALL TO anon, authe
 DROP POLICY IF EXISTS "Akses kelola riwayat harga pangan" ON riwayat_harga_pangan;
 CREATE POLICY "Akses kelola riwayat harga pangan" ON riwayat_harga_pangan FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Akses kelola master komoditas" ON master_komoditas;
+CREATE POLICY "Akses kelola master komoditas" ON master_komoditas FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
 DROP POLICY IF EXISTS "Akses kelola master satuan" ON master_satuan;
 CREATE POLICY "Akses kelola master satuan" ON master_satuan FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
@@ -177,6 +202,7 @@ CREATE POLICY "Akses kelola master kecamatan" ON master_kecamatan FOR ALL TO ano
 -- Izin tabel eksplisit
 GRANT ALL ON TABLE harga_pangan TO anon, authenticated;
 GRANT ALL ON TABLE riwayat_harga_pangan TO anon, authenticated;
+GRANT ALL ON TABLE master_komoditas TO anon, authenticated;
 GRANT ALL ON TABLE master_satuan TO anon, authenticated;
 GRANT ALL ON TABLE master_pasar TO anon, authenticated;
 GRANT ALL ON TABLE master_kecamatan TO anon, authenticated;
@@ -323,6 +349,194 @@ $$;
 
 GRANT EXECUTE ON FUNCTION rpc_login_pengguna(TEXT, TEXT) TO anon, authenticated;
 
+-- Indeks & RPC GPM Otomatis (Auto-Close WITA, Kunci Kuota Atomik, Kunci QR, Ubah Kuota Kabid)
+CREATE INDEX idx_acara_gpm_jadwal ON acara_gpm (status, tanggal ASC, jam_mulai ASC, dibuat_pada ASC);
+CREATE INDEX idx_pendaftar_gpm_acara_status ON pendaftar_gpm (acara_id, status_kehadiran);
+CREATE UNIQUE INDEX idx_pendaftar_gpm_acara_nik_unik
+    ON pendaftar_gpm (acara_id, nik) WHERE nik IS NOT NULL AND TRIM(nik) <> '';
+
+CREATE OR REPLACE FUNCTION fn_parse_jam_gpm(p_jam TEXT, p_default TIME DEFAULT TIME '23:59:00')
+RETURNS TIME LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE
+    v_bersih TEXT := REPLACE(TRIM(COALESCE(p_jam, '')), '.', ':');
+    v_match  TEXT[];
+    v_jam    INT;
+    v_menit  INT;
+BEGIN
+    v_match := REGEXP_MATCH(v_bersih, '(\d{1,2}):(\d{2})');
+    IF v_match IS NULL THEN RETURN p_default; END IF;
+    v_jam := v_match[1]::INT;
+    v_menit := v_match[2]::INT;
+    IF v_jam < 0 OR v_jam > 23 OR v_menit < 0 OR v_menit > 59 THEN RETURN p_default; END IF;
+    RETURN MAKE_TIME(v_jam, v_menit, 0);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION rpc_sinkron_status_gpm_otomatis()
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+    v_wita_sekarang TIMESTAMP := (NOW() AT TIME ZONE 'Asia/Makassar');
+    v_jumlah_tutup  INT := 0;
+BEGIN
+    UPDATE acara_gpm
+       SET status = 'Selesai', diperbarui_pada = CURRENT_TIMESTAMP
+     WHERE LOWER(COALESCE(status, '')) = 'aktif'
+       AND (tanggal + fn_parse_jam_gpm(jam_selesai, TIME '23:59:00')) <= v_wita_sekarang;
+    GET DIAGNOSTICS v_jumlah_tutup = ROW_COUNT;
+    RETURN JSONB_BUILD_OBJECT(
+        'jumlah_ditutup', v_jumlah_tutup,
+        'waktu_server_wita', TO_CHAR(v_wita_sekarang, 'YYYY-MM-DD"T"HH24:MI:SS"+08:00"')
+    );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION rpc_ringkasan_pendaftar_gpm()
+RETURNS TABLE (acara_id UUID, total_terdaftar INT, total_hadir INT, total_menunggu INT)
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+    PERFORM rpc_sinkron_status_gpm_otomatis();
+    RETURN QUERY
+    SELECT p.acara_id,
+           COUNT(*)::INT,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(p.status_kehadiran, '')) = 'hadir')::INT,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(p.status_kehadiran, '')) <> 'hadir')::INT
+      FROM pendaftar_gpm p
+     GROUP BY p.acara_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION rpc_daftar_antrean_gpm(
+    p_acara_id UUID, p_nama_pendaftar TEXT, p_nomor_telepon TEXT DEFAULT '-',
+    p_nik TEXT DEFAULT '', p_jalur_pendaftaran TEXT DEFAULT 'Daring',
+    p_prefix_kode TEXT DEFAULT 'GPM-MND', p_langsung_hadir BOOLEAN DEFAULT FALSE
+)
+RETURNS TABLE (
+    id UUID, acara_id UUID, nama_pendaftar VARCHAR, nomor_telepon VARCHAR,
+    nik VARCHAR, jalur_pendaftaran VARCHAR, nomor_antrean INT, kode_barcode VARCHAR,
+    status_kehadiran VARCHAR, waktu_kehadiran TIMESTAMP WITH TIME ZONE, waktu_mendaftar TIMESTAMP WITH TIME ZONE
+) LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+    v_acara RECORD;
+    v_wita_sekarang TIMESTAMP := (NOW() AT TIME ZONE 'Asia/Makassar');
+    v_waktu_selesai TIMESTAMP;
+    v_terisi INT;
+    v_nomor_baru INT;
+    v_nik_bersih TEXT := REGEXP_REPLACE(COALESCE(p_nik, ''), '[^0-9]', '', 'g');
+    v_nama_bersih TEXT := TRIM(COALESCE(p_nama_pendaftar, ''));
+    v_telp_bersih TEXT := COALESCE(NULLIF(TRIM(COALESCE(p_nomor_telepon, '')), ''), '-');
+    v_jalur_bersih TEXT := CASE WHEN LOWER(COALESCE(p_jalur_pendaftaran, '')) = 'langsung' THEN 'Langsung' ELSE 'Daring' END;
+    v_prefix TEXT := UPPER(COALESCE(NULLIF(TRIM(p_prefix_kode), ''), 'GPM-MND'));
+    v_kode_barcode TEXT;
+BEGIN
+    IF LENGTH(v_nik_bersih) <> 16 THEN RAISE EXCEPTION 'NIK wajib terdiri dari tepat 16 digit angka!'; END IF;
+    IF LENGTH(v_nama_bersih) < 3 THEN RAISE EXCEPTION 'Nama lengkap pendaftar minimal 3 karakter!'; END IF;
+
+    SELECT * INTO v_acara FROM acara_gpm a WHERE a.id = p_acara_id FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Jadwal acara GPM tidak ditemukan di basis data.'; END IF;
+
+    v_waktu_selesai := v_acara.tanggal + fn_parse_jam_gpm(v_acara.jam_selesai, TIME '23:59:00');
+    IF v_waktu_selesai <= v_wita_sekarang THEN
+        IF LOWER(COALESCE(v_acara.status, '')) = 'aktif' THEN
+            UPDATE acara_gpm SET status = 'Selesai', diperbarui_pada = CURRENT_TIMESTAMP WHERE acara_gpm.id = p_acara_id;
+        END IF;
+        RAISE EXCEPTION 'Pendaftaran ditutup: Kegiatan GPM "%" telah berakhir sesuai jadwal (% WITA).', v_acara.nama_acara, v_acara.jam_selesai;
+    END IF;
+    IF LOWER(COALESCE(v_acara.status, '')) <> 'aktif' THEN
+        RAISE EXCEPTION 'Pendaftaran ditutup: Kegiatan GPM "%" sudah berstatus Selesai/Terkunci.', v_acara.nama_acara;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pendaftar_gpm pg WHERE pg.acara_id = p_acara_id AND pg.nik = v_nik_bersih) THEN
+        RAISE EXCEPTION 'Pendaftaran ditolak: NIK (%) sudah terdaftar pada kegiatan GPM ini! Satu NIK hanya berlaku untuk 1 nomor antrean.', v_nik_bersih;
+    END IF;
+
+    SELECT COUNT(*)::INT INTO v_terisi FROM pendaftar_gpm pg WHERE pg.acara_id = p_acara_id;
+    IF v_terisi >= COALESCE(v_acara.kuota_maksimal, 0) THEN
+        RAISE EXCEPTION 'Kuota antrean telah habis (% / % kuota terisi). Silakan pilih lokasi GPM lain atau hubungi Kepala Bidang untuk penambahan kuota.', v_terisi, COALESCE(v_acara.kuota_maksimal, 0);
+    END IF;
+
+    SELECT COALESCE(MAX(pg.nomor_antrean), 0) + 1 INTO v_nomor_baru FROM pendaftar_gpm pg WHERE pg.acara_id = p_acara_id;
+    v_kode_barcode := v_prefix || '-' || LPAD(v_nomor_baru::TEXT, 3, '0') || '-' || UPPER(SUBSTRING(MD5(gen_random_uuid()::TEXT) FROM 1 FOR 4));
+
+    RETURN QUERY
+    INSERT INTO pendaftar_gpm (acara_id, nama_pendaftar, nomor_telepon, nik, jalur_pendaftaran, nomor_antrean, kode_barcode, status_kehadiran, waktu_kehadiran)
+    VALUES (p_acara_id, v_nama_bersih, v_telp_bersih, v_nik_bersih, v_jalur_bersih, v_nomor_baru, v_kode_barcode, CASE WHEN p_langsung_hadir THEN 'Hadir' ELSE 'Menunggu' END, CASE WHEN p_langsung_hadir THEN CURRENT_TIMESTAMP ELSE NULL END)
+    RETURNING pendaftar_gpm.id, pendaftar_gpm.acara_id, pendaftar_gpm.nama_pendaftar, pendaftar_gpm.nomor_telepon, pendaftar_gpm.nik, pendaftar_gpm.jalur_pendaftaran, pendaftar_gpm.nomor_antrean, pendaftar_gpm.kode_barcode, pendaftar_gpm.status_kehadiran, pendaftar_gpm.waktu_kehadiran, pendaftar_gpm.waktu_mendaftar;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION rpc_verifikasi_kehadiran_gpm(p_kode_barcode TEXT, p_status_baru TEXT DEFAULT 'Hadir')
+RETURNS TABLE (
+    id UUID, acara_id UUID, nama_pendaftar VARCHAR, nomor_telepon VARCHAR,
+    nik VARCHAR, jalur_pendaftaran VARCHAR, nomor_antrean INT, kode_barcode VARCHAR,
+    status_kehadiran VARCHAR, waktu_kehadiran TIMESTAMP WITH TIME ZONE, waktu_mendaftar TIMESTAMP WITH TIME ZONE
+) LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+    v_pendaftar RECORD;
+    v_acara RECORD;
+    v_wita_sekarang TIMESTAMP := (NOW() AT TIME ZONE 'Asia/Makassar');
+    v_waktu_selesai TIMESTAMP;
+    v_status_final TEXT := CASE WHEN LOWER(COALESCE(p_status_baru, '')) = 'menunggu' THEN 'Menunggu' ELSE 'Hadir' END;
+BEGIN
+    SELECT * INTO v_pendaftar FROM pendaftar_gpm pg WHERE UPPER(TRIM(pg.kode_barcode)) = UPPER(TRIM(COALESCE(p_kode_barcode, ''))) LIMIT 1 FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Tiket dengan kode QR "%" tidak ditemukan di basis data.', p_kode_barcode; END IF;
+
+    SELECT * INTO v_acara FROM acara_gpm a WHERE a.id = v_pendaftar.acara_id FOR UPDATE;
+    IF FOUND THEN
+        v_waktu_selesai := v_acara.tanggal + fn_parse_jam_gpm(v_acara.jam_selesai, TIME '23:59:00');
+        IF v_waktu_selesai <= v_wita_sekarang THEN
+            IF LOWER(COALESCE(v_acara.status, '')) = 'aktif' THEN
+                UPDATE acara_gpm SET status = 'Selesai', diperbarui_pada = CURRENT_TIMESTAMP WHERE acara_gpm.id = v_acara.id;
+            END IF;
+            RAISE EXCEPTION 'Verifikasi QR dikunci: Jadwal kegiatan GPM "%" telah berakhir (% WITA).', v_acara.nama_acara, v_acara.jam_selesai;
+        END IF;
+        IF LOWER(COALESCE(v_acara.status, '')) <> 'aktif' THEN
+            RAISE EXCEPTION 'Verifikasi QR dikunci: Kegiatan GPM "%" sudah ditutup/selesai.', v_acara.nama_acara;
+        END IF;
+    END IF;
+
+    RETURN QUERY
+    UPDATE pendaftar_gpm pg
+       SET status_kehadiran = v_status_final,
+           waktu_kehadiran = CASE WHEN v_status_final = 'Hadir' THEN CURRENT_TIMESTAMP ELSE NULL END
+     WHERE pg.id = v_pendaftar.id
+    RETURNING pg.id, pg.acara_id, pg.nama_pendaftar, pg.nomor_telepon, pg.nik, pg.jalur_pendaftaran, pg.nomor_antrean, pg.kode_barcode, pg.status_kehadiran, pg.waktu_kehadiran, pg.waktu_mendaftar;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION rpc_ubah_kuota_acara_gpm(p_acara_id UUID, p_kuota_baru INT)
+RETURNS TABLE (id UUID, nama_acara VARCHAR, kuota_maksimal INT, status VARCHAR)
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+    v_acara RECORD;
+    v_wita_sekarang TIMESTAMP := (NOW() AT TIME ZONE 'Asia/Makassar');
+    v_waktu_selesai TIMESTAMP;
+    v_terisi INT;
+BEGIN
+    IF p_kuota_baru IS NULL OR p_kuota_baru < 1 THEN RAISE EXCEPTION 'Kuota maksimal harus berupa angka minimal 1.'; END IF;
+    SELECT * INTO v_acara FROM acara_gpm a WHERE a.id = p_acara_id FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Acara GPM tidak ditemukan.'; END IF;
+    v_waktu_selesai := v_acara.tanggal + fn_parse_jam_gpm(v_acara.jam_selesai, TIME '23:59:00');
+    IF v_waktu_selesai <= v_wita_sekarang OR LOWER(COALESCE(v_acara.status, '')) <> 'aktif' THEN
+        IF LOWER(COALESCE(v_acara.status, '')) = 'aktif' THEN
+            UPDATE acara_gpm SET status = 'Selesai', diperbarui_pada = CURRENT_TIMESTAMP WHERE acara_gpm.id = p_acara_id;
+        END IF;
+        RAISE EXCEPTION 'Kuota tidak dapat diubah karena kegiatan GPM sudah berakhir/selesai.';
+    END IF;
+    SELECT COUNT(*)::INT INTO v_terisi FROM pendaftar_gpm pg WHERE pg.acara_id = p_acara_id;
+    IF p_kuota_baru < v_terisi THEN
+        RAISE EXCEPTION 'Kuota baru (%) tidak boleh lebih kecil dari jumlah warga yang sudah terdaftar saat ini (%).', p_kuota_baru, v_terisi;
+    END IF;
+    RETURN QUERY
+    UPDATE acara_gpm a SET kuota_maksimal = p_kuota_baru, diperbarui_pada = CURRENT_TIMESTAMP WHERE a.id = p_acara_id
+    RETURNING a.id, a.nama_acara, a.kuota_maksimal, a.status;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION rpc_sinkron_status_gpm_otomatis() TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION rpc_ringkasan_pendaftar_gpm() TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION rpc_daftar_antrean_gpm(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION rpc_verifikasi_kehadiran_gpm(TEXT, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION rpc_ubah_kuota_acara_gpm(UUID, INT) TO anon, authenticated;
+
 -- Policy untuk informasi_pangan jika ada
 DO $$
 BEGIN
@@ -343,7 +557,23 @@ INSERT INTO pengguna (nama, username, email, kata_sandi, peran, bidang) VALUES
 ('Edrick', 'edrick', 'edrick@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Admin', 'Admin'),
 ('Kepala Dinas Pangan', 'kadis', 'kadis@manado.go.id', 'eac2df603310203df1681272475908a04214f8b9900347fc1982d4a7b10ca481', 'Kadis', 'Pimpinan Dinas Pangan Kota Manado');
 
--- 7b. Data Master Satuan (Terkunci per 1), Pasar & Kecamatan
+-- 7b. Data Master Komoditas (Induk + Varian + Sinonim), Satuan (Per 1), Pasar & Kecamatan
+INSERT INTO master_komoditas (kelompok_komoditas, nama_komoditas, kategori, satuan_bawaan, kata_kunci, prioritas_tampil) VALUES
+('Beras', 'Beras SPHP', 'Bahan Pokok', '1 KG', 'beras bulog, beras murah, beras subsidi, beras biasa', 10),
+('Beras', 'Beras Medium', 'Bahan Pokok', '1 KG', 'beras biasa, beras standar, beras lokal, beras harian', 11),
+('Beras', 'Beras Premium', 'Bahan Pokok', '1 KG', 'beras super, beras pulen, beras kepala, beras bagus', 12),
+('Minyak Goreng', 'Minyakita', 'Bahan Pokok', '1 Liter', 'minyak subsidi, minyak pemerintah, minyak murah', 15),
+('Minyak Goreng', 'Minyak Goreng Kemasan', 'Bahan Pokok', '1 Liter', 'minyak goreng, minyak kemasan, minyak premium', 16),
+('Gula', 'Gula Pasir', 'Bahan Pokok', '1 KG', 'gula putih, gula kristal, gula konsumsi', 20),
+('Cabai', 'Cabai Rawit Merah', 'Sayuran', '1 KG', 'rica, rica merah, lombok, cabai setan', 22),
+('Cabai', 'Cabai Keriting', 'Sayuran', '1 KG', 'rica keriting, cabai merah keriting', 23),
+('Bawang', 'Bawang Merah', 'Sayuran', '1 KG', 'bawang merah lokal, rempah', 25),
+('Bawang', 'Bawang Putih', 'Sayuran', '1 KG', 'bawang putih honan, bawang putih kating', 26),
+('Telur', 'Telur Ayam', 'Hewani', '1 KG', 'telur ayam ras, telur biasa, telur baki', 30),
+('Daging', 'Daging Ayam', 'Hewani', '1 KG', 'ayam ras, ayam potong, daging ayam segar', 35),
+('Ikan', 'Ikan Tongkol', 'Hewani', '1 KG', 'ikan laut, ikan segar, cakalang, deho', 36),
+('Daging', 'Daging Sapi', 'Hewani', '1 KG', 'daging sapi segar, paha belakang, sapi murni', 40);
+
 INSERT INTO master_satuan (nama_satuan) VALUES
 ('1 KG'), ('1 Liter'), ('1 Baki'), ('1 Ikat'), ('1 Ekor'), ('1 Bungkus');
 

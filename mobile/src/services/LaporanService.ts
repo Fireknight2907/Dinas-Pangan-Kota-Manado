@@ -166,24 +166,7 @@ class LaporanMobileService {
       });
     }
 
-    return [
-      {
-        id: 'gpm-1',
-        nama_acara: 'GPM Lapangan Sparta Tikala',
-        lokasi: 'Kelurahan Tikala Ares, Kec. Tikala',
-        kecamatan: 'Tikala',
-        tanggal: '2026-11-01',
-        target_kuota: 250,
-        terdaftar: 250,
-        terlayani: 238,
-        status: 'Selesai',
-        komoditas_tersalurkan: [
-          { nama: 'Beras SPHP 5kg', jumlah: '1.250 kg' },
-          { nama: 'Minyak Goreng 1L', jumlah: '500 liter' },
-          { nama: 'Gula Pasir 1kg', jumlah: '250 kg' }
-        ]
-      }
-    ];
+    return [];
   }
 
   // 3. Ekspor Laporan Komoditas Pangan ke Format CSV (Kompatibel Excel dengan Kop Surat & Spacing Rapi)

@@ -137,20 +137,7 @@ class LaporanService {
             });
         }
 
-        return [
-            {
-                id: 'gpm-1',
-                nama_acara: 'GPM Lapangan Sparta Tikala',
-                lokasi: 'Depan Kantor Walikota Manado (Kec. Tikala)',
-                kecamatan: 'Tikala',
-                tanggal: '2026-11-01',
-                target_kuota: 250,
-                terdaftar: 250,
-                terlayani: 238,
-                status: 'Selesai',
-                komoditas_tersedia: 'Beras SPHP 5kg, Minyakita 1L, Gula 1kg'
-            }
-        ];
+        return [];
     }
 
     // 3. Ekspor Laporan Komoditas Pangan ke Format CSV (Kompatibel Excel dengan Kop Surat & Spacing Rapi)

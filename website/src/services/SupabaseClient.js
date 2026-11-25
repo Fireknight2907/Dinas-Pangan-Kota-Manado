@@ -168,13 +168,65 @@ class SupabaseRestClient {
     return this.request('master_pasar?order=nama_pasar.asc');
   }
 
-  async tambahMasterPasar(namaPasar) {
-    const res = await this.request('master_pasar', 'POST', { nama_pasar: namaPasar });
+  async tambahMasterPasar(dataPasar) {
+    const payload = typeof dataPasar === 'string'
+      ? { nama_pasar: dataPasar }
+      : {
+          nama_pasar: dataPasar.nama_pasar,
+          alamat: dataPasar.alamat || '',
+          kecamatan: dataPasar.kecamatan || '',
+          latitude:
+            dataPasar.latitude !== null && dataPasar.latitude !== undefined && dataPasar.latitude !== ''
+              ? Number(dataPasar.latitude)
+              : null,
+          longitude:
+            dataPasar.longitude !== null && dataPasar.longitude !== undefined && dataPasar.longitude !== ''
+              ? Number(dataPasar.longitude)
+              : null
+        };
+    const res = await this.request('master_pasar', 'POST', payload);
     return Array.isArray(res) && res.length > 0 ? res[0] : res;
   }
 
-  async hapusMasterPasar(namaPasar) {
-    await this.request(`master_pasar?nama_pasar=eq.${encodeURIComponent(namaPasar)}`, 'DELETE');
+  async updateMasterPasar(idAtauNamaLama, dataPasar) {
+    const payload = {
+      nama_pasar: dataPasar.nama_pasar,
+      alamat: dataPasar.alamat || '',
+      kecamatan: dataPasar.kecamatan || '',
+      latitude:
+        dataPasar.latitude !== null && dataPasar.latitude !== undefined && dataPasar.latitude !== ''
+          ? Number(dataPasar.latitude)
+          : null,
+      longitude:
+        dataPasar.longitude !== null && dataPasar.longitude !== undefined && dataPasar.longitude !== ''
+          ? Number(dataPasar.longitude)
+          : null,
+      diperbarui_pada: new Date().toISOString()
+    };
+    const adalahUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(idAtauNamaLama || ''));
+    const filter = adalahUuid
+      ? `id=eq.${encodeURIComponent(idAtauNamaLama)}`
+      : `nama_pasar=eq.${encodeURIComponent(idAtauNamaLama)}`;
+    const res = await this.request(`master_pasar?${filter}`, 'PATCH', payload);
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async sinkronNamaPasarDiHarga(namaLama, namaBaru) {
+    if (!namaLama || !namaBaru || namaLama === namaBaru) return true;
+    try {
+      await this.request(`harga_pangan?nama_pasar=eq.${encodeURIComponent(namaLama)}`, 'PATCH', {
+        nama_pasar: namaBaru
+      });
+    } catch (_) {}
+    return true;
+  }
+
+  async hapusMasterPasar(idAtauNama) {
+    const adalahUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(idAtauNama || ''));
+    const filter = adalahUuid
+      ? `id=eq.${encodeURIComponent(idAtauNama)}`
+      : `nama_pasar=eq.${encodeURIComponent(idAtauNama)}`;
+    await this.request(`master_pasar?${filter}`, 'DELETE');
     return true;
   }
 
@@ -192,9 +244,111 @@ class SupabaseRestClient {
     return true;
   }
 
+  // --- MASTER KOMODITAS RESMI (INDUK, VARIAN, SINONIM, SATUAN BAWAAN) ---
+  async getMasterKomoditas() {
+    return this.request('master_komoditas?order=prioritas_tampil.asc,kelompok_komoditas.asc,nama_komoditas.asc');
+  }
+
+  async tambahMasterKomoditas(item) {
+    const payload = {
+      kelompok_komoditas: item.kelompok_komoditas,
+      nama_komoditas: item.nama_komoditas,
+      kategori: item.kategori || 'Bahan Pokok',
+      satuan_bawaan: item.satuan_bawaan || '1 KG',
+      kata_kunci: item.kata_kunci || '',
+      prioritas_tampil: Number(item.prioritas_tampil) || 50
+    };
+    const res = await this.request('master_komoditas', 'POST', payload);
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async hapusMasterKomoditas(namaKomoditas) {
+    await this.request(`master_komoditas?nama_komoditas=eq.${encodeURIComponent(namaKomoditas)}`, 'DELETE');
+    return true;
+  }
+
   // --- ACARA GPM ---
   async getAcaraGPM() {
-    return this.request('acara_gpm?order=tanggal.asc');
+    return this.request('acara_gpm?order=tanggal.asc,jam_mulai.asc,dibuat_pada.asc');
+  }
+
+  // [GPM AUTO-CLOSE WITA] Panggil RPC server untuk otomatis menutup acara yang sudah lewat jadwal WITA
+  async sinkronStatusGPMOtomatis() {
+    try {
+      const res = await this.request('rpc/rpc_sinkron_status_gpm_otomatis', 'POST', {});
+      return res || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // [UU PDP SAFE] Ringkasan jumlah pendaftar & hadir per acara (NOL data pribadi warga)
+  async getRingkasanPendaftarGPM() {
+    try {
+      const rows = await this.request('rpc/rpc_ringkasan_pendaftar_gpm', 'POST', {});
+      if (Array.isArray(rows)) return rows;
+    } catch (_) {}
+
+    // Fallback aman jika migrasi RPC belum dijalankan: hanya tarik acara_id & status_kehadiran (tanpa NIK/nama/HP)
+    try {
+      const raw = await this.request('pendaftar_gpm?select=acara_id,status_kehadiran');
+      if (!Array.isArray(raw)) return [];
+      const peta = new Map();
+      raw.forEach((r) => {
+        const aid = String(r.acara_id || '');
+        if (!aid) return;
+        if (!peta.has(aid)) {
+          peta.set(aid, { acara_id: aid, total_terdaftar: 0, total_hadir: 0, total_menunggu: 0 });
+        }
+        const entri = peta.get(aid);
+        entri.total_terdaftar += 1;
+        if (String(r.status_kehadiran || '').toLowerCase() === 'hadir') entri.total_hadir += 1;
+        else entri.total_menunggu += 1;
+      });
+      return Array.from(peta.values());
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // [GPM ATOMIK] Daftar antrean melalui PostgreSQL RPC (Row Lock kuota, waktu WITA, NIK unik)
+  async daftarAntreanGPMViaRPC({
+    acara_id,
+    nama_pendaftar,
+    nomor_telepon = '-',
+    nik,
+    jalur_pendaftaran = 'Daring',
+    prefix_kode = 'GPM-MND',
+    langsung_hadir = false
+  }) {
+    const res = await this.request('rpc/rpc_daftar_antrean_gpm', 'POST', {
+      p_acara_id: acara_id,
+      p_nama_pendaftar: nama_pendaftar,
+      p_nomor_telepon: nomor_telepon || '-',
+      p_nik: nik,
+      p_jalur_pendaftaran: jalur_pendaftaran,
+      p_prefix_kode: prefix_kode,
+      p_langsung_hadir: Boolean(langsung_hadir)
+    });
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  // [GPM QR LOCK] Verifikasi / Batalkan kehadiran via RPC (terkunci otomatis jika acara lewat jam / Selesai)
+  async verifikasiPendaftarGPMViaRPC(kodeBarcode, statusBaru = 'Hadir') {
+    const res = await this.request('rpc/rpc_verifikasi_kehadiran_gpm', 'POST', {
+      p_kode_barcode: kodeBarcode,
+      p_status_baru: statusBaru
+    });
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  // [KABID / SUPERADMIN] Ubah / tambah kuota acara GPM secara atomik
+  async ubahKuotaAcaraGPMViaRPC(acaraId, kuotaBaru) {
+    const res = await this.request('rpc/rpc_ubah_kuota_acara_gpm', 'POST', {
+      p_acara_id: acaraId,
+      p_kuota_baru: Number(kuotaBaru)
+    });
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
   }
 
   async tambahAcaraGPM(item) {

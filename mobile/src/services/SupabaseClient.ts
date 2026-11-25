@@ -169,13 +169,77 @@ export class SupabaseRestClient {
     return this.request<any[]>('master_pasar?order=nama_pasar.asc');
   }
 
-  async tambahMasterPasar(namaPasar: string): Promise<any> {
-    const res = await this.request<any[]>('master_pasar', 'POST', { nama_pasar: namaPasar });
+  async tambahMasterPasar(dataPasar: string | {
+    nama_pasar: string;
+    alamat?: string;
+    kecamatan?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+  }): Promise<any> {
+    const payload = typeof dataPasar === 'string'
+      ? { nama_pasar: dataPasar }
+      : {
+          nama_pasar: dataPasar.nama_pasar,
+          alamat: dataPasar.alamat || '',
+          kecamatan: dataPasar.kecamatan || '',
+          latitude:
+            dataPasar.latitude !== null && dataPasar.latitude !== undefined && (dataPasar.latitude as any) !== ''
+              ? Number(dataPasar.latitude)
+              : null,
+          longitude:
+            dataPasar.longitude !== null && dataPasar.longitude !== undefined && (dataPasar.longitude as any) !== ''
+              ? Number(dataPasar.longitude)
+              : null
+        };
+    const res = await this.request<any[]>('master_pasar', 'POST', payload);
     return Array.isArray(res) && res.length > 0 ? res[0] : res;
   }
 
-  async hapusMasterPasar(namaPasar: string): Promise<boolean> {
-    await this.request(`master_pasar?nama_pasar=eq.${encodeURIComponent(namaPasar)}`, 'DELETE');
+  async updateMasterPasar(idAtauNamaLama: string, dataPasar: {
+    nama_pasar: string;
+    alamat?: string;
+    kecamatan?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+  }): Promise<any> {
+    const payload = {
+      nama_pasar: dataPasar.nama_pasar,
+      alamat: dataPasar.alamat || '',
+      kecamatan: dataPasar.kecamatan || '',
+      latitude:
+        dataPasar.latitude !== null && dataPasar.latitude !== undefined && (dataPasar.latitude as any) !== ''
+          ? Number(dataPasar.latitude)
+          : null,
+      longitude:
+        dataPasar.longitude !== null && dataPasar.longitude !== undefined && (dataPasar.longitude as any) !== ''
+          ? Number(dataPasar.longitude)
+          : null,
+      diperbarui_pada: new Date().toISOString()
+    };
+    const adalahUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(idAtauNamaLama || ''));
+    const filter = adalahUuid
+      ? `id=eq.${encodeURIComponent(idAtauNamaLama)}`
+      : `nama_pasar=eq.${encodeURIComponent(idAtauNamaLama)}`;
+    const res = await this.request<any[]>(`master_pasar?${filter}`, 'PATCH', payload);
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async sinkronNamaPasarDiHarga(namaLama: string, namaBaru: string): Promise<boolean> {
+    if (!namaLama || !namaBaru || namaLama === namaBaru) return true;
+    try {
+      await this.request(`harga_pangan?nama_pasar=eq.${encodeURIComponent(namaLama)}`, 'PATCH', {
+        nama_pasar: namaBaru
+      });
+    } catch (_) {}
+    return true;
+  }
+
+  async hapusMasterPasar(idAtauNama: string): Promise<boolean> {
+    const adalahUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(idAtauNama || ''));
+    const filter = adalahUuid
+      ? `id=eq.${encodeURIComponent(idAtauNama)}`
+      : `nama_pasar=eq.${encodeURIComponent(idAtauNama)}`;
+    await this.request(`master_pasar?${filter}`, 'DELETE');
     return true;
   }
 
@@ -193,9 +257,110 @@ export class SupabaseRestClient {
     return true;
   }
 
+  // --- MASTER KOMODITAS RESMI (INDUK, VARIAN, SINONIM, SATUAN BAWAAN) ---
+  async getMasterKomoditas(): Promise<any[]> {
+    return this.request<any[]>('master_komoditas?order=prioritas_tampil.asc,kelompok_komoditas.asc,nama_komoditas.asc');
+  }
+
+  async tambahMasterKomoditas(item: any): Promise<any> {
+    const payload = {
+      kelompok_komoditas: item.kelompok_komoditas,
+      nama_komoditas: item.nama_komoditas,
+      kategori: item.kategori || 'Bahan Pokok',
+      satuan_bawaan: item.satuan_bawaan || '1 KG',
+      kata_kunci: item.kata_kunci || '',
+      prioritas_tampil: Number(item.prioritas_tampil) || 50
+    };
+    const res = await this.request<any[]>('master_komoditas', 'POST', payload);
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async hapusMasterKomoditas(namaKomoditas: string): Promise<boolean> {
+    await this.request(`master_komoditas?nama_komoditas=eq.${encodeURIComponent(namaKomoditas)}`, 'DELETE');
+    return true;
+  }
+
   // --- ACARA GPM ---
   async getAcaraGPM(): Promise<any[]> {
-    return this.request<any[]>('acara_gpm?order=tanggal.asc');
+    return this.request<any[]>('acara_gpm?order=tanggal.asc,jam_mulai.asc,dibuat_pada.asc');
+  }
+
+  // [GPM AUTO-CLOSE WITA] Panggil RPC server untuk otomatis menutup acara yang sudah lewat jadwal WITA
+  async sinkronStatusGPMOtomatis(): Promise<{ jumlah_ditutup?: number; waktu_server_wita?: string } | null> {
+    try {
+      const res = await this.request<any>('rpc/rpc_sinkron_status_gpm_otomatis', 'POST', {});
+      return res || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // [UU PDP SAFE] Ringkasan jumlah pendaftar & hadir per acara (NOL data pribadi warga)
+  async getRingkasanPendaftarGPM(): Promise<Array<{ acara_id: string; total_terdaftar: number; total_hadir: number; total_menunggu: number }>> {
+    try {
+      const rows = await this.request<any[]>('rpc/rpc_ringkasan_pendaftar_gpm', 'POST', {});
+      if (Array.isArray(rows)) return rows;
+    } catch (_) {}
+
+    try {
+      const raw = await this.request<any[]>('pendaftar_gpm?select=acara_id,status_kehadiran');
+      if (!Array.isArray(raw)) return [];
+      const peta = new Map<string, { acara_id: string; total_terdaftar: number; total_hadir: number; total_menunggu: number }>();
+      raw.forEach((r: any) => {
+        const aid = String(r.acara_id || '');
+        if (!aid) return;
+        if (!peta.has(aid)) {
+          peta.set(aid, { acara_id: aid, total_terdaftar: 0, total_hadir: 0, total_menunggu: 0 });
+        }
+        const entri = peta.get(aid)!;
+        entri.total_terdaftar += 1;
+        if (String(r.status_kehadiran || '').toLowerCase() === 'hadir') entri.total_hadir += 1;
+        else entri.total_menunggu += 1;
+      });
+      return Array.from(peta.values());
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // [GPM ATOMIK] Daftar antrean melalui PostgreSQL RPC (Row Lock kuota, waktu WITA, NIK unik)
+  async daftarAntreanGPMViaRPC(payload: {
+    acara_id: string;
+    nama_pendaftar: string;
+    nomor_telepon?: string;
+    nik: string;
+    jalur_pendaftaran?: string;
+    prefix_kode?: string;
+    langsung_hadir?: boolean;
+  }): Promise<any> {
+    const res = await this.request<any[]>('rpc/rpc_daftar_antrean_gpm', 'POST', {
+      p_acara_id: payload.acara_id,
+      p_nama_pendaftar: payload.nama_pendaftar,
+      p_nomor_telepon: payload.nomor_telepon || '-',
+      p_nik: payload.nik,
+      p_jalur_pendaftaran: payload.jalur_pendaftaran || 'Daring',
+      p_prefix_kode: payload.prefix_kode || 'GPM-MOB',
+      p_langsung_hadir: Boolean(payload.langsung_hadir)
+    });
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  // [GPM QR LOCK] Verifikasi / Batalkan kehadiran via RPC (terkunci otomatis jika acara lewat jam / Selesai)
+  async verifikasiPendaftarGPMViaRPC(kodeBarcode: string, statusBaru: string = 'Hadir'): Promise<any> {
+    const res = await this.request<any[]>('rpc/rpc_verifikasi_kehadiran_gpm', 'POST', {
+      p_kode_barcode: kodeBarcode,
+      p_status_baru: statusBaru
+    });
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  // [KABID / SUPERADMIN] Ubah / tambah kuota acara GPM secara atomik
+  async ubahKuotaAcaraGPMViaRPC(acaraId: string, kuotaBaru: number): Promise<any> {
+    const res = await this.request<any[]>('rpc/rpc_ubah_kuota_acara_gpm', 'POST', {
+      p_acara_id: acaraId,
+      p_kuota_baru: Number(kuotaBaru)
+    });
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
   }
 
   async tambahAcaraGPM(item: any): Promise<any> {

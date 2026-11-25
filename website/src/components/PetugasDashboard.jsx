@@ -16,6 +16,7 @@ import { analisisHargaService } from '../services/AnalisisHargaService';
 import { laporanService } from '../services/LaporanService';
 import { gpmService } from '../services/GPMService';
 import PetugasGPMManager from './PetugasGPMManager';
+import AdminMasterPasarPanel from './AdminMasterPasarPanel';
 import './PetugasDashboard.css';
 
 export default function PetugasDashboard({ pengguna, onKeluar }) {
@@ -49,15 +50,17 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   const [statsDashboard, setStatsDashboard] = useState({
     harga_ditetapkan: 0,
     draft_harga: 0,
-    gpm_terjadwal: 2,
-    gpm_selesai: 1
+    gpm_terjadwal: 0,
+    gpm_selesai: 0
   });
   const [daftarHarga, setDaftarHarga] = useState([]);
+  const [daftarMasterKomoditas, setDaftarMasterKomoditas] = useState([]);
   const [daftarSatuan, setDaftarSatuan] = useState(['1 KG', '1 Liter']);
   const [daftarPasar, setDaftarPasar] = useState([]);
+  const [daftarPasarLengkap, setDaftarPasarLengkap] = useState([]);
   const [daftarKecamatan, setDaftarKecamatan] = useState([]);
 
-  // Form Input Harga (Khusus Staf — Satuan terkunci per 1 dari Master Satuan Admin)
+  // Form Input Harga (Khusus Staf — Komoditas & Satuan terkunci dari Master Admin)
   const [idEditHarga, setIdEditHarga] = useState(null);
   const [modalEditKabid, setModalEditKabid] = useState({
     buka: false,
@@ -68,7 +71,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       satuan: '1 KG',
       harga: '',
       nama_pasar: '',
-      status: 'Terbit'
+      status: 'Terbit',
+      prioritas_tampil: 50
     }
   });
   const [formHarga, setFormHarga] = useState({
@@ -77,7 +81,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     satuan: '1 KG',
     harga: '',
     nama_pasar: '',
-    status: 'Draft'
+    status: 'Draft',
+    prioritas_tampil: 50
   });
   const [sedangMenyimpan, setSedangMenyimpan] = useState(false);
   const [pesanNotifikasi, setPesanNotifikasi] = useState('');
@@ -95,7 +100,15 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   const [konfirmasiPasswordBaru, setKonfirmasiPasswordBaru] = useState('');
   const [pesanProfil, setPesanProfil] = useState({ tipe: '', teks: '' });
 
-  // Master Data Satuan, Pasar & Wilayah (Khusus Admin & Superadmin — sinkron Supabase)
+  // Master Data Komoditas, Satuan, Pasar & Wilayah (Khusus Admin & Superadmin — sinkron Supabase)
+  const [formKomoditasMaster, setFormKomoditasMaster] = useState({
+    kelompok_komoditas: '',
+    nama_komoditas: '',
+    kategori: 'Bahan Pokok',
+    satuan_bawaan: '1 KG',
+    kata_kunci: '',
+    prioritas_tampil: 50
+  });
   const [inputSatuanBaru, setInputSatuanBaru] = useState('');
   const [inputPasarBaru, setInputPasarBaru] = useState('');
   const [inputKecamatanBaru, setInputKecamatanBaru] = useState('');
@@ -216,20 +229,26 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   };
 
   const muatMasterData = async () => {
-    const [satuan, pasar, kec] = await Promise.all([
+    const [komoditas, satuan, pasarLengkap, kec] = await Promise.all([
+      masterDataService.ambilDaftarKomoditas(),
       masterDataService.ambilDaftarSatuan(),
-      masterDataService.ambilDaftarPasar(),
+      masterDataService.ambilDaftarPasarLengkap().catch(() => []),
       masterDataService.ambilDaftarKecamatan()
     ]);
+
+    setDaftarMasterKomoditas(Array.isArray(komoditas) ? komoditas : []);
 
     setDaftarSatuan(satuan);
     if (satuan.length > 0 && !formHarga.satuan) {
       setFormHarga(prev => ({ ...prev, satuan: satuan[0] }));
     }
 
-    setDaftarPasar(pasar);
-    if (pasar.length > 0 && !formHarga.nama_pasar) {
-      setFormHarga(prev => ({ ...prev, nama_pasar: pasar[0] }));
+    const listPasarLengkap = Array.isArray(pasarLengkap) ? pasarLengkap : [];
+    const namaPasarList = listPasarLengkap.map((p) => p.nama_pasar);
+    setDaftarPasarLengkap(listPasarLengkap);
+    setDaftarPasar(namaPasarList);
+    if (namaPasarList.length > 0 && !formHarga.nama_pasar) {
+      setFormHarga(prev => ({ ...prev, nama_pasar: namaPasarList[0] }));
     }
 
     setDaftarKecamatan(kec);
@@ -355,7 +374,41 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     }
   };
 
-  // Staf: Menyimpan harga komoditas (satuan terkunci per 1 dari Master Satuan Admin)
+  // Mengisi otomatis kategori, satuan bawaan, & prioritas tampil saat memilih komoditas dari Master Komoditas Admin
+  const handlePilihKomoditasStaf = (namaKomoditas) => {
+    const master = daftarMasterKomoditas.find(
+      (k) => k.nama_komoditas.toLowerCase() === String(namaKomoditas || '').toLowerCase()
+    );
+    if (master) {
+      setFormHarga((prev) => ({
+        ...prev,
+        nama_komoditas: master.nama_komoditas,
+        kategori: master.kategori || prev.kategori,
+        satuan: formatSatuanTampil(master.satuan_bawaan) || prev.satuan,
+        prioritas_tampil: Number(master.prioritas_tampil) || 50
+      }));
+    } else {
+      setFormHarga((prev) => ({ ...prev, nama_komoditas: namaKomoditas }));
+    }
+  };
+
+  const handlePilihKomoditasKabid = (namaKomoditas) => {
+    const master = daftarMasterKomoditas.find(
+      (k) => k.nama_komoditas.toLowerCase() === String(namaKomoditas || '').toLowerCase()
+    );
+    setModalEditKabid((prev) => ({
+      ...prev,
+      form: {
+        ...prev.form,
+        nama_komoditas: master ? master.nama_komoditas : namaKomoditas,
+        kategori: master?.kategori || prev.form.kategori,
+        satuan: master?.satuan_bawaan ? formatSatuanTampil(master.satuan_bawaan) : prev.form.satuan,
+        prioritas_tampil: master ? Number(master.prioritas_tampil) || 50 : prev.form.prioritas_tampil
+      }
+    }));
+  };
+
+  // Staf: Menyimpan harga komoditas (komoditas & satuan terkunci dari Master Admin)
   const handleMulaiEditStaf = (item) => {
     setIdEditHarga(item.id);
     setFormHarga({
@@ -364,7 +417,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       satuan: formatSatuanTampil(item.satuan) || daftarSatuan[0] || '1 KG',
       harga: String(item.harga ? Math.round(item.harga) : '').replace(/[^0-9]/g, ''),
       nama_pasar: item.nama_pasar || (daftarPasar[0] || 'Pasar Bersehati Karombasan'),
-      status: item.status || 'Draft'
+      status: item.status || 'Draft',
+      prioritas_tampil: Number(item.prioritas_tampil) || 50
     });
     window.scrollTo({ top: 100, behavior: 'smooth' });
   };
@@ -377,7 +431,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       satuan: daftarSatuan[0] || '1 KG',
       harga: '',
       nama_pasar: daftarPasar[0] || 'Pasar Bersehati Karombasan',
-      status: 'Draft'
+      status: 'Draft',
+      prioritas_tampil: 50
     });
   };
 
@@ -386,7 +441,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     if (e) e.preventDefault();
 
     if (!formHarga.nama_komoditas.trim()) {
-      alert('Nama jenis pangan wajib diisi!');
+      alert('Silakan pilih nama komoditas resmi terlebih dahulu!');
       return;
     }
 
@@ -397,6 +452,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     }
 
     const satuanGabungan = formatSatuanTampil(formHarga.satuan || daftarSatuan[0] || '1 KG');
+    const masterCocok = daftarMasterKomoditas.find(
+      (k) => k.nama_komoditas.toLowerCase() === formHarga.nama_komoditas.trim().toLowerCase()
+    );
+    const prioritasFinal = Number(masterCocok?.prioritas_tampil || formHarga.prioritas_tampil) || 50;
 
     // Staf wajib verifikasi: simpan baru maupun edit selalu menghasilkan 'Draft' (Ajukan Harga)
     const statusFinal = (peran === 'Staf') ? 'Draft' : statusBaru;
@@ -410,6 +469,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         harga: hargaAngka,
         nama_pasar: formHarga.nama_pasar,
         status: statusFinal,
+        prioritas_tampil: prioritasFinal,
         tanggal_penetapan: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
       };
 
@@ -429,7 +489,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         satuan: daftarSatuan[0] || '1 KG',
         harga: '',
         nama_pasar: daftarPasar[0] || 'Pasar Bersehati Karombasan',
-        status: 'Draft'
+        status: 'Draft',
+        prioritas_tampil: 50
       });
 
       await muatDataDashboard();
@@ -451,7 +512,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         satuan: formatSatuanTampil(item.satuan) || daftarSatuan[0] || '1 KG',
         harga: String(item.harga ? Math.round(item.harga) : '').replace(/[^0-9]/g, ''),
         nama_pasar: item.nama_pasar || (daftarPasar[0] || 'Pasar Bersehati Karombasan'),
-        status: item.status || 'Terbit'
+        status: item.status || 'Terbit',
+        prioritas_tampil: Number(item.prioritas_tampil) || 50
       }
     });
   };
@@ -467,6 +529,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     }
 
     const satuanGabungan = formatSatuanTampil(modalEditKabid.form.satuan || daftarSatuan[0] || '1 KG');
+    const masterCocok = daftarMasterKomoditas.find(
+      (k) => k.nama_komoditas.toLowerCase() === modalEditKabid.form.nama_komoditas.trim().toLowerCase()
+    );
+    const prioritasFinal = Number(masterCocok?.prioritas_tampil || modalEditKabid.form.prioritas_tampil) || 50;
 
     try {
       await hargaPanganService.perbarui(modalEditKabid.item.id, {
@@ -475,13 +541,14 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         satuan: satuanGabungan,
         harga: hargaAngka,
         nama_pasar: modalEditKabid.form.nama_pasar,
-        status: modalEditKabid.form.status || 'Terbit'
+        status: modalEditKabid.form.status || 'Terbit',
+        prioritas_tampil: prioritasFinal
       });
       tampilkanPesan(`✅ Data "${modalEditKabid.form.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diperbarui oleh Kepala Bidang.`);
       setModalEditKabid({
         buka: false,
         item: null,
-        form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuan: daftarSatuan[0] || '1 KG', harga: '', nama_pasar: '', status: 'Terbit' }
+        form: { nama_komoditas: '', kategori: 'Bahan Pokok', satuan: daftarSatuan[0] || '1 KG', harga: '', nama_pasar: '', status: 'Terbit', prioritas_tampil: 50 }
       });
       await muatDataDashboard();
     } catch (error) {
@@ -493,7 +560,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   const handleVerifikasiHarga = async (item, statusBaru) => {
     try {
       await hargaPanganService.perbarui(item.id, { status: statusBaru });
-      tampilkanPesan(statusBaru === 'Terbit' 
+      tampilkanPesan(statusBaru === 'Terbit'
         ? `✅ Komoditas "${item.nama_komoditas}" telah diverifikasi dan resmi terbit ke publik!`
         : `ℹ️ Status komoditas "${item.nama_komoditas}" ditarik kembali ke Draf.`);
       await muatDataDashboard();
@@ -515,6 +582,39 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         await muatDataDashboard();
       } catch (error) {
         alert('Gagal menghapus data: ' + error.message);
+      }
+    }
+  };
+
+  const handleTambahMasterKomoditas = async (e) => {
+    e.preventDefault();
+    if (!formKomoditasMaster.nama_komoditas.trim()) return;
+    try {
+      const updated = await masterDataService.tambahKomoditas(formKomoditasMaster);
+      setDaftarMasterKomoditas(updated);
+      const namaTersimpan = formKomoditasMaster.nama_komoditas.trim();
+      setFormKomoditasMaster({
+        kelompok_komoditas: formKomoditasMaster.kelompok_komoditas,
+        nama_komoditas: '',
+        kategori: formKomoditasMaster.kategori,
+        satuan_bawaan: formKomoditasMaster.satuan_bawaan || daftarSatuan[0] || '1 KG',
+        kata_kunci: '',
+        prioritas_tampil: 50
+      });
+      tampilkanPesan(`✅ Master Komoditas "${namaTersimpan}" berhasil disimpan ke database.`);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleHapusMasterKomoditas = async (namaKomoditas) => {
+    if (window.confirm(`Hapus komoditas "${namaKomoditas}" dari daftar Master Komoditas resmi?`)) {
+      try {
+        const updated = await masterDataService.hapusKomoditas(namaKomoditas);
+        setDaftarMasterKomoditas(updated);
+        tampilkanPesan(`Komoditas "${namaKomoditas}" telah dihapus dari Master Komoditas.`);
+      } catch (err) {
+        alert(err.message);
       }
     }
   };
@@ -545,30 +645,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     }
   };
 
-  const handleTambahPasar = async (e) => {
-    e.preventDefault();
-    if (!inputPasarBaru.trim()) return;
-    try {
-      const nama = inputPasarBaru.trim();
-      const updated = await masterDataService.tambahPasar(nama);
-      setDaftarPasar(updated);
-      setInputPasarBaru('');
-      tampilkanPesan(`✅ Pasar "${nama}" berhasil ditambahkan ke database master.`);
-    } catch (err) {
-      alert(err.message);
-    }
-  };
-
-  const handleHapusPasar = async (nama) => {
-    if (window.confirm(`Hapus pasar "${nama}" dari daftar master?`)) {
-      try {
-        const updated = await masterDataService.hapusPasar(nama);
-        setDaftarPasar(updated);
-        tampilkanPesan(`Pasar "${nama}" telah dihapus.`);
-      } catch (err) {
-        alert(err.message);
-      }
-    }
+  const handleDataPasarBerubah = (listLengkap) => {
+    const aman = Array.isArray(listLengkap) ? listLengkap : [];
+    setDaftarPasarLengkap(aman);
+    setDaftarPasar(aman.map((p) => p.nama_pasar));
   };
 
   const handleTambahKecamatan = async (e) => {
@@ -808,6 +888,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     };
   });
   const daftarDraftVerifikasi = (Array.isArray(daftarHarga) ? daftarHarga : []).filter(item => item && (item.status || '').toLowerCase() === 'draft');
+  const grupKomoditasDropdown = masterDataService.kelompokkanKomoditasUntukDropdown(daftarMasterKomoditas);
+  const daftarKelompokIndukMaster = Array.from(new Set(daftarMasterKomoditas.map(k => k.kelompok_komoditas).filter(Boolean)));
 
   return (
     <div className="petugas-app-layout">
@@ -849,9 +931,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         <div className="sidebar-bottom-footer">
           <button className="sidebar-logout-btn" onClick={onKeluar} title="Keluar dari sistem">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
             </svg>
             <span>Keluar</span>
           </button>
@@ -881,14 +963,14 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
           <div className="top-bar-right" style={{ position: 'relative' }}>
             {/* Lonceng Notifikasi */}
-            <div 
+            <div
               className="notification-bell-btn"
               onClick={() => setTampilkanNotifDropdown(!tampilkanNotifDropdown)}
               title="Notifikasi Aktivitas"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
               {daftarNotif.some(n => !n.dibaca) && <span className="notif-red-dot" />}
             </div>
@@ -910,7 +992,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
                   <strong style={{ fontSize: '0.9rem', color: '#1e293b' }}>🔔 Notifikasi Respon Sistem</strong>
-                  <button 
+                  <button
                     onClick={() => {
                       const updated = hargaPanganService.tandaiSemuaDibaca();
                       setDaftarNotif(updated);
@@ -927,8 +1009,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                     </div>
                   ) : (
                     daftarNotif.map(n => (
-                      <div 
-                        key={n.id} 
+                      <div
+                        key={n.id}
                         onClick={() => {
                           if (n.target) {
                             let targetTujuan = n.target;
@@ -939,8 +1021,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                           }
                           setTampilkanNotifDropdown(false);
                         }}
-                        style={{ 
-                          padding: '10px 8px', 
+                        style={{
+                          padding: '10px 8px',
                           borderBottom: '1px solid #f1f5f9',
                           cursor: n.target ? 'pointer' : 'default',
                           borderRadius: '6px',
@@ -964,8 +1046,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
             )}
 
             {/* Avatar Pill & Pengaturan Akun */}
-            <div 
-              className="staff-profile-pill" 
+            <div
+              className="staff-profile-pill"
               onClick={() => setTampilkanModalProfil(true)}
               style={{ cursor: 'pointer' }}
               title="Klik untuk profil & kata sandi pribadi"
@@ -991,9 +1073,9 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               title="Keluar dari Akun (Logout)"
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
               </svg>
               <span>Keluar</span>
             </button>
@@ -1168,15 +1250,35 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 <h3 className="form-card-heading">{idEditHarga ? "✏️ Ubah Data Komoditas" : "Formulir Masukan Data Komoditas"}</h3>
                 <form onSubmit={(e) => handleSimpanHarga(e, 'Draft')} className="price-entry-form">
                   <div className="form-field-group">
-                    <label className="field-label-text">Nama Komoditas / Jenis Pangan</label>
-                    <input
-                      type="text"
+                    <label className="field-label-text">Nama Komoditas / Varian Resmi (Master Admin)</label>
+                    <select
                       required
-                      placeholder="Contoh: Beras Medium"
-                      className="field-input-box"
+                      className="field-select-box"
                       value={formHarga.nama_komoditas}
-                      onChange={(e) => setFormHarga({ ...formHarga, nama_komoditas: e.target.value })}
-                    />
+                      onChange={(e) => handlePilihKomoditasStaf(e.target.value)}
+                    >
+                      <option value="">-- Pilih Komoditas / Varian Resmi --</option>
+                      {grupKomoditasDropdown.map((grup) => (
+                        <optgroup key={grup.kelompok} label={`🌾 ${grup.kelompok}`}>
+                          {grup.items.map((k) => (
+                            <option key={k.nama_komoditas} value={k.nama_komoditas}>
+                              {k.nama_komoditas} ({k.satuan_bawaan})
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                      {formHarga.nama_komoditas &&
+                        !daftarMasterKomoditas.some(
+                          (k) => k.nama_komoditas.toLowerCase() === formHarga.nama_komoditas.toLowerCase()
+                        ) && (
+                          <optgroup label="Data Sebelumnya">
+                            <option value={formHarga.nama_komoditas}>{formHarga.nama_komoditas}</option>
+                          </optgroup>
+                        )}
+                    </select>
+                    <small style={{ color: '#64748b', fontSize: '0.76rem', marginTop: '4px', display: 'block' }}>
+                      Kategori & satuan otomatis terisi dari Master Komoditas Admin agar penulisan varian seragam di semua pasar.
+                    </small>
                   </div>
 
                   <div className="form-two-cols-row">
@@ -1494,10 +1596,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 rekapitulasiGPMList.map((gpm) => (
                   <div key={gpm.id} style={{ background: '#ffffff', padding: '22px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                      <span style={{ 
-                        fontSize: '0.72rem', 
-                        fontWeight: 800, 
-                        padding: '3px 8px', 
+                      <span style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        padding: '3px 8px',
                         borderRadius: '4px',
                         background: gpm.status === 'Selesai' ? '#dcfce7' : '#eff6ff',
                         color: gpm.status === 'Selesai' ? '#166534' : '#1e40af'
@@ -1639,13 +1741,13 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                         <td style={{ padding: '10px' }}>{h.nama_pasar}</td>
                         <td style={{ padding: '10px', fontWeight: 800, color: '#8b1e1e' }}>{formatRupiah(h.harga)} / {formatSatuanTampil(h.satuan)}</td>
                         <td style={{ padding: '10px' }}>
-                          <span style={{ 
-                            padding: '3px 8px', 
-                            borderRadius: '4px', 
-                            fontSize: '0.72rem', 
-                            fontWeight: 700, 
-                            background: (h.status || '').toLowerCase() === 'draft' ? '#fef3c7' : '#dcfce7', 
-                            color: (h.status || '').toLowerCase() === 'draft' ? '#92400e' : '#166534' 
+                          <span style={{
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            background: (h.status || '').toLowerCase() === 'draft' ? '#fef3c7' : '#dcfce7',
+                            color: (h.status || '').toLowerCase() === 'draft' ? '#92400e' : '#166534'
                           }}>
                             {(h.status || '').toLowerCase() === 'draft' ? 'Draf' : (h.status || 'Terbit')}
                           </span>
@@ -1674,10 +1776,162 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
             ───────────────────────────────────────────── */}
         {menuAktif === 'master-data' && isAdmin && (
           <div className="dashboard-page-container">
-            <h1 className="dashboard-main-heading">🏛️ Master Satuan, Pasar dan Wilayah</h1>
+            <h1 className="dashboard-main-heading">🏛️ Master Komoditas, Satuan, Pasar dan Wilayah</h1>
             <p className="dashboard-main-subheading">
-              Admin & Superadmin mengelola Master Satuan (terkunci per 1 unit seperti 1 KG, 1 Liter, 1 Baki), Master Pasar, dan Master Kecamatan langsung di database Supabase agar staf hanya memilih pilihan resmi.
+              Admin & Superadmin mengelola Master Komoditas Terstruktur (Induk, Varian & Sinonim Pencarian), Master Satuan (terkunci per 1 unit), Master Pasar, dan Master Kecamatan langsung di database Supabase.
             </p>
+
+            {/* KARTU PENUH: MASTER KOMODITAS RESMI (INDUK, VARIAN & SINONIM PENCARIAN) */}
+            <div style={{ background: '#ffffff', padding: '22px', borderRadius: '12px', border: '1px solid #e2e8f0', marginTop: '20px' }}>
+              <h3 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>🌾 Master Komoditas Resmi (Induk, Varian & Sinonim)</h3>
+              <p style={{ margin: '0 0 16px 0', fontSize: '0.82rem', color: '#64748b' }}>
+                Mengelompokkan varian komoditas (contoh Induk <strong>Beras</strong> → <strong>Beras SPHP</strong>, <strong>Beras Medium</strong>, <strong>Beras Premium</strong>) agar pencarian warga akurat, sub-varian muncul otomatis, dan staf tidak salah ketik nama komoditas.
+              </p>
+
+              <form onSubmit={handleTambahMasterKomoditas} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '10px', marginBottom: '18px', background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>Komoditas Induk</label>
+                  <input
+                    type="text"
+                    list="datalist-kelompok-induk"
+                    placeholder="Contoh: Beras, Cabai, Minyak Goreng"
+                    className="field-input-box"
+                    value={formKomoditasMaster.kelompok_komoditas}
+                    onChange={(e) => setFormKomoditasMaster({ ...formKomoditasMaster, kelompok_komoditas: e.target.value })}
+                  />
+                  <datalist id="datalist-kelompok-induk">
+                    {daftarKelompokIndukMaster.map((kel) => (
+                      <option key={kel} value={kel} />
+                    ))}
+                  </datalist>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>Nama Varian Resmi *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Beras Superwin"
+                    className="field-input-box"
+                    value={formKomoditasMaster.nama_komoditas}
+                    onChange={(e) => setFormKomoditasMaster({ ...formKomoditasMaster, nama_komoditas: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>Kategori</label>
+                  <select
+                    className="field-select-box"
+                    value={formKomoditasMaster.kategori}
+                    onChange={(e) => setFormKomoditasMaster({ ...formKomoditasMaster, kategori: e.target.value })}
+                  >
+                    <option value="Bahan Pokok">Bahan Pokok</option>
+                    <option value="Hewani">Hewani</option>
+                    <option value="Sayuran">Sayuran</option>
+                    <option value="Buah">Buah</option>
+                    <option value="Lainnya">Lainnya</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>Satuan Bawaan (Per 1)</label>
+                  <select
+                    className="field-select-box"
+                    value={formKomoditasMaster.satuan_bawaan}
+                    onChange={(e) => setFormKomoditasMaster({ ...formKomoditasMaster, satuan_bawaan: e.target.value })}
+                  >
+                    {daftarSatuan.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>Prioritas Tampil Publik</label>
+                  <select
+                    className="field-select-box"
+                    value={formKomoditasMaster.prioritas_tampil}
+                    onChange={(e) => setFormKomoditasMaster({ ...formKomoditasMaster, prioritas_tampil: Number(e.target.value) })}
+                  >
+                    <option value={10}>10 — Sangat Utama (Beras)</option>
+                    <option value={15}>15 — Utama (Minyak Goreng)</option>
+                    <option value={20}>20 — Pokok (Gula / Cabai / Bawang)</option>
+                    <option value={30}>30 — Penting (Telur / Daging / Ikan)</option>
+                    <option value={50}>50 — Standar</option>
+                    <option value={70}>70 — Tambahan</option>
+                  </select>
+                </div>
+
+                <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                  <div style={{ flex: 1, minWidth: '240px' }}>
+                    <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Sinonim / Kata Kunci Pencarian Warga (pisahkan koma)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Contoh: beras biasa, beras bulog, rica, lombok"
+                      className="field-input-box"
+                      value={formKomoditasMaster.kata_kunci}
+                      onChange={(e) => setFormKomoditasMaster({ ...formKomoditasMaster, kata_kunci: e.target.value })}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    style={{ background: '#8b1e1e', color: '#fff', border: 'none', padding: '11px 20px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >
+                    ➕ Tambah Master Komoditas
+                  </button>
+                </div>
+              </form>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                {grupKomoditasDropdown.map((grup) => (
+                  <div key={grup.kelompok} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid #e2e8f0' }}>
+                      <strong style={{ color: '#8b1e1e', fontSize: '0.9rem' }}>🌾 {grup.kelompok}</strong>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, background: '#fee2e2', color: '#991b1b', padding: '2px 8px', borderRadius: '999px' }}>
+                        {grup.items.length} varian
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {grup.items.map((k) => (
+                        <div key={k.nama_komoditas} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', background: '#ffffff', padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.84rem', color: '#0f172a' }}>{k.nama_komoditas}</div>
+                            <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
+                              {k.kategori} • {k.satuan_bawaan} • P{k.prioritas_tampil}
+                            </div>
+                            {k.kata_kunci && (
+                              <div style={{ fontSize: '0.7rem', color: '#0369a1', marginTop: '2px' }}>
+                                🔍 {k.kata_kunci}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleHapusMasterKomoditas(k.nama_komoditas)}
+                            title={`Hapus ${k.nama_komoditas}`}
+                            style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontWeight: 800, flexShrink: 0 }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Master Daftar Pasar & Titik Lokasi Peta Interaktif (Leaflet + Auto-Isi Alamat) */}
+            <div style={{ marginTop: '20px' }}>
+              <AdminMasterPasarPanel
+                daftarPasarLengkap={daftarPasarLengkap}
+                daftarKecamatan={daftarKecamatan}
+                onDataBerubah={handleDataPasarBerubah}
+                onPesanSukses={tampilkanPesan}
+              />
+            </div>
 
             <div className="gpm-supervisi-cards-grid" style={{ marginTop: '20px' }}>
               {/* Master Satuan (Terkunci per 1) */}
@@ -1705,33 +1959,6 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                     <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#f8fafc', borderRadius: '8px' }}>
                       <span style={{ fontWeight: 700, color: '#0f172a' }}>⚖️ {s}</span>
                       <button onClick={() => handleHapusSatuan(s)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontWeight: 800 }}>✕</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Master Pasar */}
-              <div style={{ background: '#ffffff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <h3 style={{ margin: '0 0 12px 0', color: '#8b1e1e' }}>🏪 Master Daftar Pasar</h3>
-                <form onSubmit={handleTambahPasar} style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Nama pasar baru..."
-                    className="field-input-box"
-                    value={inputPasarBaru}
-                    onChange={(e) => setInputPasarBaru(e.target.value)}
-                  />
-                  <button type="submit" style={{ background: '#8b1e1e', color: '#fff', border: 'none', padding: '0 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>
-                    Tambah
-                  </button>
-                </form>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {daftarPasar.map((p, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#f8fafc', borderRadius: '8px' }}>
-                      <span style={{ fontWeight: 600 }}>{p}</span>
-                      <button onClick={() => handleHapusPasar(p)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontWeight: 800 }}>✕</button>
                     </div>
                   ))}
                 </div>
@@ -1878,10 +2105,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                             ✉️ {u.email || `${u.username}@manado.go.id`}
                           </div>
                         </div>
-                        <span style={{ 
-                          fontSize: '0.75rem', 
-                          fontWeight: 800, 
-                          padding: '3px 8px', 
+                        <span style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          padding: '3px 8px',
                           borderRadius: '4px',
                           background: u.peran === 'Admin' ? '#fdf2f8' : u.peran === 'Kabid' ? '#fef3c7' : u.peran === 'Kadis' ? '#f0fdf4' : '#eff6ff',
                           color: u.peran === 'Admin' ? '#9d174d' : u.peran === 'Kabid' ? '#92400e' : u.peran === 'Kadis' ? '#166534' : '#1e40af'
@@ -2057,7 +2284,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
 
                   <div className="stat-card-white">
                     <div className="stat-title-label">Status Tren</div>
-                    <div className="stat-number-big" style={{ 
+                    <div className="stat-number-big" style={{
                       color: dataTren.statusTren === 'Naik' ? '#dc2626' : dataTren.statusTren === 'Turun' ? '#166534' : '#2563eb',
                       fontSize: '1.4rem'
                     }}>
@@ -2088,15 +2315,15 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                             <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#8b1e1e', marginBottom: '6px', whiteSpace: 'nowrap' }}>
                               {formatRupiah(titik.harga)}
                             </span>
-                            <div 
-                              style={{ 
-                                width: '100%', 
-                                maxWidth: '44px', 
-                                height: `${tinggiPersen}%`, 
-                                background: 'linear-gradient(180deg, #8b1e1e 0%, #b91c1c 100%)', 
+                            <div
+                              style={{
+                                width: '100%',
+                                maxWidth: '44px',
+                                height: `${tinggiPersen}%`,
+                                background: 'linear-gradient(180deg, #8b1e1e 0%, #b91c1c 100%)',
                                 borderRadius: '6px 6px 0 0',
                                 transition: 'all 0.3s ease'
-                              }} 
+                              }}
                               title={`${titik.tanggal}: ${formatRupiah(titik.harga)}`}
                             />
                             <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '8px', fontWeight: 600, whiteSpace: 'nowrap' }}>
@@ -2183,7 +2410,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                           </td>
                           <td style={{ padding: '10px' }}>{gpm.kecamatan}</td>
                           <td style={{ padding: '10px', fontWeight: 700 }}>{gpm.target_kuota} KK</td>
-                          <td 
+                          <td
                             style={{ padding: '10px', cursor: 'pointer', color: '#1d4ed8', fontWeight: 700 }}
                             onClick={() => setModalDetailWarga({ buka: true, acara: gpm, pencarian: '' })}
                             title="Klik untuk membuka data pendaftar warga"
@@ -2194,13 +2421,13 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                             {gpm.terlayani > 0 ? `${gpm.terlayani} KK` : '-'}
                           </td>
                           <td style={{ padding: '10px' }}>
-                            <span style={{ 
-                              padding: '3px 8px', 
-                              borderRadius: '4px', 
-                              fontSize: '0.72rem', 
-                              fontWeight: 700, 
-                              background: gpm.status === 'Selesai' ? '#dcfce7' : '#eff6ff', 
-                              color: gpm.status === 'Selesai' ? '#166534' : '#1e40af' 
+                            <span style={{
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              background: gpm.status === 'Selesai' ? '#dcfce7' : '#eff6ff',
+                              color: gpm.status === 'Selesai' ? '#166534' : '#1e40af'
                             }}>
                               {gpm.status}
                             </span>
@@ -2242,7 +2469,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           Admin hanya memasukkan kata sandi baru (tanpa melihat kata sandi lama)
           ───────────────────────────────────────────── */}
       {modalResetAdmin.buka && (
-        <div 
+        <div
           style={{
             position: 'fixed',
             inset: 0,
@@ -2255,7 +2482,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           }}
           onClick={() => setModalResetAdmin({ buka: false, userTarget: null, sandiBaru: '', konfirmasiSandi: '', pesan: '' })}
         >
-          <div 
+          <div
             style={{
               background: '#ffffff',
               borderRadius: '16px',
@@ -2332,7 +2559,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           20. MODAL KHUSUS ADMIN: UBAH USERNAME
           ───────────────────────────────────────────── */}
       {modalEditUsername.buka && (
-        <div 
+        <div
           style={{
             position: 'fixed',
             inset: 0,
@@ -2345,7 +2572,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           }}
           onClick={() => setModalEditUsername({ buka: false, userTarget: null, usernameBaru: '', pesan: '' })}
         >
-          <div 
+          <div
             style={{
               background: '#ffffff',
               borderRadius: '16px',
@@ -2404,7 +2631,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           20B. MODAL KHUSUS ADMIN: UBAH EMAIL
           ───────────────────────────────────────────── */}
       {modalEditEmail.buka && (
-        <div 
+        <div
           style={{
             position: 'fixed',
             inset: 0,
@@ -2417,7 +2644,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           }}
           onClick={() => setModalEditEmail({ buka: false, userTarget: null, emailBaru: '', pesan: '' })}
         >
-          <div 
+          <div
             style={{
               background: '#ffffff',
               borderRadius: '16px',
@@ -2476,7 +2703,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           21. MODAL PRIBADI: PROFIL & GANTI KATA SANDI
           ───────────────────────────────────────────── */}
       {tampilkanModalProfil && (
-        <div 
+        <div
           style={{
             position: 'fixed',
             inset: 0,
@@ -2489,7 +2716,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           }}
           onClick={() => setTampilkanModalProfil(false)}
         >
-          <div 
+          <div
             style={{
               background: '#ffffff',
               borderRadius: '16px',
@@ -2503,7 +2730,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
               <h3 style={{ margin: 0, color: '#8b1e1e' }}>👤 Profil & Pengaturan Akun</h3>
-              <button 
+              <button
                 onClick={() => setTampilkanModalProfil(false)}
                 style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#888' }}
               >
@@ -2512,10 +2739,10 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
             </div>
 
             {pesanProfil.teks && (
-              <div style={{ 
-                padding: '10px 14px', 
-                borderRadius: '8px', 
-                marginBottom: '14px', 
+              <div style={{
+                padding: '10px 14px',
+                borderRadius: '8px',
+                marginBottom: '14px',
                 fontSize: '0.88rem',
                 background: pesanProfil.tipe === 'sukses' ? '#dcfce7' : '#fee2e2',
                 color: pesanProfil.tipe === 'sukses' ? '#166534' : '#991b1b'
@@ -2713,18 +2940,33 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
             <form onSubmit={(e) => handleSimpanEditKabid(e)} style={{ padding: '24px' }}>
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                  Nama Komoditas / Jenis Pangan
+                  Nama Komoditas / Varian Resmi (Master Admin)
                 </label>
-                <input
-                  type="text"
+                <select
                   required
-                  className="field-input-box"
+                  className="field-select-box"
                   value={modalEditKabid.form.nama_komoditas}
-                  onChange={(e) => setModalEditKabid({
-                    ...modalEditKabid,
-                    form: { ...modalEditKabid.form, nama_komoditas: e.target.value }
-                  })}
-                />
+                  onChange={(e) => handlePilihKomoditasKabid(e.target.value)}
+                >
+                  <option value="">-- Pilih Komoditas / Varian Resmi --</option>
+                  {grupKomoditasDropdown.map((grup) => (
+                    <optgroup key={grup.kelompok} label={`🌾 ${grup.kelompok}`}>
+                      {grup.items.map((k) => (
+                        <option key={k.nama_komoditas} value={k.nama_komoditas}>
+                          {k.nama_komoditas} ({k.satuan_bawaan})
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                  {modalEditKabid.form.nama_komoditas &&
+                    !daftarMasterKomoditas.some(
+                      (k) => k.nama_komoditas.toLowerCase() === modalEditKabid.form.nama_komoditas.toLowerCase()
+                    ) && (
+                      <optgroup label="Data Sebelumnya">
+                        <option value={modalEditKabid.form.nama_komoditas}>{modalEditKabid.form.nama_komoditas}</option>
+                      </optgroup>
+                    )}
+                </select>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
@@ -2854,7 +3096,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           (Dapat diakses Kadis, Admin, dan Superadmin)
           ───────────────────────────────────────────── */}
       {modalDetailWarga.buka && modalDetailWarga.acara && (
-        <div 
+        <div
           style={{
             position: 'fixed',
             inset: 0,
@@ -2867,7 +3109,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           }}
           onClick={() => setModalDetailWarga({ buka: false, acara: null, pencarian: '' })}
         >
-          <div 
+          <div
             style={{
               background: '#ffffff',
               borderRadius: '16px',
@@ -2889,7 +3131,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   📍 {modalDetailWarga.acara.lokasi} (Kec. {modalDetailWarga.acara.kecamatan}) · 📅 {modalDetailWarga.acara.tanggal} ({modalDetailWarga.acara.jam_mulai || '08:00'} - {modalDetailWarga.acara.jam_selesai || '13:00'} WITA)
                 </p>
               </div>
-              <button 
+              <button
                 onClick={() => setModalDetailWarga({ buka: false, acara: null, pencarian: '' })}
                 style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: '#888' }}
               >
@@ -3072,7 +3314,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           23. MODAL PILIHAN CETAK REKAPITULASI GPM (KADIS & SUPERADMIN)
           ───────────────────────────────────────────── */}
       {modalPilihanCetakGPM.buka && (
-        <div 
+        <div
           style={{
             position: 'fixed',
             inset: 0,
@@ -3085,7 +3327,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           }}
           onClick={() => setModalPilihanCetakGPM({ buka: false, mode: 'semua', acaraId: '' })}
         >
-          <div 
+          <div
             style={{
               background: '#ffffff',
               borderRadius: '16px',
@@ -3098,7 +3340,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>
               <h3 style={{ margin: 0, color: '#8b1e1e', fontSize: '1.1rem' }}>🖨️ Cetak Rekapitulasi GPM Resmi</h3>
-              <button 
+              <button
                 onClick={() => setModalPilihanCetakGPM({ buka: false, mode: 'semua', acaraId: '' })}
                 style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#888' }}
               >
@@ -3136,7 +3378,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 <div style={{ flex: 1 }}>
                   <strong style={{ display: 'block', fontSize: '0.92rem', color: '#1e293b' }}>2. Rekapitulasi & Rincian Warga Titik Tertentu</strong>
                   <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Mencetak laporan spesifik satu lokasi GPM beserta rincian lengkap daftar hadir warga pendaftar.</span>
-                  
+
                   {modalPilihanCetakGPM.mode === 'acara' && (
                     <div style={{ marginTop: '10px' }}>
                       <select
