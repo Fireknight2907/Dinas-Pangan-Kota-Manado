@@ -211,6 +211,19 @@ export class TiketGPMMobileService {
     const slugNama = namaBersih.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 24) || 'Warga';
     const namaFile = `Tiket_GPM_${String(tiket.nomor_antrean || 1).padStart(3, '0')}_${slugNama}.png`;
 
+    // Pada APK Android native, gunakan SipatokaanAndroid bridge agar PNG langsung tersimpan di Download/SIPATOKAAN + Share Sheet
+    const androidBridge = (window as any)?.SipatokaanAndroid;
+    if (Capacitor.isNativePlatform() && androidBridge && typeof androidBridge.saveAndShareFile === 'function') {
+      try {
+        const dataUrlNative = canvas.toDataURL('image/png');
+        const base64Clean = dataUrlNative.replace(/^data:image\/png;base64,/, '');
+        androidBridge.saveAndShareFile(namaFile, 'image/png', base64Clean);
+        return true;
+      } catch (err) {
+        console.warn('Gagal memanggil SipatokaanAndroid untuk PNG tiket:', err);
+      }
+    }
+
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
     if (blob) {
       // Pada APK Capacitor Android/iOS, gunakan native Share/Save sheet bila didukung agar tersimpan ke Galeri/Files

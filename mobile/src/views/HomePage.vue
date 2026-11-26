@@ -1259,8 +1259,11 @@
                 <button type="button" class="m-staf-hero-btn primary" @click="menuPetugas = 'kelola-user'">
                   👥 Pengguna ({{ ringkasanBerandaAdminMobile.kpi.totalPengguna }})
                 </button>
-                <button type="button" class="m-staf-hero-btn secondary" @click="menuPetugas = 'master-data'">
-                  🏛️ Master Data
+                <button type="button" class="m-staf-hero-btn secondary" @click="menuPetugas = 'master-komoditas'">
+                  🌾 Komoditas
+                </button>
+                <button type="button" class="m-staf-hero-btn secondary" @click="menuPetugas = 'master-wilayah'">
+                  🗺️ Wilayah
                 </button>
               </div>
             </div>
@@ -1271,12 +1274,12 @@
                 <div class="stat-lbl">Akun Pengguna</div>
                 <div class="stat-sub">Staf {{ ringkasanBerandaAdminMobile.kpi.rincianPeran.Staf }} · Kabid {{ ringkasanBerandaAdminMobile.kpi.rincianPeran.Kabid }} · Kadis {{ ringkasanBerandaAdminMobile.kpi.rincianPeran.Kadis }}</div>
               </div>
-              <div class="stat-box-card" style="cursor: pointer;" @click="menuPetugas = 'master-data'">
+              <div class="stat-box-card" style="cursor: pointer;" @click="menuPetugas = 'master-komoditas'">
                 <div class="stat-val" style="color: #b45309;">{{ ringkasanBerandaAdminMobile.kpi.totalMasterKomoditas }}</div>
                 <div class="stat-lbl">Master Komoditas</div>
                 <div class="stat-sub">{{ ringkasanBerandaAdminMobile.kpi.totalKelompokKomoditas }} induk · {{ ringkasanBerandaAdminMobile.kpi.totalSatuan }} satuan</div>
               </div>
-              <div class="stat-box-card" style="cursor: pointer;" @click="menuPetugas = 'master-data'">
+              <div class="stat-box-card" style="cursor: pointer;" @click="menuPetugas = 'master-wilayah'">
                 <div class="stat-val" style="color: #166534;">{{ ringkasanBerandaAdminMobile.kpi.pasarDenganPeta }}/{{ ringkasanBerandaAdminMobile.kpi.totalPasar }}</div>
                 <div class="stat-lbl">Pasar Berpeta</div>
                 <div class="stat-sub">{{ ringkasanBerandaAdminMobile.kpi.persenPasarBerpeta }}% · {{ ringkasanBerandaAdminMobile.kpi.totalKecamatan }} kec.</div>
@@ -1313,7 +1316,7 @@
                   <h3>🗺️ Kelengkapan Titik Peta Pasar</h3>
                   <small>Status koordinat pasar untuk peta publik</small>
                 </div>
-                <button type="button" class="m-btn-link-inline" @click="menuPetugas = 'master-data'">Atur →</button>
+                <button type="button" class="m-btn-link-inline" @click="menuPetugas = 'master-wilayah'">Atur →</button>
               </div>
               <div v-if="ringkasanBerandaAdminMobile.daftarPasarTanpaPeta.length === 0" class="m-empty-box" style="background: #f0fdf4; color: #166534; border-color: #bbf7d0;">
                 ✅ Seluruh {{ ringkasanBerandaAdminMobile.kpi.totalPasar }} pasar sudah memiliki titik koordinat peta.
@@ -1324,7 +1327,7 @@
                     <strong>⚠️ {{ p.nama_pasar }}</strong>
                     <span class="m-staf-batch-pill st-diajukan">Belum berpeta</span>
                   </div>
-                  <div class="m-staf-sub-meta">Lengkapi koordinat Latitude &amp; Longitude di menu Master Data.</div>
+                  <div class="m-staf-sub-meta">Lengkapi koordinat Latitude &amp; Longitude di menu Master Pasar &amp; Wilayah.</div>
                 </div>
               </div>
             </div>
@@ -1364,16 +1367,16 @@
                 <div class="stat-lbl">Total Akun</div>
                 <div class="stat-sub">SA {{ ringkasanBerandaAdminMobile.kpi.rincianPeran.Superadmin }} · Adm {{ ringkasanBerandaAdminMobile.kpi.rincianPeran.Admin }} · Lainnya {{ ringkasanBerandaAdminMobile.kpi.totalPengguna - ringkasanBerandaAdminMobile.kpi.rincianPeran.Superadmin - ringkasanBerandaAdminMobile.kpi.rincianPeran.Admin }}</div>
               </div>
-              <div class="stat-box-card" style="cursor: pointer;" @click="menuPetugas = 'master-data'">
+              <div class="stat-box-card" style="cursor: pointer;" @click="menuPetugas = 'master-komoditas'">
                 <div class="stat-val" style="color: #1d4ed8;">{{ ringkasanBerandaAdminMobile.kpi.totalMasterKomoditas }}</div>
                 <div class="stat-lbl">Master Komoditas</div>
                 <div class="stat-sub">{{ ringkasanBerandaAdminMobile.kpi.totalPasar }} pasar · {{ ringkasanBerandaAdminMobile.kpi.totalKecamatan }} kec.</div>
               </div>
             </div>
 
-            <!-- Akses Cepat Seluruh 9 Modul (Superadmin Full Feature) -->
+            <!-- Akses Cepat Seluruh 10 Modul (Superadmin Full Feature) -->
             <div class="m-qa-panel">
-              <h3 class="m-qa-title">🧭 Akses Cepat Seluruh 9 Modul (Full Feature):</h3>
+              <h3 class="m-qa-title">🧭 Akses Cepat Seluruh 10 Modul (Full Feature):</h3>
               <div class="m-qa-grid">
                 <button type="button" class="m-qa-card" @click="menuPetugas = 'input-harga'">
                   <span class="m-qa-icon">📝</span>
@@ -1424,11 +1427,18 @@
                     <small>Atur semua peran (termasuk Superadmin) &amp; reset sandi</small>
                   </div>
                 </button>
-                <button type="button" class="m-qa-card" @click="menuPetugas = 'master-data'">
-                  <span class="m-qa-icon">🏛️</span>
+                <button type="button" class="m-qa-card" @click="menuPetugas = 'master-komoditas'">
+                  <span class="m-qa-icon">🌾</span>
                   <div class="m-qa-detail">
-                    <strong>Master Komoditas, Pasar &amp; Wilayah</strong>
-                    <small>Komoditas induk/varian, satuan, peta pasar &amp; kecamatan</small>
+                    <strong>Master Komoditas &amp; Satuan</strong>
+                    <small>Komoditas induk/varian, edit, urutan tampil &amp; satuan</small>
+                  </div>
+                </button>
+                <button type="button" class="m-qa-card" @click="menuPetugas = 'master-wilayah'">
+                  <span class="m-qa-icon">🗺️</span>
+                  <div class="m-qa-detail">
+                    <strong>Master Pasar &amp; Wilayah</strong>
+                    <small>Titik peta pasar tradisional &amp; kecamatan Kota Manado</small>
                   </div>
                 </button>
                 <button type="button" class="m-qa-card" @click="menuPetugas = 'cek-gpm'">
@@ -2928,36 +2938,76 @@
           </div>
         </div>
 
-        <!-- SUB-VIEW G: MASTER KOMODITAS, SATUAN, PASAR & WILAYAH (KHUSUS ADMIN & SUPERADMIN) -->
-        <div v-if="menuPetugas === 'master-data'" class="staff-view-container">
+        <!-- SUB-VIEW G1: MASTER KOMODITAS & SATUAN (KHUSUS ADMIN & SUPERADMIN) -->
+        <div v-if="menuPetugas === 'master-komoditas'" class="staff-view-container">
           <div class="staff-heading-area">
-            <h1 class="staff-view-title">Master Komoditas, Satuan & Wilayah</h1>
-            <p class="staff-view-desc">Kelola Master Komoditas (Induk, Varian & Sinonim), Satuan per 1 unit, Pasar, dan Kecamatan di Supabase</p>
+            <h1 class="staff-view-title">🌾 Master Komoditas &amp; Satuan</h1>
+            <p class="staff-view-desc">
+              Kelola Komoditas Induk, Varian, Urutan Tampil Publik, Sinonim, dan Satuan per 1 unit. Otomatis tersinkron ke Staf, Kabid, Grafik Tren Kadis, &amp; Publik.
+            </p>
           </div>
 
-          <!-- Master Komoditas Resmi (Induk, Varian & Sinonim Pencarian) -->
-          <div class="staff-form-panel" style="margin-bottom: 16px;">
-            <div class="panel-title-row">
-              <span class="plus-icon-red">🌾</span>
-              <h3>Master Komoditas Resmi ({{ daftarMasterKomoditas.length }})</h3>
+          <!-- Master Komoditas Resmi (Induk Fleksibel, Varian, Edit & Sinonim) -->
+          <div
+            id="form-master-komoditas-mobile"
+            class="staff-form-panel"
+            :style="{ marginBottom: '16px', border: komoditasMasterDieditMobile ? '2px solid #2563eb' : undefined }"
+          >
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
+              <div class="panel-title-row" style="margin: 0;">
+                <span class="plus-icon-red">{{ komoditasMasterDieditMobile ? '✏️' : '🌾' }}</span>
+                <h3 style="margin: 0;">
+                  {{ komoditasMasterDieditMobile ? `Edit: ${komoditasMasterDieditMobile.nama_komoditas}` : `Master Komoditas Resmi (${daftarMasterKomoditas.length})` }}
+                </h3>
+              </div>
+              <button
+                v-if="komoditasMasterDieditMobile"
+                type="button"
+                class="m-gpm-btn-back"
+                @click="batalEditMasterKomoditasMobile"
+              >
+                ✕ Batal Edit
+              </button>
             </div>
+
             <p style="font-size: 0.74rem; color: #64748b; margin: 0 0 10px 0;">
-              Kelompokkan varian komoditas (contoh Induk <strong>Beras</strong> → <strong>Beras SPHP</strong>, <strong>Beras Medium</strong>, <strong>Beras Premium</strong>) agar pencarian warga pintar & staf tidak salah ketik.
+              {{
+                komoditasMasterDieditMobile
+                  ? 'Mengubah nama komoditas otomatis menyinkronkan harga pasar & riwayat grafik Kadis agar histori tetap utuh.'
+                  : 'Pilih Komoditas Induk yang ada atau ketuk "+ Induk Baru" untuk menambahkan kelompok induk bebas.'
+              }}
             </p>
 
             <div class="m-mk-form-grid">
               <div class="s-field">
-                <label>Komoditas Induk</label>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <label style="margin: 0;">Komoditas Induk *</label>
+                  <button
+                    type="button"
+                    style="background: none; border: none; color: #8b1e1e; font-size: 0.74rem; font-weight: 800; padding: 0; cursor: pointer;"
+                    @click="modeIndukBaruMobile = !modeIndukBaruMobile; if (modeIndukBaruMobile) formKomoditasMasterMobile.kelompok_komoditas = ''"
+                  >
+                    {{ modeIndukBaruMobile ? '← Pilih Daftar' : '+ Induk Baru' }}
+                  </button>
+                </div>
                 <input
+                  v-if="modeIndukBaruMobile || daftarKelompokIndukMasterMobile.length === 0"
                   type="text"
-                  list="mDatalistKelompokInduk"
                   v-model="formKomoditasMasterMobile.kelompok_komoditas"
-                  placeholder="Beras, Cabai, Minyak Goreng..."
+                  placeholder="Ketik induk baru (misal: Sayur, Susu)"
                 />
-                <datalist id="mDatalistKelompokInduk">
-                  <option v-for="kel in daftarKelompokIndukMasterMobile" :key="kel" :value="kel" />
-                </datalist>
+                <select
+                  v-else
+                  class="s-select-market"
+                  :value="daftarKelompokIndukMasterMobile.includes(formKomoditasMasterMobile.kelompok_komoditas) ? formKomoditasMasterMobile.kelompok_komoditas : ''"
+                  @change="($event.target as HTMLSelectElement).value === '__BARU__' ? (modeIndukBaruMobile = true, formKomoditasMasterMobile.kelompok_komoditas = '') : (formKomoditasMasterMobile.kelompok_komoditas = ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">-- Pilih Komoditas Induk --</option>
+                  <option v-for="kel in daftarKelompokIndukMasterMobile" :key="kel" :value="kel">{{ kel }}</option>
+                  <option value="__BARU__">➕ Tambah Komoditas Induk Baru...</option>
+                </select>
               </div>
+
               <div class="s-field">
                 <label>Nama Varian Resmi *</label>
                 <input
@@ -2966,9 +3016,10 @@
                   placeholder="Contoh: Beras Superwin"
                 />
               </div>
+
               <div class="s-row-two">
                 <div class="s-field">
-                  <label>Kategori</label>
+                  <label>Kategori Pangan</label>
                   <select v-model="formKomoditasMasterMobile.kategori" class="s-select-market">
                     <option value="Bahan Pokok">Bahan Pokok</option>
                     <option value="Hewani">Hewani</option>
@@ -2984,17 +3035,16 @@
                   </select>
                 </div>
               </div>
+
               <div class="s-field">
-                <label>Prioritas Tampil Publik</label>
+                <label>Urutan Tampil Publik</label>
                 <select v-model.number="formKomoditasMasterMobile.prioritas_tampil" class="s-select-market">
-                  <option :value="10">10 — Sangat Utama (Beras)</option>
-                  <option :value="15">15 — Utama (Minyak Goreng)</option>
-                  <option :value="20">20 — Pokok (Gula / Cabai / Bawang)</option>
-                  <option :value="30">30 — Penting (Telur / Daging / Ikan)</option>
-                  <option :value="50">50 — Standar</option>
-                  <option :value="70">70 — Tambahan</option>
+                  <option v-for="opsi in OPSI_URUTAN_TAMPIL_PUBLIK" :key="opsi.nilai" :value="opsi.nilai">
+                    {{ opsi.label }}
+                  </option>
                 </select>
               </div>
+
               <div class="s-field">
                 <label>Sinonim Pencarian (pisahkan koma)</label>
                 <input
@@ -3003,8 +3053,14 @@
                   placeholder="Contoh: beras biasa, beras bulog, rica"
                 />
               </div>
-              <button type="button" class="btn-m-add" style="width: 100%; padding: 10px;" @click="tambahMasterKomoditasBaru">
-                ➕ Tambah Master Komoditas
+
+              <button
+                type="button"
+                class="btn-m-add"
+                :style="{ width: '100%', padding: '11px', background: komoditasMasterDieditMobile ? '#1d4ed8' : undefined }"
+                @click="tambahMasterKomoditasBaru"
+              >
+                {{ komoditasMasterDieditMobile ? '💾 Simpan Perubahan Komoditas' : '➕ Tambah Master Komoditas' }}
               </button>
             </div>
 
@@ -3023,13 +3079,35 @@
                   <span>{{ grup.items.length }} varian</span>
                 </div>
                 <div class="m-mk-items">
-                  <div v-for="k in grup.items" :key="k.nama_komoditas" class="m-mk-item-row">
-                    <div>
+                  <div
+                    v-for="k in grup.items"
+                    :key="k.nama_komoditas"
+                    class="m-mk-item-row"
+                    :style="komoditasMasterDieditMobile?.nama_komoditas === k.nama_komoditas ? { background: '#eff6ff', borderColor: '#3b82f6' } : undefined"
+                  >
+                    <div style="min-width: 0; flex: 1;">
                       <div class="m-mk-item-name">{{ k.nama_komoditas }}</div>
-                      <div class="m-mk-item-meta">{{ k.kategori }} • {{ k.satuan_bawaan }} • P{{ k.prioritas_tampil }}</div>
+                      <div class="m-mk-item-meta">
+                        {{ k.kategori }} • {{ k.satuan_bawaan }} • {{ masterDataMobileService.ambilLabelUrutanTampil(k.prioritas_tampil) }}
+                      </div>
                       <div v-if="k.kata_kunci" class="m-mk-item-syn">🔍 {{ k.kata_kunci }}</div>
                     </div>
-                    <button type="button" class="btn-m-chip-del" @click="hapusMasterKomoditas(k.nama_komoditas)">✕</button>
+                    <div style="display: flex; gap: 5px; flex-shrink: 0;">
+                      <button
+                        type="button"
+                        class="btn-m-mk-edit"
+                        @click="mulaiEditMasterKomoditasMobile(k)"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-m-chip-del"
+                        @click="hapusMasterKomoditas(k.nama_komoditas)"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3056,6 +3134,16 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- SUB-VIEW G2: MASTER PASAR & WILAYAH KOTA MANADO (KHUSUS ADMIN & SUPERADMIN) -->
+        <div v-if="menuPetugas === 'master-wilayah'" class="staff-view-container">
+          <div class="staff-heading-area">
+            <h1 class="staff-view-title">🗺️ Master Pasar &amp; Wilayah</h1>
+            <p class="staff-view-desc">
+              Kelola daftar pasar tradisional, titik lokasi peta publik, dan daftar kecamatan resmi Kota Manado
+            </p>
+          </div>
 
           <!-- Master Pasar Tradisional & Titik Peta Interaktif (Leaflet + Auto-Isi Alamat) -->
           <AdminMasterPasarMobile
@@ -3068,9 +3156,12 @@
           <!-- Master Kecamatan -->
           <div class="staff-form-panel" style="margin-top: 16px;">
             <div class="panel-title-row">
-              <span class="plus-icon-red">🗺️</span>
+              <span class="plus-icon-red">🏛️</span>
               <h3>Master Kecamatan Kota Manado ({{ daftarKecamatan.length }})</h3>
             </div>
+            <p style="font-size: 0.74rem; color: #64748b; margin: 0 0 8px 0;">
+              Acuan wilayah untuk Pasar Tradisional dan penjadwalan lokasi Gerakan Pangan Murah (GPM).
+            </p>
             <div class="m-inline-add-row">
               <input type="text" v-model="inputKecamatanBaru" placeholder="Nama kecamatan baru..." @keyup.enter="tambahKecamatanBaru" />
               <button type="button" class="btn-m-add" @click="tambahKecamatanBaru">+ Tambah</button>
@@ -3207,10 +3298,32 @@
           <div class="staff-form-panel">
             <div class="m-kadis-filter-grid">
               <div class="s-field">
-                <label>Komoditas Pangan</label>
-                <select v-model="komoditasTren" @change="muatTrenKadis" :disabled="daftarKomoditasTersediaKadis.length === 0">
-                  <option v-if="daftarKomoditasTersediaKadis.length === 0" value="">Belum ada data komoditas di database</option>
-                  <option v-for="k in daftarKomoditasTersediaKadis" :key="String(k)" :value="k">{{ k }}</option>
+                <label>Komoditas Pangan (Sinkron Master Admin)</label>
+                <select v-model="komoditasTren" @change="muatTrenKadis" :disabled="pilihanKomoditasKadisMobile.semuaNamaValid.length === 0">
+                  <option v-if="pilihanKomoditasKadisMobile.semuaNamaValid.length === 0" value="">Belum ada komoditas di Master Admin</option>
+                  <template v-else>
+                    <optgroup
+                      v-for="grup in pilihanKomoditasKadisMobile.grupMaster"
+                      :key="grup.kelompok"
+                      :label="'🌾 ' + grup.kelompok"
+                    >
+                      <option v-for="item in grup.items" :key="item.nama" :value="item.nama">
+                        {{ item.punyaDataHarga ? `${item.nama} (${item.jumlahPasar} pasar)` : `${item.nama} — Belum ada harga` }}
+                      </option>
+                    </optgroup>
+                    <optgroup
+                      v-if="pilihanKomoditasKadisMobile.arsipDiLuarMaster.length > 0"
+                      label="📂 Arsip (Di Luar Master Admin)"
+                    >
+                      <option
+                        v-for="item in pilihanKomoditasKadisMobile.arsipDiLuarMaster"
+                        :key="item.nama"
+                        :value="item.nama"
+                      >
+                        {{ item.nama }} ({{ item.jumlahPasar }} pasar)
+                      </option>
+                    </optgroup>
+                  </template>
                 </select>
               </div>
 
@@ -5270,17 +5383,25 @@
           </div>
         </div>
 
-        <div class="server-modal-footer" style="display: flex; gap: 8px;">
-          <button type="button" class="btn-cancel-server" style="flex: 1;" @click="modalDetailWargaMobile.buka = false">
+        <div class="server-modal-footer" style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn-cancel-server" style="flex: 1 1 80px;" @click="modalDetailWargaMobile.buka = false">
             Tutup
           </button>
-          <button 
-            type="button" 
-            class="btn-save-server" 
-            style="flex: 1; background: #166534;"
+          <button
+            type="button"
+            class="btn-save-server"
+            style="flex: 1 1 110px; background: #166534;"
             @click="unduhRekapAcaraMobile(modalDetailWargaMobile.acara)"
           >
             📊 Excel (.xlsx)
+          </button>
+          <button
+            type="button"
+            class="btn-save-server"
+            style="flex: 1 1 110px; background: #8b1e1e;"
+            @click="cetakPendaftarAcaraMobile(modalDetailWargaMobile.acara)"
+          >
+            🖨️ Cetak PDF
           </button>
         </div>
       </div>
@@ -5525,6 +5646,7 @@ import {
 } from '../services/RiwayatHargaService';
 import {
   masterDataMobileService,
+  OPSI_URUTAN_TAMPIL_PUBLIK,
   type ItemMasterKomoditas,
   type ItemMasterPasar
 } from '../services/MasterDataService';
@@ -6056,8 +6178,17 @@ const grupKomoditasDropdownMobile = computed(() =>
   masterDataMobileService.kelompokkanKomoditasUntukDropdown(daftarMasterKomoditas.value)
 );
 
+const daftarIndukKomoditasMobile = ref<string[]>([]);
+const modeIndukBaruMobile = ref(false);
+const komoditasMasterDieditMobile = ref<{ id?: string; nama_komoditas: string } | null>(null);
+
 const daftarKelompokIndukMasterMobile = computed(() =>
-  Array.from(new Set(daftarMasterKomoditas.value.map((k) => k.kelompok_komoditas).filter(Boolean)))
+  Array.from(
+    new Set([
+      ...daftarIndukKomoditasMobile.value,
+      ...daftarMasterKomoditas.value.map((k) => k.kelompok_komoditas).filter(Boolean)
+    ])
+  ).sort((a, b) => a.localeCompare(b, 'id-ID'))
 );
 
 const daftarPasarPublikDB = computed(() =>
@@ -6247,7 +6378,7 @@ const menuPetugas = ref<string>('dashboard');
 
 const gantiMenuPetugas = (idMenu: string) => {
   menuPetugas.value = idMenu;
-  if (idMenu === 'kelola-user' || idMenu === 'master-data') {
+  if (idMenu === 'kelola-user' || idMenu === 'master-komoditas' || idMenu === 'master-wilayah') {
     muatSemuaPengguna();
   }
   if (idMenu === 'grafik-pangan') {
@@ -6414,13 +6545,11 @@ interface NotifMobileItem {
 }
 const daftarNotifMobile = ref<NotifMobileItem[]>([]);
 
-// Computed Komoditas & Pasar Lengkap untuk Grafik Kadis (100% dari Database Supabase — Prioritas Terbit)
-const daftarKomoditasTersediaKadis = computed(() => {
-  const sumber = komoditasTerbit.value.length > 0 ? komoditasTerbit.value : semuaKomoditas.value;
-  return Array.from(new Set(sumber.map((i: any) => i.nama_komoditas).filter(Boolean))).sort((a, b) =>
-    String(a).localeCompare(String(b), 'id-ID')
-  );
-});
+// Computed Komoditas & Pasar untuk Grafik Kadis & Superadmin — 100% Sinkron dengan Master Komoditas Admin
+const pilihanKomoditasKadisMobile = computed(() =>
+  masterDataMobileService.susunPilihanKomoditasKadis(daftarMasterKomoditas.value, semuaKomoditas.value)
+);
+const daftarKomoditasTersediaKadis = computed(() => pilihanKomoditasKadisMobile.value.semuaNamaValid);
 const daftarPasarTersediaKadis = computed(() => {
   return Array.from(new Set([
     ...daftarPasar.value,
@@ -7271,6 +7400,7 @@ const muatData = async (diam: boolean | Event = false) => {
       masterDataMobileService.ambilDaftarKecamatan()
     ]);
     daftarMasterKomoditas.value = Array.isArray(komoditasMaster) ? komoditasMaster : [];
+    daftarIndukKomoditasMobile.value = await masterDataMobileService.ambilDaftarIndukKomoditas(daftarMasterKomoditas.value);
     daftarSatuan.value = satuanMaster;
     daftarPasarLengkap.value = Array.isArray(pasarLengkapMaster) ? pasarLengkapMaster : [];
     const namaPasarMaster = daftarPasarLengkap.value.map((p) => p.nama_pasar);
@@ -8898,6 +9028,34 @@ const eksekusiHapusUser = async (user: AkunPengguna) => {
   }
 };
 
+const mulaiEditMasterKomoditasMobile = (item: ItemMasterKomoditas) => {
+  komoditasMasterDieditMobile.value = { id: item.id, nama_komoditas: item.nama_komoditas };
+  modeIndukBaruMobile.value = false;
+  formKomoditasMasterMobile.value = {
+    kelompok_komoditas: item.kelompok_komoditas || '',
+    nama_komoditas: item.nama_komoditas || '',
+    kategori: item.kategori || 'Bahan Pokok',
+    satuan_bawaan: item.satuan_bawaan || daftarSatuan.value[0] || '1 KG',
+    kata_kunci: item.kata_kunci || '',
+    prioritas_tampil: masterDataMobileService.normalisasiNilaiUrutanTampil(item.prioritas_tampil)
+  };
+  const el = document.getElementById('form-master-komoditas-mobile');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+const batalEditMasterKomoditasMobile = () => {
+  komoditasMasterDieditMobile.value = null;
+  modeIndukBaruMobile.value = false;
+  formKomoditasMasterMobile.value = {
+    kelompok_komoditas: '',
+    nama_komoditas: '',
+    kategori: 'Bahan Pokok',
+    satuan_bawaan: daftarSatuan.value[0] || '1 KG',
+    kata_kunci: '',
+    prioritas_tampil: 50
+  };
+};
+
 const tambahMasterKomoditasBaru = async () => {
   if (!formKomoditasMasterMobile.value.nama_komoditas.trim()) {
     alert('Nama varian komoditas wajib diisi!');
@@ -8905,29 +9063,63 @@ const tambahMasterKomoditasBaru = async () => {
   }
   try {
     const namaTersimpan = formKomoditasMasterMobile.value.nama_komoditas.trim();
-    daftarMasterKomoditas.value = await masterDataMobileService.tambahKomoditas(formKomoditasMasterMobile.value);
-    formKomoditasMasterMobile.value = {
-      kelompok_komoditas: formKomoditasMasterMobile.value.kelompok_komoditas,
-      nama_komoditas: '',
-      kategori: formKomoditasMasterMobile.value.kategori,
-      satuan_bawaan: formKomoditasMasterMobile.value.satuan_bawaan || daftarSatuan.value[0] || '1 KG',
-      kata_kunci: '',
-      prioritas_tampil: 50
-    };
-    alert(`✅ Master Komoditas "${namaTersimpan}" berhasil disimpan ke Supabase!`);
+    if (komoditasMasterDieditMobile.value) {
+      daftarMasterKomoditas.value = await masterDataMobileService.perbaruiKomoditas(
+        komoditasMasterDieditMobile.value.id || komoditasMasterDieditMobile.value.nama_komoditas,
+        formKomoditasMasterMobile.value,
+        komoditasMasterDieditMobile.value.nama_komoditas
+      );
+      daftarIndukKomoditasMobile.value = await masterDataMobileService.ambilDaftarIndukKomoditas(daftarMasterKomoditas.value);
+      batalEditMasterKomoditasMobile();
+      await muatData(true);
+      tampilkanPesanSuksesMobile(`✅ Master Komoditas "${namaTersimpan}" diperbarui & disinkronkan ke data harga!`);
+    } else {
+      daftarMasterKomoditas.value = await masterDataMobileService.tambahKomoditas(formKomoditasMasterMobile.value);
+      daftarIndukKomoditasMobile.value = await masterDataMobileService.ambilDaftarIndukKomoditas(daftarMasterKomoditas.value);
+      modeIndukBaruMobile.value = false;
+      formKomoditasMasterMobile.value = {
+        kelompok_komoditas: formKomoditasMasterMobile.value.kelompok_komoditas,
+        nama_komoditas: '',
+        kategori: formKomoditasMasterMobile.value.kategori,
+        satuan_bawaan: formKomoditasMasterMobile.value.satuan_bawaan || daftarSatuan.value[0] || '1 KG',
+        kata_kunci: '',
+        prioritas_tampil: 50
+      };
+      tampilkanPesanSuksesMobile(`✅ Master Komoditas "${namaTersimpan}" berhasil disimpan ke Supabase!`);
+    }
   } catch (e: any) {
-    alert(e?.message || 'Gagal menambahkan master komoditas.');
+    alert(e?.message || 'Gagal menyimpan master komoditas.');
   }
 };
 
 const hapusMasterKomoditas = async (nama: string) => {
-  const ok = confirm(`Hapus komoditas "${nama}" dari Master Komoditas resmi?`);
-  if (!ok) return;
+  const jumlahTerkait = semuaKomoditas.value.filter(
+    (h: any) => String(h.nama_komoditas || '').trim().toLowerCase() === String(nama || '').trim().toLowerCase()
+  ).length;
+  const pesan = jumlahTerkait > 0
+    ? `⚠️ Perhatian: Komoditas "${nama}" masih memiliki ${jumlahTerkait} catatan harga pasar.\n\nMenghapus dari Master hanya menghapus dari daftar pilihan baru (arsip riwayat harga tetap aman). Lanjutkan?`
+    : `Hapus komoditas "${nama}" dari Master Komoditas resmi?`;
+  if (!confirm(pesan)) return;
   try {
     daftarMasterKomoditas.value = await masterDataMobileService.hapusKomoditas(nama);
+    daftarIndukKomoditasMobile.value = await masterDataMobileService.ambilDaftarIndukKomoditas(daftarMasterKomoditas.value);
+    if (komoditasMasterDieditMobile.value?.nama_komoditas === nama) {
+      batalEditMasterKomoditasMobile();
+    }
   } catch (e: any) {
     alert(e?.message || 'Gagal menghapus master komoditas.');
   }
+};
+
+const cetakPendaftarAcaraMobile = (acara: any) => {
+  if (!acara) return;
+  const targetPeran = peranAktif.value === 'Kabid' ? 'Kabid' : 'Kadis';
+  laporanMobileService.cetakLaporanPendaftarGPMPDF(acara, pendaftarAcaraMobileTersaring.value, {
+    penandatangan: { nama: ambilNamaPenandatanganMobile(targetPeran) },
+    jabatanPenandatangan: targetPeran === 'Kabid'
+      ? 'Kepala Bidang Cadangan dan Distribusi Pangan'
+      : 'Kepala Dinas Pangan Kota Manado'
+  });
 };
 
 const tambahSatuanBaru = async () => {
@@ -8997,10 +9189,10 @@ const hapusKecamatan = async (nama: string) => {
 // METODE KADIS: GRAFIK PANGAN & REKAPITULASI EKSEKUTIF GPM (100% DATA RIIL)
 // ─────────────────────────────────────────────────────────────
 const muatTrenKadis = async () => {
-  const daftarKom = daftarKomoditasTersediaKadis.value;
-  if (daftarKom.length > 0 && (!komoditasTren.value || !daftarKom.includes(komoditasTren.value))) {
-    komoditasTren.value = daftarKom[0];
-  } else if (daftarKom.length === 0) {
+  const pilihan = pilihanKomoditasKadisMobile.value;
+  if (pilihan.semuaNamaValid.length > 0 && (!komoditasTren.value || !pilihan.semuaNamaValid.includes(komoditasTren.value))) {
+    komoditasTren.value = pilihan.komoditasDefaultTerbaik;
+  } else if (pilihan.semuaNamaValid.length === 0) {
     komoditasTren.value = '';
   }
 
@@ -14871,6 +15063,18 @@ const eksekusiGantiFotoProfil = () => {
 .m-gpm-ws-quick-actions button {
   width: 100%;
   margin: 0;
+}
+
+
+.btn-m-mk-edit {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 </style>

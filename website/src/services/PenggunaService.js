@@ -80,7 +80,8 @@ class PenggunaService {
                     { id: 'grafik-pangan', label: 'Grafik Pangan', icon: '📈' },
                     { id: 'laporan-gpm', label: 'Laporan Eksekutif Kadis', icon: '📋' },
                     { id: 'kelola-user', label: 'Kelola Pengguna', icon: '👥' },
-                    { id: 'master-data', label: 'Master Komoditas & Wilayah', icon: '🏛️' },
+                    { id: 'master-komoditas', label: 'Master Komoditas', icon: '🌾' },
+                    { id: 'master-wilayah', label: 'Master Pasar & Wilayah', icon: '🗺️' },
                     { id: 'cek-gpm', label: 'Menu Cek GPM', icon: '🔍' }
                 ];
 
@@ -88,7 +89,8 @@ class PenggunaService {
                 return [
                     { id: 'dashboard', label: 'Beranda', icon: '📊' },
                     { id: 'kelola-user', label: 'Kelola Pengguna', icon: '👥' },
-                    { id: 'master-data', label: 'Master Komoditas & Wilayah', icon: '🏛️' },
+                    { id: 'master-komoditas', label: 'Master Komoditas', icon: '🌾' },
+                    { id: 'master-wilayah', label: 'Master Pasar & Wilayah', icon: '🗺️' },
                     { id: 'cek-gpm', label: 'Menu Cek GPM', icon: '🔍' }
                 ];
 

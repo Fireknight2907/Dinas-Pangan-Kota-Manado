@@ -306,9 +306,71 @@ class SupabaseRestClient {
     return Array.isArray(res) && res.length > 0 ? res[0] : res;
   }
 
+  async updateMasterKomoditas(idAtauNamaLama, item) {
+    const payload = {
+      kelompok_komoditas: item.kelompok_komoditas,
+      nama_komoditas: item.nama_komoditas,
+      kategori: item.kategori || 'Bahan Pokok',
+      satuan_bawaan: item.satuan_bawaan || '1 KG',
+      kata_kunci: item.kata_kunci || '',
+      prioritas_tampil: Number(item.prioritas_tampil) || 50
+    };
+    const adalahUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(idAtauNamaLama || ''));
+    const filter = adalahUuid
+      ? `id=eq.${encodeURIComponent(idAtauNamaLama)}`
+      : `nama_komoditas=eq.${encodeURIComponent(idAtauNamaLama)}`;
+    const res = await this.request(`master_komoditas?${filter}`, 'PATCH', payload);
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async sinkronNamaKomoditasDiHarga(namaLama, namaBaru, detailOpsional = {}) {
+    if (!namaLama || !namaBaru) return true;
+    const payloadHarga = { nama_komoditas: namaBaru };
+    if (detailOpsional.kategori) payloadHarga.kategori = detailOpsional.kategori;
+    if (detailOpsional.prioritas_tampil !== undefined) {
+      payloadHarga.prioritas_tampil = Number(detailOpsional.prioritas_tampil) || 50;
+    }
+    try {
+      await this.request(`harga_pangan?nama_komoditas=eq.${encodeURIComponent(namaLama)}`, 'PATCH', payloadHarga);
+    } catch (_) {}
+    if (namaLama !== namaBaru) {
+      try {
+        await this.request(`riwayat_harga_pangan?nama_komoditas=eq.${encodeURIComponent(namaLama)}`, 'PATCH', {
+          nama_komoditas: namaBaru
+        });
+      } catch (_) {}
+      try {
+        await this.request(`item_pengajuan_harga?nama_komoditas=eq.${encodeURIComponent(namaLama)}`, 'PATCH', {
+          nama_komoditas: namaBaru
+        });
+      } catch (_) {}
+    }
+    return true;
+  }
+
   async hapusMasterKomoditas(namaKomoditas) {
     await this.request(`master_komoditas?nama_komoditas=eq.${encodeURIComponent(namaKomoditas)}`, 'DELETE');
     return true;
+  }
+
+  async getMasterKomoditasInduk() {
+    try {
+      const rows = await this.request('master_komoditas_induk?order=nama_induk.asc');
+      return Array.isArray(rows) ? rows : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  async tambahMasterKomoditasInduk(namaInduk) {
+    const bersih = String(namaInduk || '').trim();
+    if (!bersih) return null;
+    try {
+      const res = await this.request('master_komoditas_induk', 'POST', { nama_induk: bersih });
+      return Array.isArray(res) && res.length > 0 ? res[0] : res;
+    } catch (_) {
+      return null;
+    }
   }
 
   // --- ACARA GPM ---

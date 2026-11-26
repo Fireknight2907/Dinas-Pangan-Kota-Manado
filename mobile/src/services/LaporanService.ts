@@ -7,6 +7,7 @@
 //         serta ekspor CSV cadangan ramah Excel Indonesia (delimiter titik koma).
 // ===================================================================================
 
+import { Capacitor } from '@capacitor/core';
 import { riwayatHargaMobileService } from './RiwayatHargaService';
 import { excelResmiMobileService, BarisExcelResmi } from './ExcelResmiService';
 
@@ -838,9 +839,84 @@ class LaporanMobileService {
   }
 
   // =========================================================================
-  // 4. MESIN CETAK PDF RESMI ANTI-HALAMAN-KOSONG (HIDDEN SAME-ORIGIN IFRAME)
+  // 4. MESIN CETAK PDF RESMI ANTI-HALAMAN-KOSONG (WEB IFRAME + ANDROID NATIVE PREVIEW & PRINTMANAGER)
   // =========================================================================
-  private cetakHtmlViaIframe(htmlDokumen: string): boolean {
+  private bukaPratinjauCetakMobile(htmlDokumen: string, judulDokumen = 'Laporan Resmi SIPATOKAAN'): boolean {
+    const lama = document.getElementById('modal-pratinjau-cetak-sipatokaan');
+    if (lama && lama.parentNode) lama.parentNode.removeChild(lama);
+
+    const overlay = document.createElement('div');
+    overlay.id = 'modal-pratinjau-cetak-sipatokaan';
+    overlay.style.cssText =
+      'position:fixed;inset:0;z-index:99999;background:#0f172a;display:flex;flex-direction:column;';
+
+    const topBar = document.createElement('div');
+    topBar.style.cssText =
+      'display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;padding-top:max(12px,env(safe-area-inset-top));background:#5a0f0f;color:#ffffff;box-shadow:0 2px 10px rgba(0,0,0,0.28);flex-shrink:0;';
+
+    const titleSpan = document.createElement('div');
+    titleSpan.textContent = `📄 ${judulDokumen}`;
+    titleSpan.style.cssText =
+      'font-weight:800;font-size:0.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;';
+
+    const btnWrap = document.createElement('div');
+    btnWrap.style.cssText = 'display:flex;gap:8px;flex-shrink:0;';
+
+    const btnCetak = document.createElement('button');
+    btnCetak.type = 'button';
+    btnCetak.textContent = '🖨️ Simpan PDF / Cetak';
+    btnCetak.style.cssText =
+      'background:#ffffff;color:#8b1e1e;border:none;border-radius:8px;padding:8px 12px;font-weight:800;font-size:0.78rem;cursor:pointer;';
+
+    const btnTutup = document.createElement('button');
+    btnTutup.type = 'button';
+    btnTutup.textContent = '✕ Tutup';
+    btnTutup.style.cssText =
+      'background:rgba(255,255,255,0.18);color:#ffffff;border:1px solid rgba(255,255,255,0.35);border-radius:8px;padding:8px 11px;font-weight:700;font-size:0.78rem;cursor:pointer;';
+    btnTutup.onclick = () => {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    };
+
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'flex:1;width:100%;border:0;background:#ffffff;';
+
+    btnCetak.onclick = () => {
+      const androidBridge = (window as any)?.SipatokaanAndroid;
+      if (androidBridge && typeof androidBridge.printHtml === 'function') {
+        androidBridge.printHtml(judulDokumen, htmlDokumen);
+        return;
+      }
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (err) {
+        alert('Gunakan tombol Unduh Excel (.xlsx) jika perangkat tidak mendukung cetak langsung.');
+      }
+    };
+
+    btnWrap.appendChild(btnCetak);
+    btnWrap.appendChild(btnTutup);
+    topBar.appendChild(titleSpan);
+    topBar.appendChild(btnWrap);
+    overlay.appendChild(topBar);
+    overlay.appendChild(iframe);
+    document.body.appendChild(overlay);
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(htmlDokumen);
+      doc.close();
+    }
+    return true;
+  }
+
+  private cetakHtmlViaIframe(htmlDokumen: string, judulDokumen = 'Laporan Resmi SIPATOKAAN'): boolean {
+    // Pada APK Capacitor Android/iOS, tampilkan Pratinjau A4 Penuh + tombol Native Android PrintManager (anti blank screen)
+    if (Capacitor.isNativePlatform()) {
+      return this.bukaPratinjauCetakMobile(htmlDokumen, judulDokumen);
+    }
+
     const lama = document.getElementById('iframe-cetak-sipatokaan');
     if (lama && lama.parentNode) {
       lama.parentNode.removeChild(lama);
@@ -849,7 +925,7 @@ class LaporanMobileService {
     const iframe = document.createElement('iframe');
     iframe.id = 'iframe-cetak-sipatokaan';
     iframe.setAttribute('aria-hidden', 'true');
-    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;pointer-events:none;';
+    iframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0;opacity:0;pointer-events:none;';
     document.body.appendChild(iframe);
 
     const doc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -1028,7 +1104,7 @@ class LaporanMobileService {
       </div></div>
     </body></html>`;
 
-    return this.cetakHtmlViaIframe(html);
+    return this.cetakHtmlViaIframe(html, 'Laporan Harga Pangan Kota Manado');
   }
 
   cetakLaporanGPMPDF(daftarRekap: ItemRekapGPM[] | any[], opsi: OpsiLaporanResmi = {}): boolean {
@@ -1119,7 +1195,7 @@ class LaporanMobileService {
       </div></div>
     </body></html>`;
 
-    return this.cetakHtmlViaIframe(html);
+    return this.cetakHtmlViaIframe(html, 'Laporan Pelaksanaan GPM Kota Manado');
   }
 
   eksporTrenHargaExcel(dataTren: DataTrenKomoditas | null, opsi: OpsiLaporanResmi = {}): boolean {
@@ -1271,7 +1347,72 @@ class LaporanMobileService {
       </div></div>
     </body></html>`;
 
-    return this.cetakHtmlViaIframe(html);
+    return this.cetakHtmlViaIframe(html, `Analisis Tren ${dataTren.namaKomoditas}`);
+  }
+
+  cetakLaporanPendaftarGPMPDF(acara: any, daftarPendaftar: any[] = [], opsi: OpsiLaporanResmi = {}): boolean {
+    if (!acara) {
+      alert('Data kegiatan GPM tidak tersedia untuk dicetak.');
+      return false;
+    }
+    const meta = this.normalisasiOpsiLaporan(opsi, 'Kepala Dinas Pangan Kota Manado');
+    const logoUrl = `${window.location.origin}/logodinaspangan.png`;
+    const list = Array.isArray(daftarPendaftar) ? daftarPendaftar : [];
+    const totalHadir = list.filter((p) => String(p.status_kehadiran || '').toLowerCase() === 'hadir').length;
+    const kuota = Number(acara.kuota_maksimal ?? acara.target_kuota ?? 0) || 0;
+
+    const rowsHtml = list.length === 0
+      ? `<tr><td colspan="7" class="tengah">Belum ada warga terdaftar pada kegiatan GPM ini.</td></tr>`
+      : list.map((p, idx) => {
+          const namaBersih = String(p.nama_bersih || p.nama_pendaftar || '-').replace(/\s*\[NIK:.*?\]/gi, '').trim();
+          const hadir = String(p.status_kehadiran || '').toLowerCase() === 'hadir';
+          return `
+            <tr>
+              <td class="tengah tebal">#${String(p.nomor_antrean || idx + 1).padStart(3, '0')}</td>
+              <td class="tebal">${this.escapeHtml(namaBersih)}</td>
+              <td style="font-family:monospace;">${this.escapeHtml(p.nik || '-')}</td>
+              <td>${this.escapeHtml(p.nomor_telepon || '-')}</td>
+              <td class="tengah">${this.escapeHtml(p.jalur_pendaftaran || 'Daring')}</td>
+              <td style="font-family:monospace;">${this.escapeHtml(p.kode_barcode || '-')}</td>
+              <td class="tengah"><span class="badge ${hadir ? 'badge-hijau' : 'badge-kuning'}">${hadir ? 'Hadir' : 'Menunggu'}</span></td>
+            </tr>`;
+        }).join('');
+
+    const html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8" /><title>Daftar Pendaftar GPM - ${this.escapeHtml(acara.nama_acara || '')}</title><style>${this.bangunCssCetakA4('landscape')}</style></head><body>
+      <div class="kop-surat">
+        <img src="${this.escapeHtml(logoUrl)}" alt="Logo Dinas Pangan" class="kop-logo" />
+        <div class="kop-teks">
+          <p class="kop-pemkot">PEMERINTAH KOTA MANADO</p>
+          <p class="kop-dinas">DINAS PANGAN KOTA MANADO</p>
+          <p class="kop-alamat">${this.escapeHtml(this.alamatResmi)}</p>
+        </div>
+      </div>
+      <div class="judul-dokumen">
+        <h1>Daftar Warga Pendaftar Gerakan Pangan Murah (GPM)</h1>
+        <p>${this.escapeHtml(acara.nama_acara || '-')} • ${this.escapeHtml(acara.lokasi || '-')} (Kec. ${this.escapeHtml(acara.kecamatan || '-')}) • Tanggal: ${this.escapeHtml(acara.tanggal || '-')}</p>
+      </div>
+      <div class="kpi-strip">
+        <div class="kpi-box"><div class="kpi-label">Kuota</div><div class="kpi-nilai">${kuota.toLocaleString('id-ID')}</div></div>
+        <div class="kpi-box"><div class="kpi-label">Terdaftar</div><div class="kpi-nilai">${list.length.toLocaleString('id-ID')}</div></div>
+        <div class="kpi-box"><div class="kpi-label">Hadir / Terlayani</div><div class="kpi-nilai">${totalHadir.toLocaleString('id-ID')}</div></div>
+        <div class="kpi-box"><div class="kpi-label">Dicetak</div><div class="kpi-nilai" style="font-size:10px;">${this.escapeHtml(meta.tanggalCetakWITA)}</div></div>
+      </div>
+      <table>
+        <thead><tr><th class="tengah">Antrean</th><th>Nama Lengkap</th><th>NIK</th><th>No. Telepon</th><th class="tengah">Jalur</th><th>Kode Tiket</th><th class="tengah">Status</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="ttd-wrap"><div class="ttd-box">
+        <p>Manado, ${this.escapeHtml(meta.tanggalTtdID)}</p>
+        <p>Mengetahui,</p>
+        <p class="tebal">${this.escapeHtml(meta.jabatan)}</p>
+        <p>${this.escapeHtml(this.instansi)}</p>
+        <div class="ttd-ruang"></div>
+        <p class="ttd-nama">${this.escapeHtml(meta.barisNama)}</p>
+        <p>${this.escapeHtml(meta.barisNip)}</p>
+      </div></div>
+    </body></html>`;
+
+    return this.cetakHtmlViaIframe(html, `Daftar Warga GPM - ${acara.nama_acara || 'Manado'}`);
   }
 
   // 5. Cadangan CSV Kompatibel Excel Indonesia (sep=; + delimiter titik koma)

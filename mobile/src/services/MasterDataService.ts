@@ -8,6 +8,15 @@
 
 import { supabaseClient } from './SupabaseClient';
 
+// Daftar Urutan Tampil Publik Bahasa Awam (Opsi A — Tanpa Angka Teknis di UI)
+export const OPSI_URUTAN_TAMPIL_PUBLIK = [
+  { nilai: 10, label: '⭐ Paling Atas (Sangat Utama)', badge: '⭐ Paling Atas' },
+  { nilai: 20, label: '🔝 Atas (Bahan Pokok Utama)', badge: '🔝 Atas' },
+  { nilai: 30, label: '📌 Menengah (Penting)', badge: '📌 Menengah' },
+  { nilai: 50, label: '📋 Standar (Normal)', badge: '📋 Standar' },
+  { nilai: 70, label: '⬇️ Bawah (Tambahan)', badge: '⬇️ Bawah' }
+];
+
 export interface ItemMasterKomoditas {
   id?: string;
   kelompok_komoditas: string;
@@ -36,11 +45,47 @@ export interface GrupMasterKomoditasDropdown {
   items: ItemMasterKomoditas[];
 }
 
+export interface OpsiKomoditasKadisItem {
+  nama: string;
+  punyaDataHarga: boolean;
+  jumlahPasar: number;
+}
+
+export interface PilihanKomoditasKadisTerstruktur {
+  grupMaster: Array<{
+    kelompok: string;
+    prioritas: number;
+    items: OpsiKomoditasKadisItem[];
+  }>;
+  arsipDiLuarMaster: OpsiKomoditasKadisItem[];
+  semuaNamaValid: string[];
+  komoditasDefaultTerbaik: string;
+}
+
 export class MasterDataMobileService {
   private readonly kunciCacheSatuan = 'sipatokaan_master_satuan';
   private readonly kunciCachePasar = 'sipatokaan_master_pasar';
   private readonly kunciCacheKecamatan = 'sipatokaan_master_kecamatan';
   private readonly kunciCacheKomoditas = 'sipatokaan_master_komoditas';
+  private readonly kunciCacheInduk = 'sipatokaan_master_induk_komoditas';
+
+  ambilLabelUrutanTampil(prioritas?: number): string {
+    const angka = Number(prioritas) || 50;
+    if (angka <= 12) return '⭐ Paling Atas';
+    if (angka <= 22) return '🔝 Atas';
+    if (angka <= 38) return '📌 Menengah';
+    if (angka <= 60) return '📋 Standar';
+    return '⬇️ Bawah';
+  }
+
+  normalisasiNilaiUrutanTampil(prioritas?: number): number {
+    const angka = Number(prioritas) || 50;
+    if (angka <= 12) return 10;
+    if (angka <= 22) return 20;
+    if (angka <= 38) return 30;
+    if (angka <= 60) return 50;
+    return 70;
+  }
 
   tebakKelompokKomoditas(namaKomoditas?: string): string {
     const teks = String(namaKomoditas || '').trim();
@@ -428,12 +473,164 @@ export class MasterDataMobileService {
     };
 
     try {
+      await supabaseClient.tambahMasterKomoditasInduk(kelompokBersih);
       await supabaseClient.tambahMasterKomoditas(itemBaru);
     } catch (err: any) {
       throw new Error(String(err?.message || 'Gagal menyimpan komoditas ke basis data Supabase.').replace(/^Supabase Error:\s*/i, ''));
     }
 
     return this.ambilDaftarKomoditas();
+  }
+
+  async perbaruiKomoditas(
+    idAtauNamaLama: string,
+    input: Partial<ItemMasterKomoditas>,
+    namaLamaAsli = ''
+  ): Promise<ItemMasterKomoditas[]> {
+    const namaBersih = String(input?.nama_komoditas || '').trim();
+    if (!namaBersih) throw new Error('Nama varian komoditas wajib diisi.');
+
+    const kelompokBersih = String(input?.kelompok_komoditas || '').trim() || this.tebakKelompokKomoditas(namaBersih);
+    const satuanResmi = this.formatSatuanPerSatu(input?.satuan_bawaan || '1 KG');
+    const daftarSekarang = await this.ambilDaftarKomoditas();
+    const namaPembandingLama = String(namaLamaAsli || idAtauNamaLama || '').trim().toLowerCase();
+
+    const bentrok = daftarSekarang.find(
+      (k) =>
+        k.nama_komoditas.toLowerCase() === namaBersih.toLowerCase() &&
+        String(k.id || '') !== String(idAtauNamaLama || '') &&
+        k.nama_komoditas.toLowerCase() !== namaPembandingLama
+    );
+    if (bentrok) {
+      throw new Error(`Nama komoditas "${namaBersih}" sudah digunakan oleh entri lain di Master Komoditas.`);
+    }
+
+    const itemUpdate: ItemMasterKomoditas = {
+      kelompok_komoditas: kelompokBersih,
+      nama_komoditas: namaBersih,
+      kategori: input?.kategori || 'Bahan Pokok',
+      satuan_bawaan: satuanResmi,
+      kata_kunci: String(input?.kata_kunci || '').trim(),
+      prioritas_tampil: this.normalisasiNilaiUrutanTampil(input?.prioritas_tampil)
+    };
+
+    try {
+      await supabaseClient.tambahMasterKomoditasInduk(kelompokBersih);
+      await supabaseClient.updateMasterKomoditas(idAtauNamaLama, itemUpdate);
+      const namaAsliTarget = String(namaLamaAsli || '').trim();
+      if (namaAsliTarget) {
+        await supabaseClient.sinkronNamaKomoditasDiHarga(namaAsliTarget, namaBersih, {
+          kategori: itemUpdate.kategori,
+          prioritas_tampil: itemUpdate.prioritas_tampil
+        });
+      }
+    } catch (err: any) {
+      throw new Error(String(err?.message || 'Gagal memperbarui komoditas di basis data Supabase.').replace(/^Supabase Error:\s*/i, ''));
+    }
+
+    return this.ambilDaftarKomoditas();
+  }
+
+  async ambilDaftarIndukKomoditas(daftarKomoditas: ItemMasterKomoditas[] = []): Promise<string[]> {
+    const petaUnik = new Map<string, string>();
+    const masukkan = (nama?: string) => {
+      const bersih = String(nama || '').trim();
+      if (!bersih) return;
+      const kunci = bersih.toLowerCase();
+      if (!petaUnik.has(kunci)) petaUnik.set(kunci, bersih);
+    };
+
+    try {
+      const rows = await supabaseClient.getMasterKomoditasInduk();
+      if (Array.isArray(rows)) {
+        rows.forEach((r: any) => masukkan(r?.nama_induk));
+      }
+    } catch (_) {}
+
+    (Array.isArray(daftarKomoditas) ? daftarKomoditas : []).forEach((k) => {
+      masukkan(k?.kelompok_komoditas);
+    });
+
+    const hasil = Array.from(petaUnik.values()).sort((a, b) => a.localeCompare(b, 'id-ID'));
+    try { localStorage.setItem(this.kunciCacheInduk, JSON.stringify(hasil)); } catch (_) {}
+    return hasil;
+  }
+
+  async tambahIndukKomoditas(namaInduk: string, daftarKomoditasSaatIni: ItemMasterKomoditas[] = []): Promise<string[]> {
+    const bersih = String(namaInduk || '').trim();
+    if (!bersih) throw new Error('Nama komoditas induk tidak boleh kosong.');
+    await supabaseClient.tambahMasterKomoditasInduk(bersih);
+    const daftar = await this.ambilDaftarIndukKomoditas(daftarKomoditasSaatIni);
+    if (!daftar.some((k) => k.toLowerCase() === bersih.toLowerCase())) {
+      daftar.push(bersih);
+      daftar.sort((a, b) => a.localeCompare(b, 'id-ID'));
+    }
+    return daftar;
+  }
+
+  susunPilihanKomoditasKadis(
+    daftarMasterKomoditas: ItemMasterKomoditas[] = [],
+    daftarHarga: any[] = []
+  ): PilihanKomoditasKadisTerstruktur {
+    const hargaTerbit = (Array.isArray(daftarHarga) ? daftarHarga : []).filter(
+      (i) => String(i?.status || '').toLowerCase() === 'terbit' && i?.nama_komoditas
+    );
+    const petaHarga = new Map<string, { namaAsli: string; pasarSet: Set<string> }>();
+    hargaTerbit.forEach((item) => {
+      const nama = String(item.nama_komoditas).trim();
+      const kunci = nama.toLowerCase();
+      if (!petaHarga.has(kunci)) {
+        petaHarga.set(kunci, { namaAsli: nama, pasarSet: new Set<string>() });
+      }
+      if (item.nama_pasar) petaHarga.get(kunci)!.pasarSet.add(String(item.nama_pasar).trim());
+    });
+
+    const kunciMaster = new Set<string>();
+    const grupMaster = this.kelompokkanKomoditasUntukDropdown(daftarMasterKomoditas).map((grup) => ({
+      kelompok: grup.kelompok,
+      prioritas: grup.prioritas,
+      items: grup.items.map((k) => {
+        const nama = String(k.nama_komoditas || '').trim();
+        const kunci = nama.toLowerCase();
+        kunciMaster.add(kunci);
+        const infoHarga = petaHarga.get(kunci);
+        return {
+          nama,
+          punyaDataHarga: Boolean(infoHarga),
+          jumlahPasar: infoHarga ? infoHarga.pasarSet.size : 0
+        };
+      })
+    }));
+
+    const arsipDiLuarMaster: OpsiKomoditasKadisItem[] = [];
+    petaHarga.forEach((info, kunci) => {
+      if (!kunciMaster.has(kunci)) {
+        arsipDiLuarMaster.push({
+          nama: info.namaAsli,
+          punyaDataHarga: true,
+          jumlahPasar: info.pasarSet.size
+        });
+      }
+    });
+    arsipDiLuarMaster.sort((a, b) => a.nama.localeCompare(b.nama, 'id-ID'));
+
+    const semuaItemMaster = grupMaster.flatMap((g) => g.items);
+    const semuaNamaValid = [
+      ...semuaItemMaster.map((i) => i.nama),
+      ...arsipDiLuarMaster.map((i) => i.nama)
+    ];
+
+    const masterDenganHarga = semuaItemMaster.find((i) => i.punyaDataHarga);
+    const komoditasDefaultTerbaik = masterDenganHarga
+      ? masterDenganHarga.nama
+      : (arsipDiLuarMaster[0]?.nama || semuaItemMaster[0]?.nama || '');
+
+    return {
+      grupMaster,
+      arsipDiLuarMaster,
+      semuaNamaValid,
+      komoditasDefaultTerbaik
+    };
   }
 
   async hapusKomoditas(namaKomoditas: string): Promise<ItemMasterKomoditas[]> {

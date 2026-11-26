@@ -7,6 +7,8 @@
 //         NIK/KK (anti notasi ilmiah E+15), multi-sheet, dan bebas peringatan format.
 // ===================================================================================
 
+import { Capacitor } from '@capacitor/core';
+
 export interface SelExcelResmi {
   v: string | number;
   t?: 's' | 'n';
@@ -325,16 +327,48 @@ export class ExcelResmiMobileService {
     return this.kemasZipStore(berkasZip);
   }
 
+  private ubahBytesKeBase64(bytes: Uint8Array): string {
+    let biner = '';
+    const ukuranPotongan = 0x8000;
+    for (let i = 0; i < bytes.length; i += ukuranPotongan) {
+      const potongan = bytes.subarray(i, Math.min(i + ukuranPotongan, bytes.length));
+      biner += String.fromCharCode(...potongan);
+    }
+    return btoa(biner);
+  }
+
   unduhWorkbookXlsx(namaBerkas: string, daftarSheet: DefinisiSheetExcel[] = []): boolean {
     const bytes = this.buatWorkbookBytes(daftarSheet);
     const copy = new Uint8Array(bytes.byteLength);
     copy.set(bytes);
-    const blob = new Blob([copy.buffer], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    });
+    const mimeExcel = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     const namaFinal = String(namaBerkas || 'Laporan_SIPATOKAAN.xlsx').endsWith('.xlsx')
       ? namaBerkas
       : `${namaBerkas}.xlsx`;
+
+    // Pada APK Android native, gunakan SipatokaanAndroid bridge agar file tersimpan ke Download/SIPATOKAAN + buka Share Sheet
+    const androidBridge = (window as any)?.SipatokaanAndroid;
+    if (Capacitor.isNativePlatform() && androidBridge && typeof androidBridge.saveAndShareFile === 'function') {
+      try {
+        const base64 = this.ubahBytesKeBase64(copy);
+        androidBridge.saveAndShareFile(namaFinal, mimeExcel, base64);
+        return true;
+      } catch (err) {
+        console.warn('Gagal memanggil SipatokaanAndroid.saveAndShareFile:', err);
+      }
+    }
+
+    const blob = new Blob([copy.buffer], { type: mimeExcel });
+
+    if (Capacitor.isNativePlatform() && typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        const file = new File([blob], namaFinal, { type: mimeExcel });
+        if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: namaFinal }).catch(() => {});
+          return true;
+        }
+      } catch (_) {}
+    }
 
     const url = URL.createObjectURL(blob);
     const tautan = document.createElement('a');
