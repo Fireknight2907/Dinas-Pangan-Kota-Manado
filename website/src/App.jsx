@@ -9,6 +9,7 @@ import LoginPortal from './components/LoginPortal'
 import PetugasDashboard from './components/PetugasDashboard'
 import { hargaPanganService } from './services/HargaPanganService'
 import QRCodeComponent from './components/QRCodeComponent'
+import SplashScreenWeb from './components/SplashScreenWeb'
 import './index.css'
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -123,46 +124,59 @@ function App() {
     });
   };
 
-  // 1. Tampilan Halaman Login Petugas (Sesuai Gambar 4)
-  if (activeView === 'login') {
-    return (
-      <LoginPortal 
-        onLoginSukses={(user) => {
-          setPenggunaAktif(user);
-          setActiveView('petugas');
-        }}
-        onKembaliKePublik={() => setActiveView('harga-pangan')}
-      />
-    );
-  }
-
-  // 2. Tampilan Dashboard Petugas Desktop & Responsive (Sesuai Gambar 1, 2, 3)
-  if (activeView === 'petugas') {
-    return (
-      <PetugasDashboard 
-        pengguna={penggunaAktif}
-        onKeluar={() => {
-          hargaPanganService.keluar();
-          setPenggunaAktif(null);
-          setActiveView('harga-pangan');
-        }}
-      />
-    );
-  }
-
-  // 3. Tampilan Beranda Publik Harga Pangan (Sesuai Gambar 1 Pertama)
-  if (activeView === 'harga-pangan') {
-    return (
-      <HargaPanganWeb 
-        onBukaLogin={() => {
-          // Jika sudah login, langsung ke dashboard petugas, jika belum ke login portal
-          if (hargaPanganService.ambilToken() && penggunaAktif) {
+  // Render terpadu agar SplashScreenWeb hanya tampil sekali saat awal buka halaman
+  const renderKontenUtama = () => {
+    // 1. Tampilan Halaman Login Petugas
+    if (activeView === 'login') {
+      return (
+        <LoginPortal
+          onLoginSukses={(user) => {
+            setPenggunaAktif(user);
             setActiveView('petugas');
-          } else {
-            setActiveView('login');
-          }
-        }} 
-      />
+          }}
+          onKembaliKePublik={() => setActiveView('harga-pangan')}
+        />
+      );
+    }
+
+    // 2. Tampilan Dashboard Petugas Desktop & Responsive
+    if (activeView === 'petugas') {
+      return (
+        <PetugasDashboard
+          pengguna={penggunaAktif}
+          onKeluar={() => {
+            hargaPanganService.keluar();
+            setPenggunaAktif(null);
+            setActiveView('harga-pangan');
+          }}
+        />
+      );
+    }
+
+    // 3. Tampilan Beranda Publik Harga Pangan
+    if (activeView === 'harga-pangan') {
+      return (
+        <HargaPanganWeb
+          onBukaLogin={() => {
+            if (hargaPanganService.ambilToken() && penggunaAktif) {
+              setActiveView('petugas');
+            } else {
+              setActiveView('login');
+            }
+          }}
+        />
+      );
+    }
+
+    return null;
+  };
+
+  if (activeView === 'login' || activeView === 'petugas' || activeView === 'harga-pangan') {
+    return (
+      <>
+        <SplashScreenWeb />
+        {renderKontenUtama()}
+      </>
     );
   }
 
