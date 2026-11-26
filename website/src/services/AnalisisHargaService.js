@@ -251,8 +251,8 @@ export class AnalisisHargaService {
         return { petaPasar, petaKomoditas };
     }
 
-    // Menghitung jumlah komoditas riil per kategori (menyesuaikan pasar yang dipilih & mode tampilan)
-    hitungStatistikKategori(daftarTerbit = [], pasarTerpilih = [], modeTampilan = 'ringkasan') {
+    // Menghitung jumlah komoditas riil per kategori (menyesuaikan pasar yang dipilih, tanggal & mode tampilan)
+    hitungStatistikKategori(daftarTerbit = [], pasarTerpilih = [], modeTampilan = 'ringkasan', tanggalFilter = 'Semua') {
         const hitungan = {
             Semua: 0,
             'Bahan Pokok': 0,
@@ -263,9 +263,15 @@ export class AnalisisHargaService {
         };
 
         const setPasarFilter = new Set((pasarTerpilih || []).map((p) => p.toLowerCase()));
+        const tglFilter = String(tanggalFilter || 'Semua').trim();
         const tersaring = (Array.isArray(daftarTerbit) ? daftarTerbit : []).filter((item) => {
-            if (setPasarFilter.size === 0) return true;
-            return setPasarFilter.has((item?.nama_pasar || '').toLowerCase());
+            if (setPasarFilter.size > 0 && !setPasarFilter.has((item?.nama_pasar || '').toLowerCase())) {
+                return false;
+            }
+            if (tglFilter !== 'Semua' && (item?.tanggal_penetapan || '').trim() !== tglFilter) {
+                return false;
+            }
+            return true;
         });
 
         if (modeTampilan === 'ringkasan' || modeTampilan === 'matriks') {
@@ -353,13 +359,14 @@ export class AnalisisHargaService {
     // Mengekstrak daftar kelompok komoditas induk (Beras, Minyak Goreng, Cabai, Bawang, dll.) murni dari data terbit DB
     ekstrakKelompokInduk(
         daftarTerbit = [],
-        { kategori = 'Semua', pasarTerpilih = [], petaMaster = null } = {}
+        { kategori = 'Semua', pasarTerpilih = [], tanggalFilter = 'Semua', petaMaster = null } = {}
     ) {
         const baris = this.saringBarisDasar(daftarTerbit, {
             kategori,
             pasarTerpilih,
             kelompokAktif: 'Semua',
             varianAktif: 'Semua',
+            tanggalFilter,
             pencarian: '',
             petaMaster
         });
@@ -405,6 +412,7 @@ export class AnalisisHargaService {
             pencarian = '',
             pasarTerpilih = [],
             kelompokAktif = 'Semua',
+            tanggalFilter = 'Semua',
             petaMaster = null
         } = {}
     ) {
@@ -414,6 +422,7 @@ export class AnalisisHargaService {
             pasarTerpilih,
             kelompokAktif,
             varianAktif: 'Semua',
+            tanggalFilter,
             petaMaster
         });
 
@@ -474,6 +483,7 @@ export class AnalisisHargaService {
             pasarTerpilih = [],
             kelompokAktif = 'Semua',
             varianAktif = 'Semua',
+            tanggalFilter = 'Semua',
             urutkan = 'prioritas',
             petaDelta = null,
             petaMaster = null
@@ -485,6 +495,7 @@ export class AnalisisHargaService {
             pasarTerpilih,
             kelompokAktif,
             varianAktif,
+            tanggalFilter,
             petaMaster
         });
         const grupMap = new Map();
@@ -619,6 +630,7 @@ export class AnalisisHargaService {
             pasarTerpilih = [],
             kelompokAktif = 'Semua',
             varianAktif = 'Semua',
+            tanggalFilter = 'Semua',
             urutkan = 'prioritas',
             petaDelta = null,
             petaMaster = null
@@ -630,6 +642,7 @@ export class AnalisisHargaService {
             pasarTerpilih,
             kelompokAktif,
             varianAktif,
+            tanggalFilter,
             urutkan: 'prioritas',
             petaDelta,
             petaMaster
@@ -689,6 +702,7 @@ export class AnalisisHargaService {
             pasarTerpilih = [],
             kelompokAktif = 'Semua',
             varianAktif = 'Semua',
+            tanggalFilter = 'Semua',
             urutkan = 'prioritas',
             petaDelta = null,
             petaMaster = null
@@ -700,6 +714,7 @@ export class AnalisisHargaService {
             pasarTerpilih,
             kelompokAktif,
             varianAktif,
+            tanggalFilter,
             urutkan,
             petaDelta,
             petaMaster

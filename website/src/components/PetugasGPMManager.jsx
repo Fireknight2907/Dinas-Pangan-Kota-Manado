@@ -48,11 +48,15 @@ function PenentuTitikPeta({ posisi, onPilihTitik }) {
   ) : null;
 }
 
-export default function PetugasGPMManager({ token, pengguna }) {
+export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan' }) {
   // ─────────────────────────────────────────────
   // 1. STATE MANAGEMENT
   // ─────────────────────────────────────────────
-  const [subTab, setSubTab] = useState('scan'); // 'scan', 'antrean', 'buat-gpm'
+  const [subTab, setSubTab] = useState(subTabAwal || 'scan'); // 'scan', 'antrean', 'buat-gpm', 'riwayat'
+
+  useEffect(() => {
+    if (subTabAwal) setSubTab(subTabAwal);
+  }, [subTabAwal]);
   
   // Data Acara & Pendaftar
   const [daftarAcara, setDaftarAcara] = useState([]);
@@ -112,10 +116,15 @@ export default function PetugasGPMManager({ token, pengguna }) {
     nama: '',
     nik: '',
     telepon: '',
+    no_kk: '',
+    jumlah_anggota: 1,
     langsungHadir: true,
     sedangKirim: false,
     pesanError: ''
   });
+
+  // Master Pasar bertitik koordinat dari Supabase (100% data riil, tanpa preset hardcoded)
+  const [daftarPasarKoordinat, setDaftarPasarKoordinat] = useState([]);
 
   // Modal Tambah / Ubah Kuota Acara GPM (Khusus Kepala Bidang & Superadmin)
   const [modalUbahKuota, setModalUbahKuota] = useState({
@@ -147,7 +156,25 @@ export default function PetugasGPMManager({ token, pengguna }) {
     muatDataAwal();
     muatKecamatan();
     muatMasterKomoditas();
+    muatMasterPasarKoordinat();
   }, []);
+
+  const muatMasterPasarKoordinat = async () => {
+    try {
+      const listPasar = await masterDataService.ambilDaftarPasarLengkap();
+      const punyaTitik = (Array.isArray(listPasar) ? listPasar : [])
+        .filter((p) => p && p.punyaKoordinat && p.latitude !== null && p.longitude !== null)
+        .map((p) => ({
+          nama: p.nama_pasar,
+          lat: Number(p.latitude),
+          lng: Number(p.longitude),
+          kec: p.kecamatan || ''
+        }));
+      setDaftarPasarKoordinat(punyaTitik);
+    } catch (e) {
+      console.warn('[PetugasGPM] Gagal memuat master pasar koordinat:', e);
+    }
+  };
 
   const muatMasterKomoditas = async () => {
     try {
@@ -429,7 +456,7 @@ export default function PetugasGPMManager({ token, pengguna }) {
   const handleKonfirmasiKehadiran = async () => {
     if (!hasilScanPendaftar) return;
     try {
-      await gpmService.verifikasiKehadiran(hasilScanPendaftar.kode_barcode);
+      await gpmService.verifikasiKehadiran(hasilScanPendaftar.kode_barcode, 'Hadir', pengguna?.id || null);
       setStatusVerifikasiSukses(true);
       setHasilScanPendaftar(prev => ({ ...prev, status_kehadiran: 'Hadir' }));
       
@@ -441,6 +468,23 @@ export default function PetugasGPMManager({ token, pengguna }) {
     }
   };
 
+  // Konfirmasi Pengambilan Bahan Pangan (Via Layanan OOP GPMService -> RPC / PATCH aman)
+  const handleKonfirmasiPengambilan = async (pendaftarId, dariHasilScan = false) => {
+    if (!pendaftarId) return;
+    try {
+      await gpmService.konfirmasiPengambilanPangan(pendaftarId, pengguna?.id || null);
+      if (dariHasilScan) {
+        setHasilScanPendaftar((prev) => (prev ? { ...prev, status_pengambilan: 'Sudah Diambil', waktu_pengambilan: new Date().toISOString() } : prev));
+      }
+      setNotifSukses('📦 Pengambilan bahan pangan oleh warga berhasil dikonfirmasi!');
+      setTimeout(() => setNotifSukses(''), 4000);
+      if (acaraTerpilihId) await muatPendaftar(acaraTerpilihId);
+      await muatDataAwal();
+    } catch (err) {
+      alert('Gagal konfirmasi pengambilan: ' + (err?.message || 'Terjadi kesalahan sistem'));
+    }
+  };
+
   // Buka Modal Tambah Pendaftar Manual (Walk-In / Di Tempat saat Pelaksanaan)
   const handleBukaModalManual = () => {
     setModalTambahManual({
@@ -449,16 +493,18 @@ export default function PetugasGPMManager({ token, pengguna }) {
       nama: '',
       nik: '',
       telepon: '',
+      no_kk: '',
+      jumlah_anggota: 1,
       langsungHadir: true,
       sedangKirim: false,
       pesanError: ''
     });
   };
 
-  // Simpan Pendaftar Manual oleh Staf atau Kabid
+  // Simpan Pendaftar Manual oleh Staf atau Kabid (mendukung mode Individu 1 NIK & Keluarga 1 KK)
   const handleSimpanPendaftarManual = async (e) => {
     e.preventDefault();
-    const { acaraId, nama, nik, telepon, langsungHadir } = modalTambahManual;
+    const { acaraId, nama, nik, telepon, no_kk, jumlah_anggota, langsungHadir } = modalTambahManual;
     if (!acaraId) {
       setModalTambahManual(prev => ({ ...prev, pesanError: 'Silakan pilih kegiatan GPM!' }));
       return;
@@ -489,15 +535,30 @@ export default function PetugasGPMManager({ token, pengguna }) {
         return;
       }
     }
+    const acaraTarget = daftarAcara.find((a) => String(a.id) === String(acaraId));
+    const isModeKeluarga = String(acaraTarget?.mode_penerima || 'individu').toLowerCase() === 'keluarga';
+    const noKkBersih = (no_kk || '').replace(/[^0-9]/g, '').trim();
+    if (isModeKeluarga && noKkBersih && noKkBersih.length !== 16) {
+      setModalTambahManual(prev => ({ ...prev, pesanError: `Nomor Kartu Keluarga (KK) harus tepat 16 digit angka! (Saat ini: ${noKkBersih.length} digit)` }));
+      return;
+    }
 
     setModalTambahManual(prev => ({ ...prev, sedangKirim: true, pesanError: '' }));
     try {
+      const opsiKeluarga = isModeKeluarga
+        ? {
+            no_kk: noKkBersih || null,
+            nama_kepala_keluarga: namaBersih,
+            jumlah_anggota: Math.max(1, parseInt(String(jumlah_anggota), 10) || 1)
+          }
+        : null;
       const res = await gpmService.tambahPendaftarManual(
         acaraId,
         namaBersih,
         telpBersih || '-',
         nikBersih,
-        langsungHadir
+        langsungHadir,
+        opsiKeluarga
       );
       setModalTambahManual({
         buka: false,
@@ -505,6 +566,8 @@ export default function PetugasGPMManager({ token, pengguna }) {
         nama: '',
         nik: '',
         telepon: '',
+        no_kk: '',
+        jumlah_anggota: 1,
         langsungHadir: true,
         sedangKirim: false,
         pesanError: ''
@@ -550,7 +613,7 @@ export default function PetugasGPMManager({ token, pengguna }) {
       setFormGPM({
         nama_acara: '',
         lokasi: '',
-        kecamatan: daftarKecamatan[0] || 'Wenang',
+        kecamatan: daftarKecamatan[0] || '',
         tanggal: new Date().toISOString().split('T')[0],
         jam_mulai: '08:00',
         jam_selesai: '16:00',
@@ -558,7 +621,9 @@ export default function PetugasGPMManager({ token, pengguna }) {
         longitude: 124.8436,
         kuota_maksimal: 250,
         komoditas_tersedia: '',
-        deskripsi: ''
+        deskripsi: '',
+        mode_pendaftaran: 'online',
+        mode_penerima: 'individu'
       });
 
       await muatDataAwal();
@@ -569,21 +634,12 @@ export default function PetugasGPMManager({ token, pengguna }) {
     }
   };
 
-  // Preset Cepat Titik Lokasi Kota Manado
-  const presetLokasiManado = [
-    { nama: 'Lapangan Sparta Tikala', lat: 1.4883, lng: 124.8436, kec: 'Tikala' },
-    { nama: 'Pasar Bersehati Karombasan', lat: 1.4674, lng: 124.8468, kec: 'Wanea' },
-    { nama: 'Pasar Bahu Malalayang', lat: 1.4641, lng: 124.8252, kec: 'Malalayang' },
-    { nama: 'Kantor Camat Tuminting', lat: 1.5126, lng: 124.8488, kec: 'Tuminting' },
-    { nama: 'Kawasan Megamas (Pesisir)', lat: 1.4842, lng: 124.8322, kec: 'Wenang' },
-    { nama: 'Kantor Camat Mapanget', lat: 1.5369, lng: 124.9126, kec: 'Mapanget' }
-  ];
-
+  // Preset Titik Lokasi 100% dari Master Pasar Supabase yang sudah memiliki koordinat GPS
   const terapkanPreset = (p) => {
     setFormGPM(prev => ({
       ...prev,
-      lokasi: p.nama,
-      kecamatan: p.kec,
+      lokasi: prev.lokasi?.trim() ? prev.lokasi : p.nama,
+      kecamatan: p.kec && daftarKecamatan.includes(p.kec) ? p.kec : prev.kecamatan,
       latitude: p.lat,
       longitude: p.lng
     }));
@@ -593,7 +649,7 @@ export default function PetugasGPMManager({ token, pengguna }) {
   const handleToggleKehadiranTabel = async (pendaftar) => {
     const statusTarget = String(pendaftar.status_kehadiran || '').toLowerCase() === 'hadir' ? 'Menunggu' : 'Hadir';
     try {
-      await gpmService.verifikasiKehadiran(pendaftar.kode_barcode, statusTarget);
+      await gpmService.verifikasiKehadiran(pendaftar.kode_barcode, statusTarget, pengguna?.id || null);
       await muatPendaftar(acaraTerpilihId);
       await muatDataAwal();
     } catch (err) {
@@ -885,19 +941,7 @@ export default function PetugasGPMManager({ token, pengguna }) {
                           type="button"
                           className="btn-verify-success"
                           style={{ background: '#0369a1' }}
-                          onClick={async () => {
-                            try {
-                              await supabaseClient.request(`pendaftar_gpm?id=eq.${parsedScan.id}`, {
-                                method: 'PATCH',
-                                body: JSON.stringify({ status_pengambilan: 'Sudah Diambil', waktu_pengambilan: new Date().toISOString() })
-                              });
-                              setHasilScan((prev) => prev ? { ...prev, status_pengambilan: 'Sudah Diambil' } : prev);
-                              await muatPendaftar();
-                              tampilkanNotif('📦 Pengambilan bahan pangan berhasil dikonfirmasi!');
-                            } catch (e) {
-                              alert('Gagal konfirmasi pengambilan: ' + e.message);
-                            }
-                          }}
+                          onClick={() => handleKonfirmasiPengambilan(parsedScan.id, true)}
                         >
                           📦 Konfirmasi Pengambilan Bahan Pangan
                         </button>
@@ -1120,17 +1164,7 @@ export default function PetugasGPMManager({ token, pengguna }) {
                                 type="button"
                                 className="btn-mark-attend"
                                 style={{ background: '#0369a1', fontSize: '0.72rem', padding: '4px 8px' }}
-                                onClick={async () => {
-                                  try {
-                                    await supabaseClient.request(`pendaftar_gpm?id=eq.${item.id}`, {
-                                      method: 'PATCH',
-                                      body: JSON.stringify({ status_pengambilan: 'Sudah Diambil', waktu_pengambilan: new Date().toISOString() })
-                                    });
-                                    await muatPendaftar();
-                                  } catch (e) {
-                                    alert('Gagal update pengambilan: ' + e.message);
-                                  }
-                                }}
+                                onClick={() => handleKonfirmasiPengambilan(item.id, false)}
                               >
                                 📦 Ambil Pangan
                               </button>
@@ -1321,20 +1355,22 @@ export default function PetugasGPMManager({ token, pengguna }) {
                 </span>
               </div>
 
-              {/* Preset Pilihan Cepat */}
-              <div className="preset-loc-buttons" style={{ marginTop: '10px' }}>
-                <span style={{ fontSize: '0.8rem', color: '#666', alignSelf: 'center' }}>Pilihan Cepat Titik Lokasi:</span>
-                {presetLokasiManado.map((p, idx) => (
-                  <button
-                    type="button"
-                    key={idx}
-                    className="btn-preset-chip"
-                    onClick={() => terapkanPreset(p)}
-                  >
-                    📍 {p.nama}
-                  </button>
-                ))}
-              </div>
+              {/* Preset Pilihan Cepat dari Master Pasar Supabase */}
+              {daftarPasarKoordinat.length > 0 && (
+                <div className="preset-loc-buttons" style={{ marginTop: '10px' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#666', alignSelf: 'center' }}>Titik Pasar Resmi (Master Data):</span>
+                  {daftarPasarKoordinat.map((p, idx) => (
+                    <button
+                      type="button"
+                      key={idx}
+                      className="btn-preset-chip"
+                      onClick={() => terapkanPreset(p)}
+                    >
+                      📍 {p.nama}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
@@ -1874,6 +1910,47 @@ export default function PetugasGPMManager({ token, pengguna }) {
                     }}
                   />
                 </div>
+
+                {(() => {
+                  const acaraDipilihModal = daftarAcara.find((a) => String(a.id) === String(modalTambahManual.acaraId));
+                  if (String(acaraDipilihModal?.mode_penerima || 'individu').toLowerCase() !== 'keluarga') return null;
+                  return (
+                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#1e40af', marginBottom: '10px' }}>
+                        👨‍👩‍👧‍👦 Acara GPM Berbasis Keluarga (1 KK = 1 Antrean)
+                      </div>
+                      <div style={{ marginBottom: '10px' }}>
+                        <label style={{ display: 'block', fontWeight: 700, fontSize: '0.82rem', marginBottom: '4px', color: '#1e3a8a' }}>
+                          Nomor Kartu Keluarga (KK - 16 Digit) <span style={{ fontWeight: 400, color: '#475569' }}>(Opsional di lokasi, jika diisi wajib 16 digit)</span>
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={16}
+                          placeholder="16 digit Nomor KK"
+                          style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #93c5fd', fontSize: '0.88rem', background: '#ffffff' }}
+                          value={modalTambahManual.no_kk}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 16);
+                            setModalTambahManual(prev => ({ ...prev, no_kk: val }));
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontWeight: 700, fontSize: '0.82rem', marginBottom: '4px', color: '#1e3a8a' }}>
+                          Jumlah Anggota Keluarga
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={20}
+                          style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #93c5fd', fontSize: '0.88rem', background: '#ffffff' }}
+                          value={modalTambahManual.jumlah_anggota}
+                          onChange={(e) => setModalTambahManual(prev => ({ ...prev, jumlah_anggota: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 600, color: '#334155' }}>

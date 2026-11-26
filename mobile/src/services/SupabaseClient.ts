@@ -132,6 +132,50 @@ export class SupabaseRestClient {
     return this.request<any[]>(`riwayat_harga_pangan?order=dicatat_pada.desc&limit=${Number(batas)}`);
   }
 
+  // --- PENGAJUAN HARGA BATCH PER PASAR (STAF -> VERIFIKASI KABID) ---
+  async getPengajuanHarga(): Promise<any[]> {
+    return this.request<any[]>('pengajuan_harga?select=*,item_pengajuan_harga(*)&order=dibuat_pada.desc&limit=100');
+  }
+
+  async tambahPengajuanHarga(data: any): Promise<any> {
+    const payload = {
+      pasar_id: data.pasar_id || null,
+      nama_pasar: data.nama_pasar,
+      tanggal_pengambilan: data.tanggal_pengambilan || new Date().toISOString().split('T')[0],
+      petugas_id: data.petugas_id || null,
+      nama_petugas: data.nama_petugas || 'Petugas Lapangan',
+      status: data.status || 'Diajukan',
+      catatan_verifikasi: data.catatan_verifikasi || ''
+    };
+    const res = await this.request<any[]>('pengajuan_harga', 'POST', payload);
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async tambahItemPengajuanHargaBatch(daftarItem: any[]): Promise<any[]> {
+    if (!Array.isArray(daftarItem) || daftarItem.length === 0) return [];
+    const res = await this.request<any[]>('item_pengajuan_harga', 'POST', daftarItem);
+    return Array.isArray(res) ? res : [];
+  }
+
+  async updatePengajuanHarga(id: string, data: any): Promise<any> {
+    const payload = {
+      ...data,
+      diperbarui_pada: new Date().toISOString()
+    };
+    const res = await this.request<any[]>(`pengajuan_harga?id=eq.${encodeURIComponent(id)}`, 'PATCH', payload);
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async hapusPengajuanHarga(id: string): Promise<boolean> {
+    await this.request(`pengajuan_harga?id=eq.${encodeURIComponent(id)}`, 'DELETE');
+    return true;
+  }
+
+  async hapusItemPengajuanByPengajuanId(pengajuanId: string): Promise<boolean> {
+    await this.request(`item_pengajuan_harga?pengajuan_id=eq.${encodeURIComponent(pengajuanId)}`, 'DELETE');
+    return true;
+  }
+
   async tambahJumlahDilihat(namaKomoditas: string): Promise<boolean> {
     if (!namaKomoditas || !namaKomoditas.trim()) return false;
     try {
@@ -323,7 +367,7 @@ export class SupabaseRestClient {
     }
   }
 
-  // [GPM ATOMIK] Daftar antrean melalui PostgreSQL RPC (Row Lock kuota, waktu WITA, NIK unik)
+  // [GPM ATOMIK] Daftar antrean melalui PostgreSQL RPC (Row Lock kuota, waktu WITA, NIK/KK unik)
   async daftarAntreanGPMViaRPC(payload: {
     acara_id: string;
     nama_pendaftar: string;
@@ -332,8 +376,11 @@ export class SupabaseRestClient {
     jalur_pendaftaran?: string;
     prefix_kode?: string;
     langsung_hadir?: boolean;
+    no_kk?: string | null;
+    nama_kepala_keluarga?: string | null;
+    jumlah_anggota?: number;
   }): Promise<any> {
-    const res = await this.request<any[]>('rpc/rpc_daftar_antrean_gpm', 'POST', {
+    const payloadRpc: any = {
       p_acara_id: payload.acara_id,
       p_nama_pendaftar: payload.nama_pendaftar,
       p_nomor_telepon: payload.nomor_telepon || '-',
@@ -341,17 +388,79 @@ export class SupabaseRestClient {
       p_jalur_pendaftaran: payload.jalur_pendaftaran || 'Daring',
       p_prefix_kode: payload.prefix_kode || 'GPM-MOB',
       p_langsung_hadir: Boolean(payload.langsung_hadir)
-    });
-    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+    };
+    if (payload.no_kk) payloadRpc.p_no_kk = payload.no_kk;
+    if (payload.nama_kepala_keluarga) payloadRpc.p_nama_kepala_keluarga = payload.nama_kepala_keluarga;
+    if (payload.jumlah_anggota && Number(payload.jumlah_anggota) > 1) {
+      payloadRpc.p_jumlah_anggota = Number(payload.jumlah_anggota);
+    }
+
+    try {
+      const res = await this.request<any[]>('rpc/rpc_daftar_antrean_gpm', 'POST', payloadRpc);
+      return Array.isArray(res) && res.length > 0 ? res[0] : res;
+    } catch (err: any) {
+      const msg = String(err?.message || '').toLowerCase();
+      if ((payload.no_kk || payload.nama_kepala_keluarga || Number(payload.jumlah_anggota) > 1) && (msg.includes('could not find the function') || msg.includes('pgrst202'))) {
+        const resLama = await this.request<any[]>('rpc/rpc_daftar_antrean_gpm', 'POST', {
+          p_acara_id: payload.acara_id,
+          p_nama_pendaftar: payload.nama_pendaftar,
+          p_nomor_telepon: payload.nomor_telepon || '-',
+          p_nik: payload.nik,
+          p_jalur_pendaftaran: payload.jalur_pendaftaran || 'Daring',
+          p_prefix_kode: payload.prefix_kode || 'GPM-MOB',
+          p_langsung_hadir: Boolean(payload.langsung_hadir)
+        });
+        return Array.isArray(resLama) && resLama.length > 0 ? resLama[0] : resLama;
+      }
+      throw err;
+    }
   }
 
   // [GPM QR LOCK] Verifikasi / Batalkan kehadiran via RPC (terkunci otomatis jika acara lewat jam / Selesai)
-  async verifikasiPendaftarGPMViaRPC(kodeBarcode: string, statusBaru: string = 'Hadir'): Promise<any> {
-    const res = await this.request<any[]>('rpc/rpc_verifikasi_kehadiran_gpm', 'POST', {
+  async verifikasiPendaftarGPMViaRPC(kodeBarcode: string, statusBaru: string = 'Hadir', petugasId?: string | null): Promise<any> {
+    const payload: any = {
       p_kode_barcode: kodeBarcode,
       p_status_baru: statusBaru
-    });
-    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+    };
+    if (petugasId) payload.p_petugas_id = petugasId;
+
+    try {
+      const res = await this.request<any[]>('rpc/rpc_verifikasi_kehadiran_gpm', 'POST', payload);
+      return Array.isArray(res) && res.length > 0 ? res[0] : res;
+    } catch (err: any) {
+      const msg = String(err?.message || '').toLowerCase();
+      if (petugasId && (msg.includes('could not find the function') || msg.includes('pgrst202'))) {
+        const resLama = await this.request<any[]>('rpc/rpc_verifikasi_kehadiran_gpm', 'POST', {
+          p_kode_barcode: kodeBarcode,
+          p_status_baru: statusBaru
+        });
+        return Array.isArray(resLama) && resLama.length > 0 ? resLama[0] : resLama;
+      }
+      throw err;
+    }
+  }
+
+  // [GPM] Konfirmasi pengambilan paket bahan pangan warga yang sudah Hadir
+  async konfirmasiPengambilanPanganGPM(pendaftarId: string, petugasId?: string | null): Promise<any> {
+    try {
+      const resRpc = await this.request<any[]>('rpc/rpc_konfirmasi_pengambilan_gpm', 'POST', {
+        p_pendaftar_id: pendaftarId,
+        p_petugas_id: petugasId || null
+      });
+      return Array.isArray(resRpc) && resRpc.length > 0 ? resRpc[0] : resRpc;
+    } catch (err: any) {
+      const msg = String(err?.message || '').toLowerCase();
+      if (msg.includes('could not find the function') || msg.includes('pgrst202') || msg.includes('status 404')) {
+        const payload: any = {
+          status_pengambilan: 'Sudah Diambil',
+          waktu_pengambilan: new Date().toISOString()
+        };
+        if (petugasId) payload.petugas_verifikasi = petugasId;
+        const res = await this.request<any[]>(`pendaftar_gpm?id=eq.${encodeURIComponent(pendaftarId)}`, 'PATCH', payload);
+        return Array.isArray(res) && res.length > 0 ? res[0] : res;
+      }
+      throw err;
+    }
   }
 
   // [KABID / SUPERADMIN] Ubah / tambah kuota acara GPM secara atomik
@@ -364,7 +473,7 @@ export class SupabaseRestClient {
   }
 
   async tambahAcaraGPM(item: any): Promise<any> {
-    const payload = {
+    const payload: any = {
       nama_acara: item.nama_acara,
       lokasi: item.lokasi,
       kecamatan: item.kecamatan || 'Wenang',
@@ -373,13 +482,25 @@ export class SupabaseRestClient {
       jam_selesai: item.jam_selesai || '14:00',
       latitude: Number(item.latitude) || 1.4883,
       longitude: Number(item.longitude) || 124.8436,
-      kuota_maksimal: Number(item.kuota_maksimal) || 250,
+      kuota_maksimal: Number(item.kuota_maksimal) || 100,
       komoditas_tersedia: item.komoditas_tersedia || '',
       deskripsi: item.deskripsi || '',
+      mode_pendaftaran: item.mode_pendaftaran || 'online',
+      mode_penerima: item.mode_penerima || 'individu',
       status: item.status || 'Aktif'
     };
-    const res = await this.request<any[]>('acara_gpm', 'POST', payload);
-    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+    try {
+      const res = await this.request<any[]>('acara_gpm', 'POST', payload);
+      return Array.isArray(res) && res.length > 0 ? res[0] : res;
+    } catch (err: any) {
+      const msg = String(err?.message || '').toLowerCase();
+      if (msg.includes('mode_pendaftaran') || msg.includes('mode_penerima') || msg.includes('column')) {
+        const { mode_pendaftaran, mode_penerima, ...payloadDasar } = payload;
+        const resFallback = await this.request<any[]>('acara_gpm', 'POST', payloadDasar);
+        return Array.isArray(resFallback) && resFallback.length > 0 ? resFallback[0] : resFallback;
+      }
+      throw err;
+    }
   }
 
   async updateAcaraGPM(id: string, data: any): Promise<any> {

@@ -35,6 +35,7 @@ export default function HargaPanganWeb({ onBukaLogin }) {
   const [daftarHargaTerbit, setDaftarHargaTerbit] = useState([]);
   const [riwayatTerbaru, setRiwayatTerbaru] = useState([]);
   const [daftarMasterKomoditas, setDaftarMasterKomoditas] = useState([]);
+  const [daftarPasarLengkap, setDaftarPasarLengkap] = useState([]);
   const [sedangMemuat, setSedangMemuat] = useState(true);
   const [errorMuat, setErrorMuat] = useState('');
 
@@ -73,14 +74,16 @@ export default function HargaPanganWeb({ onBukaLogin }) {
     setSedangMemuat(true);
     setErrorMuat('');
     try {
-      const [dataTerbit, hasilRiwayat, dataMasterKom] = await Promise.all([
+      const [dataTerbit, hasilRiwayat, dataMasterKom, dataMasterPasar] = await Promise.all([
         hargaPanganService.ambilPublikTerbit(),
         riwayatHargaService.ambilRiwayatPublikTerbaru(400),
-        masterDataService.ambilDaftarKomoditas().catch(() => [])
+        masterDataService.ambilDaftarKomoditas().catch(() => []),
+        masterDataService.ambilDaftarPasarLengkap().catch(() => [])
       ]);
       setDaftarHargaTerbit(Array.isArray(dataTerbit) ? dataTerbit : []);
       setRiwayatTerbaru(Array.isArray(hasilRiwayat?.data) ? hasilRiwayat.data : []);
       setDaftarMasterKomoditas(Array.isArray(dataMasterKom) ? dataMasterKom : []);
+      setDaftarPasarLengkap(Array.isArray(dataMasterPasar) ? dataMasterPasar : []);
     } catch (err) {
       setErrorMuat(err?.message || 'Gagal terhubung ke basis data harga pangan.');
       setDaftarHargaTerbit([]);
@@ -117,10 +120,22 @@ export default function HargaPanganWeb({ onBukaLogin }) {
     [riwayatTerbaru]
   );
 
-  // Statistik badge kategori riil mengikuti pasar terpilih & mode tampilan
+  // Daftar kecamatan aktif dari Master Pasar (disinkronkan dengan pasar yang punya data harga terbit)
+  const daftarKecamatanPasar = useMemo(() => {
+    const setPasarAktif = new Set(daftarPasarDB.map((p) => p.toLowerCase()));
+    const setKec = new Set();
+    daftarPasarLengkap.forEach((p) => {
+      if (p?.kecamatan && (setPasarAktif.size === 0 || setPasarAktif.has((p.nama_pasar || '').toLowerCase()))) {
+        setKec.add(p.kecamatan);
+      }
+    });
+    return Array.from(setKec).sort((a, b) => a.localeCompare(b, 'id-ID'));
+  }, [daftarPasarLengkap, daftarPasarDB]);
+
+  // Statistik badge kategori riil mengikuti pasar terpilih, tanggal & mode tampilan
   const statistikKategori = useMemo(
-    () => analisisHargaService.hitungStatistikKategori(daftarHargaTerbit, pasarTerpilih, modeTampilan),
-    [daftarHargaTerbit, pasarTerpilih, modeTampilan]
+    () => analisisHargaService.hitungStatistikKategori(daftarHargaTerbit, pasarTerpilih, modeTampilan, tanggalFilter),
+    [daftarHargaTerbit, pasarTerpilih, modeTampilan, tanggalFilter]
   );
 
   // Daftar kelompok komoditas induk (Beras, Minyak Goreng, Cabai, Bawang, dll.) murni dari DB
@@ -129,9 +144,10 @@ export default function HargaPanganWeb({ onBukaLogin }) {
       analisisHargaService.ekstrakKelompokInduk(daftarHargaTerbit, {
         kategori: kategoriAktif,
         pasarTerpilih,
+        tanggalFilter,
         petaMaster: petaMasterKomoditas
       }),
-    [daftarHargaTerbit, kategoriAktif, pasarTerpilih, petaMasterKomoditas]
+    [daftarHargaTerbit, kategoriAktif, pasarTerpilih, tanggalFilter, petaMasterKomoditas]
   );
 
   // Daftar sub-varian otomatis (muncul saat pilih induk atau cari kata kunci luas misal "beras")
@@ -142,9 +158,10 @@ export default function HargaPanganWeb({ onBukaLogin }) {
         pencarian,
         pasarTerpilih,
         kelompokAktif,
+        tanggalFilter,
         petaMaster: petaMasterKomoditas
       }),
-    [daftarHargaTerbit, kategoriAktif, pencarian, pasarTerpilih, kelompokAktif, petaMasterKomoditas]
+    [daftarHargaTerbit, kategoriAktif, pencarian, pasarTerpilih, kelompokAktif, tanggalFilter, petaMasterKomoditas]
   );
 
   const tampilkanBarSubVarian =
@@ -212,6 +229,7 @@ export default function HargaPanganWeb({ onBukaLogin }) {
   );
 
   const togglePasar = (namaPasar) => {
+    setKecamatanAktif('Semua');
     setPasarTerpilih((prev) =>
       prev.includes(namaPasar) ? prev.filter((p) => p !== namaPasar) : [...prev, namaPasar]
     );
@@ -239,6 +257,8 @@ export default function HargaPanganWeb({ onBukaLogin }) {
     setVarianAktif('Semua');
     setPencarian('');
     setPasarTerpilih([]);
+    setKecamatanAktif('Semua');
+    setTanggalFilter('Semua');
     setUrutkan('prioritas');
   };
 
@@ -248,6 +268,8 @@ export default function HargaPanganWeb({ onBukaLogin }) {
     setKelompokAktif('Semua');
     setVarianAktif('Semua');
     setPencarian('');
+    setKecamatanAktif('Semua');
+    setTanggalFilter('Semua');
     setPasarTerpilih(namaPasar ? [namaPasar] : []);
     setTabNavAktif('harga');
     if (typeof window !== 'undefined') {
@@ -503,8 +525,8 @@ export default function HargaPanganWeb({ onBukaLogin }) {
                   )}
                 </div>
 
-                {/* Dropdown Wilayah Kecamatan */}
-                {daftarPasarDB.some(p => p.kecamatan) && (
+                {/* Dropdown Wilayah Kecamatan (Dipetakan dari Master Pasar Supabase) */}
+                {daftarKecamatanPasar.length > 0 && (
                   <div className="sort-select-wrapper">
                     <select
                       className="category-select-dropdown"
@@ -516,16 +538,16 @@ export default function HargaPanganWeb({ onBukaLogin }) {
                         if (kec === 'Semua') {
                           setPasarTerpilih([]);
                         } else {
-                          const pasarDiKec = daftarPasarDB
-                            .filter(p => p.kecamatan === kec)
-                            .map(p => p.nama_pasar);
+                          const pasarDiKec = daftarPasarLengkap
+                            .filter((p) => String(p.kecamatan || '').toLowerCase() === kec.toLowerCase())
+                            .map((p) => p.nama_pasar);
                           setPasarTerpilih(pasarDiKec);
                         }
                       }}
                     >
                       <option value="Semua">🏘️ Semua Kecamatan</option>
-                      {Array.from(new Set(daftarPasarDB.map(p => p.kecamatan).filter(Boolean))).sort().map(kec => (
-                        <option key={kec} value={kec}>{kec}</option>
+                      {daftarKecamatanPasar.map((kec) => (
+                        <option key={kec} value={kec}>Kec. {kec}</option>
                       ))}
                     </select>
                   </div>

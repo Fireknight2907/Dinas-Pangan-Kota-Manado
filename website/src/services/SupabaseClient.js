@@ -131,6 +131,50 @@ class SupabaseRestClient {
     return this.request(`riwayat_harga_pangan?order=dicatat_pada.desc&limit=${Number(batas)}`);
   }
 
+  // --- PENGAJUAN HARGA BATCH PER PASAR (STAF -> VERIFIKASI KABID) ---
+  async getPengajuanHarga() {
+    return this.request('pengajuan_harga?select=*,item_pengajuan_harga(*)&order=dibuat_pada.desc&limit=100');
+  }
+
+  async tambahPengajuanHarga(data) {
+    const payload = {
+      pasar_id: data.pasar_id || null,
+      nama_pasar: data.nama_pasar,
+      tanggal_pengambilan: data.tanggal_pengambilan || new Date().toISOString().split('T')[0],
+      petugas_id: data.petugas_id || null,
+      nama_petugas: data.nama_petugas || 'Petugas Lapangan',
+      status: data.status || 'Diajukan',
+      catatan_verifikasi: data.catatan_verifikasi || ''
+    };
+    const res = await this.request('pengajuan_harga', 'POST', payload);
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async tambahItemPengajuanHargaBatch(daftarItem) {
+    if (!Array.isArray(daftarItem) || daftarItem.length === 0) return [];
+    const res = await this.request('item_pengajuan_harga', 'POST', daftarItem);
+    return Array.isArray(res) ? res : [];
+  }
+
+  async updatePengajuanHarga(id, data) {
+    const payload = {
+      ...data,
+      diperbarui_pada: new Date().toISOString()
+    };
+    const res = await this.request(`pengajuan_harga?id=eq.${encodeURIComponent(id)}`, 'PATCH', payload);
+    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+  }
+
+  async hapusPengajuanHarga(id) {
+    await this.request(`pengajuan_harga?id=eq.${encodeURIComponent(id)}`, 'DELETE');
+    return true;
+  }
+
+  async hapusItemPengajuanByPengajuanId(pengajuanId) {
+    await this.request(`item_pengajuan_harga?pengajuan_id=eq.${encodeURIComponent(pengajuanId)}`, 'DELETE');
+    return true;
+  }
+
   async tambahJumlahDilihat(namaKomoditas) {
     if (!namaKomoditas || !String(namaKomoditas).trim()) return false;
     try {
@@ -311,7 +355,7 @@ class SupabaseRestClient {
     }
   }
 
-  // [GPM ATOMIK] Daftar antrean melalui PostgreSQL RPC (Row Lock kuota, waktu WITA, NIK unik)
+  // [GPM ATOMIK] Daftar antrean melalui PostgreSQL RPC (Row Lock kuota, waktu WITA, NIK/KK unik)
   async daftarAntreanGPMViaRPC({
     acara_id,
     nama_pendaftar,
@@ -319,9 +363,12 @@ class SupabaseRestClient {
     nik,
     jalur_pendaftaran = 'Daring',
     prefix_kode = 'GPM-MND',
-    langsung_hadir = false
+    langsung_hadir = false,
+    no_kk = null,
+    nama_kepala_keluarga = null,
+    jumlah_anggota = 1
   }) {
-    const res = await this.request('rpc/rpc_daftar_antrean_gpm', 'POST', {
+    const payloadRpc = {
       p_acara_id: acara_id,
       p_nama_pendaftar: nama_pendaftar,
       p_nomor_telepon: nomor_telepon || '-',
@@ -329,17 +376,78 @@ class SupabaseRestClient {
       p_jalur_pendaftaran: jalur_pendaftaran,
       p_prefix_kode: prefix_kode,
       p_langsung_hadir: Boolean(langsung_hadir)
-    });
-    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+    };
+    if (no_kk) payloadRpc.p_no_kk = no_kk;
+    if (nama_kepala_keluarga) payloadRpc.p_nama_kepala_keluarga = nama_kepala_keluarga;
+    if (jumlah_anggota && Number(jumlah_anggota) > 1) payloadRpc.p_jumlah_anggota = Number(jumlah_anggota);
+
+    try {
+      const res = await this.request('rpc/rpc_daftar_antrean_gpm', 'POST', payloadRpc);
+      return Array.isArray(res) && res.length > 0 ? res[0] : res;
+    } catch (err) {
+      // Kompatibilitas mundur jika RPC di server masih versi 7 parameter
+      const msg = String(err?.message || '').toLowerCase();
+      if ((no_kk || nama_kepala_keluarga || Number(jumlah_anggota) > 1) && (msg.includes('could not find the function') || msg.includes('pgrst202'))) {
+        const resLama = await this.request('rpc/rpc_daftar_antrean_gpm', 'POST', {
+          p_acara_id: acara_id,
+          p_nama_pendaftar: nama_pendaftar,
+          p_nomor_telepon: nomor_telepon || '-',
+          p_nik: nik,
+          p_jalur_pendaftaran: jalur_pendaftaran,
+          p_prefix_kode: prefix_kode,
+          p_langsung_hadir: Boolean(langsung_hadir)
+        });
+        return Array.isArray(resLama) && resLama.length > 0 ? resLama[0] : resLama;
+      }
+      throw err;
+    }
   }
 
   // [GPM QR LOCK] Verifikasi / Batalkan kehadiran via RPC (terkunci otomatis jika acara lewat jam / Selesai)
-  async verifikasiPendaftarGPMViaRPC(kodeBarcode, statusBaru = 'Hadir') {
-    const res = await this.request('rpc/rpc_verifikasi_kehadiran_gpm', 'POST', {
+  async verifikasiPendaftarGPMViaRPC(kodeBarcode, statusBaru = 'Hadir', petugasId = null) {
+    const payload = {
       p_kode_barcode: kodeBarcode,
       p_status_baru: statusBaru
-    });
-    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+    };
+    if (petugasId) payload.p_petugas_id = petugasId;
+
+    try {
+      const res = await this.request('rpc/rpc_verifikasi_kehadiran_gpm', 'POST', payload);
+      return Array.isArray(res) && res.length > 0 ? res[0] : res;
+    } catch (err) {
+      const msg = String(err?.message || '').toLowerCase();
+      if (petugasId && (msg.includes('could not find the function') || msg.includes('pgrst202'))) {
+        const resLama = await this.request('rpc/rpc_verifikasi_kehadiran_gpm', 'POST', {
+          p_kode_barcode: kodeBarcode,
+          p_status_baru: statusBaru
+        });
+        return Array.isArray(resLama) && resLama.length > 0 ? resLama[0] : resLama;
+      }
+      throw err;
+    }
+  }
+
+  // [GPM] Konfirmasi pengambilan paket bahan pangan warga yang sudah Hadir
+  async konfirmasiPengambilanPanganGPM(pendaftarId, petugasId = null) {
+    try {
+      const resRpc = await this.request('rpc/rpc_konfirmasi_pengambilan_gpm', 'POST', {
+        p_pendaftar_id: pendaftarId,
+        p_petugas_id: petugasId || null
+      });
+      return Array.isArray(resRpc) && resRpc.length > 0 ? resRpc[0] : resRpc;
+    } catch (err) {
+      const msg = String(err?.message || '').toLowerCase();
+      if (msg.includes('could not find the function') || msg.includes('pgrst202') || msg.includes('status 404')) {
+        const payload = {
+          status_pengambilan: 'Sudah Diambil',
+          waktu_pengambilan: new Date().toISOString()
+        };
+        if (petugasId) payload.petugas_verifikasi = petugasId;
+        const res = await this.request(`pendaftar_gpm?id=eq.${encodeURIComponent(pendaftarId)}`, 'PATCH', payload);
+        return Array.isArray(res) && res.length > 0 ? res[0] : res;
+      }
+      throw err;
+    }
   }
 
   // [KABID / SUPERADMIN] Ubah / tambah kuota acara GPM secara atomik
@@ -361,13 +469,26 @@ class SupabaseRestClient {
       jam_selesai: item.jam_selesai || '14:00',
       latitude: Number(item.latitude) || 1.4883,
       longitude: Number(item.longitude) || 124.8436,
-      kuota_maksimal: Number(item.kuota_maksimal) || 250,
+      kuota_maksimal: Number(item.kuota_maksimal) || 100,
       komoditas_tersedia: item.komoditas_tersedia || '',
       deskripsi: item.deskripsi || '',
+      mode_pendaftaran: item.mode_pendaftaran || 'online',
+      mode_penerima: item.mode_penerima || 'individu',
       status: item.status || 'Aktif'
     };
-    const res = await this.request('acara_gpm', 'POST', payload);
-    return Array.isArray(res) && res.length > 0 ? res[0] : res;
+    try {
+      const res = await this.request('acara_gpm', 'POST', payload);
+      return Array.isArray(res) && res.length > 0 ? res[0] : res;
+    } catch (err) {
+      // Fallback aman jika kolom mode_pendaftaran/mode_penerima belum dimigrasi di DB
+      const msg = String(err?.message || '').toLowerCase();
+      if (msg.includes('mode_pendaftaran') || msg.includes('mode_penerima') || msg.includes('column')) {
+        const { mode_pendaftaran, mode_penerima, ...payloadDasar } = payload;
+        const resFallback = await this.request('acara_gpm', 'POST', payloadDasar);
+        return Array.isArray(resFallback) && resFallback.length > 0 ? resFallback[0] : resFallback;
+      }
+      throw err;
+    }
   }
 
   async updateAcaraGPM(id, data) {

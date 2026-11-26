@@ -54,6 +54,8 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
 
   // Form Input Pendaftaran Antrean Masyarakat (Tanpa Login)
   const [nik, setNik] = useState('');
+  const [noKK, setNoKK] = useState('');
+  const [jumlahAnggota, setJumlahAnggota] = useState('1');
   const [namaLengkap, setNamaLengkap] = useState('');
   const [nomorTelepon, setNomorTelepon] = useState('');
   const [sedangDaftar, setSedangDaftar] = useState(false);
@@ -212,6 +214,13 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
       return;
     }
 
+    const isModeKeluarga = String(acaraDipilih.mode_penerima || 'individu').toLowerCase() === 'keluarga';
+    const noKkBersih = noKK.trim();
+    if (isModeKeluarga && !/^[0-9]{16}$/.test(noKkBersih)) {
+      setPesanError(`Nomor Kartu Keluarga (KK) wajib tepat 16 digit angka untuk kegiatan berbasis Keluarga! (Saat ini: ${noKkBersih.length} digit)`);
+      return;
+    }
+
     const namaBersih = namaLengkap.trim();
     if (!namaBersih || namaBersih.length < 3 || !/^[a-zA-Z\s'.]+$/.test(namaBersih)) {
       setPesanError('Nama lengkap minimal 3 huruf dan tidak boleh mengandung angka/simbol.');
@@ -231,11 +240,21 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
         namaBersih,
         telpBersih || '-',
         nikBersih,
-        'Daring'
+        'Daring',
+        false,
+        isModeKeluarga
+          ? {
+              no_kk: noKkBersih,
+              nama_kepala_keluarga: namaBersih,
+              jumlah_anggota: Math.max(1, parseInt(jumlahAnggota || '1', 10) || 1)
+            }
+          : null
       );
 
       setTiketHasil(hasil);
       setNik('');
+      setNoKK('');
+      setJumlahAnggota('1');
       setNamaLengkap('');
       setNomorTelepon('');
       await muatDaftarAcaraGPM(true);
@@ -574,6 +593,9 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                       <div className="ticket-details-summary">
                         <p><span className="lbl">Nama Pendaftar:</span><span className="val">{tiketHasil.tiket.nama_bersih || tiketHasil.tiket.nama_pendaftar}</span></p>
                         <p><span className="lbl">NIK (16 Digit):</span><span className="val">{tiketHasil.tiket.nik || '-'}</span></p>
+                        {tiketHasil.tiket.no_kk && (
+                          <p><span className="lbl">No. Kartu Keluarga (KK):</span><span className="val">{tiketHasil.tiket.no_kk} ({tiketHasil.tiket.jumlah_anggota || 1} anggota)</span></p>
+                        )}
                         <p><span className="lbl">Jalur Pendaftaran:</span><span className="val">{tiketHasil.tiket.jalur_pendaftaran || 'Daring'}</span></p>
                         <p><span className="lbl">Nomor Telepon / WA:</span><span className="val">{tiketHasil.tiket.nomor_telepon || '-'}</span></p>
                         <p><span className="lbl">Lokasi Acara GPM:</span><span className="val">{tiketHasil.acara.nama_acara}</span></p>
@@ -633,7 +655,14 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                             </div>
                             <div className="gpm-info-row">
                               <strong>📝 Pendaftaran:</strong>
-                              <span>Daftar antrean online tersedia (atau datang langsung sesuai kuota lokasi)</span>
+                              <span>
+                                {acaraDipilih.mode_pendaftaran === 'langsung'
+                                  ? '📍 Datang langsung ke lokasi (tanpa pendaftaran daring)'
+                                  : acaraDipilih.mode_pendaftaran === 'keduanya'
+                                    ? '🔄 Pendaftaran daring & datang langsung tersedia di lokasi'
+                                    : '🌐 Daftar antrean daring tersedia (atau layanan langsung petugas sesuai kuota)'}
+                                {acaraDipilih.mode_penerima === 'keluarga' ? ' · 👨‍👩‍👧‍👦 1 KK = 1 Antrean' : ' · 👤 1 NIK = 1 Antrean'}
+                              </span>
                             </div>
                           </div>
 
@@ -738,6 +767,39 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                                     {nik.length}/16 digit {nik.length > 0 && nik.length < 16 && `(Kurang ${16 - nik.length} digit)`}
                                   </small>
                                 </div>
+
+                                {acaraDipilih.mode_penerima === 'keluarga' && (
+                                  <>
+                                    <div className="gpm-input-field">
+                                      <label>
+                                        Nomor Kartu Keluarga (KK) <span style={{ color: '#e74c3c' }}>* (Wajib 16 Digit)</span>
+                                      </label>
+                                      <input
+                                        type="text"
+                                        required
+                                        maxLength={16}
+                                        placeholder="Contoh: 7171011234560001"
+                                        className="gpm-input-box"
+                                        value={noKK}
+                                        onChange={(e) => setNoKK(e.target.value.replace(/[^0-9]/g, '').slice(0, 16))}
+                                      />
+                                      <small style={{ color: noKK.length === 16 ? '#15803d' : '#64748b', marginTop: '4px', display: 'block', fontSize: '0.8rem' }}>
+                                        {noKK.length}/16 digit {noKK.length > 0 && noKK.length < 16 && `(Kurang ${16 - noKK.length} digit)`}
+                                      </small>
+                                    </div>
+                                    <div className="gpm-input-field">
+                                      <label>Jumlah Anggota Keluarga <span style={{ color: '#888', fontWeight: 'normal' }}>(Orang)</span></label>
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        max="20"
+                                        className="gpm-input-box"
+                                        value={jumlahAnggota}
+                                        onChange={(e) => setJumlahAnggota(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
+                                      />
+                                    </div>
+                                  </>
+                                )}
 
                                 <div className="gpm-input-field">
                                   <label>Nama Lengkap Anda <span style={{ color: '#e74c3c' }}>*</span></label>

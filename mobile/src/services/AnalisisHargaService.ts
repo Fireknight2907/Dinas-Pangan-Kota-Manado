@@ -339,11 +339,12 @@ export class AnalisisHargaMobileService {
     return { petaPasar, petaKomoditas };
   }
 
-  // Statistik badge kategori riil (menyesuaikan pasar terpilih & mode tampilan)
+  // Statistik badge kategori riil (menyesuaikan pasar terpilih, tanggal & mode tampilan)
   hitungStatistikKategori(
     daftarTerbit: ItemHargaPangan[] = [],
     pasarTerpilih: string[] = [],
-    modeTampilan: ModeTampilanHarga = 'ringkasan'
+    modeTampilan: ModeTampilanHarga = 'ringkasan',
+    tanggalFilter: string = 'Semua'
   ): StatistikKategori {
     const hitungan: StatistikKategori = {
       Semua: 0,
@@ -355,9 +356,11 @@ export class AnalisisHargaMobileService {
     };
 
     const setPasar = new Set((pasarTerpilih || []).map((p) => p.toLowerCase()));
+    const tglFilter = String(tanggalFilter || 'Semua').trim();
     const tersaring = (Array.isArray(daftarTerbit) ? daftarTerbit : []).filter((item) => {
-      if (setPasar.size === 0) return true;
-      return setPasar.has((item?.nama_pasar || '').toLowerCase());
+      if (setPasar.size > 0 && !setPasar.has((item?.nama_pasar || '').toLowerCase())) return false;
+      if (tglFilter !== 'Semua' && (item?.tanggal_penetapan || '').trim() !== tglFilter) return false;
+      return true;
     });
 
     if (modeTampilan === 'ringkasan' || modeTampilan === 'matriks') {
@@ -393,6 +396,7 @@ export class AnalisisHargaMobileService {
       pasarTerpilih?: string[];
       kelompokAktif?: string;
       varianAktif?: string;
+      tanggalFilter?: string;
       petaMaster?: Map<string, ItemMasterKomoditas> | null;
     } = {}
   ): ItemHargaPangan[] {
@@ -448,15 +452,17 @@ export class AnalisisHargaMobileService {
     opsi: {
       kategori?: string;
       pasarTerpilih?: string[];
+      tanggalFilter?: string;
       petaMaster?: Map<string, ItemMasterKomoditas> | null;
     } = {}
   ): KelompokIndukAnalisis[] {
-    const { kategori = 'Semua', pasarTerpilih = [], petaMaster = null } = opsi;
+    const { kategori = 'Semua', pasarTerpilih = [], tanggalFilter = 'Semua', petaMaster = null } = opsi;
     const baris = this.saringBarisDasar(daftarTerbit, {
       kategori,
       pasarTerpilih,
       kelompokAktif: 'Semua',
       varianAktif: 'Semua',
+      tanggalFilter,
       pencarian: '',
       petaMaster
     });
@@ -502,16 +508,18 @@ export class AnalisisHargaMobileService {
       pencarian?: string;
       pasarTerpilih?: string[];
       kelompokAktif?: string;
+      tanggalFilter?: string;
       petaMaster?: Map<string, ItemMasterKomoditas> | null;
     } = {}
   ): SubVarianAnalisis[] {
-    const { kategori = 'Semua', pencarian = '', pasarTerpilih = [], kelompokAktif = 'Semua', petaMaster = null } = opsi;
+    const { kategori = 'Semua', pencarian = '', pasarTerpilih = [], kelompokAktif = 'Semua', tanggalFilter = 'Semua', petaMaster = null } = opsi;
     const baris = this.saringBarisDasar(daftarTerbit, {
       kategori,
       pencarian,
       pasarTerpilih,
       kelompokAktif,
       varianAktif: 'Semua',
+      tanggalFilter,
       petaMaster
     });
 
@@ -574,6 +582,7 @@ export class AnalisisHargaMobileService {
       pasarTerpilih?: string[];
       kelompokAktif?: string;
       varianAktif?: string;
+      tanggalFilter?: string;
       urutkan?: JenisUrutanHarga;
       petaDelta?: PetaDeltaHarga | null;
       petaMaster?: Map<string, ItemMasterKomoditas> | null;
@@ -585,6 +594,7 @@ export class AnalisisHargaMobileService {
       pasarTerpilih = [],
       kelompokAktif = 'Semua',
       varianAktif = 'Semua',
+      tanggalFilter = 'Semua',
       urutkan = 'prioritas',
       petaDelta = null,
       petaMaster = null
@@ -595,6 +605,7 @@ export class AnalisisHargaMobileService {
       pasarTerpilih,
       kelompokAktif,
       varianAktif,
+      tanggalFilter,
       petaMaster
     });
     const grupMap = new Map<
@@ -723,6 +734,7 @@ export class AnalisisHargaMobileService {
       pasarTerpilih?: string[];
       kelompokAktif?: string;
       varianAktif?: string;
+      tanggalFilter?: string;
       urutkan?: JenisUrutanHarga;
       petaDelta?: PetaDeltaHarga | null;
       petaMaster?: Map<string, ItemMasterKomoditas> | null;
@@ -734,6 +746,7 @@ export class AnalisisHargaMobileService {
       pasarTerpilih = [],
       kelompokAktif = 'Semua',
       varianAktif = 'Semua',
+      tanggalFilter = 'Semua',
       urutkan = 'prioritas',
       petaDelta = null,
       petaMaster = null
@@ -744,6 +757,7 @@ export class AnalisisHargaMobileService {
       pasarTerpilih,
       kelompokAktif,
       varianAktif,
+      tanggalFilter,
       urutkan: 'prioritas',
       petaDelta,
       petaMaster
@@ -803,6 +817,7 @@ export class AnalisisHargaMobileService {
       pasarTerpilih?: string[];
       kelompokAktif?: string;
       varianAktif?: string;
+      tanggalFilter?: string;
       urutkan?: JenisUrutanHarga;
       petaDelta?: PetaDeltaHarga | null;
       petaMaster?: Map<string, ItemMasterKomoditas> | null;
@@ -814,6 +829,7 @@ export class AnalisisHargaMobileService {
       pasarTerpilih = [],
       kelompokAktif = 'Semua',
       varianAktif = 'Semua',
+      tanggalFilter = 'Semua',
       urutkan = 'prioritas',
       petaDelta = null,
       petaMaster = null
@@ -824,6 +840,7 @@ export class AnalisisHargaMobileService {
       pasarTerpilih,
       kelompokAktif,
       varianAktif,
+      tanggalFilter,
       urutkan,
       petaDelta,
       petaMaster

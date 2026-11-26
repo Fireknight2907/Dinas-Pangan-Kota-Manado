@@ -303,11 +303,20 @@ export class JadwalGPMService {
             throw new Error('Kuota maksimal antrean minimal 1 orang.');
         }
 
+        const modePendaftaranValid = ['online', 'keduanya', 'langsung'].includes(String(form.mode_pendaftaran || '').toLowerCase())
+            ? String(form.mode_pendaftaran).toLowerCase()
+            : 'online';
+        const modePenerimaValid = ['individu', 'keluarga'].includes(String(form.mode_penerima || '').toLowerCase())
+            ? String(form.mode_penerima).toLowerCase()
+            : 'individu';
+
         return {
             ...form,
             jam_mulai: jamMulai,
             jam_selesai: jamSelesai,
-            kuota_maksimal: kuota
+            kuota_maksimal: kuota,
+            mode_pendaftaran: modePendaftaranValid,
+            mode_penerima: modePenerimaValid
         };
     }
 }

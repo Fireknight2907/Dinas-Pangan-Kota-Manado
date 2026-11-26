@@ -168,16 +168,17 @@
         <ion-refresher slot="fixed" @ionRefresh="handleRefresh($event)">
           <ion-refresher-content pulling-text="Tarik ke bawah untuk memperbarui..." refreshing-spinner="crescent" refreshing-text="Menyinkronkan data dari web..."></ion-refresher-content>
         </ion-refresher>
-        <!-- SUB-VIEW A: FORMULIR PENETAPAN HARGA & DAFTAR (KHUSUS STAF / PENETAPAN) -->
+        <!-- SUB-VIEW A: PENGAJUAN HARGA PANGAN HYBRID (STAF / SUPERADMIN) -->
         <div v-if="menuPetugas === 'input-harga' || menuPetugas === 'tetapkan'" class="staff-view-container">
           <div class="staff-heading-area" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
             <div>
-              <h1 class="staff-view-title">Penetapan Harga Pangan</h1>
+              <h1 class="staff-view-title">Pengajuan Harga Pangan per Pasar</h1>
               <p class="staff-view-desc">
-                Tetapkan harga acuan untuk jenis pangan yang diawasi, lalu ajukan untuk verifikasi
+                Tambahkan komoditas satu per satu atau muat semua harga pasar untuk edit cepat, simpan Draft, lalu ajukan ke Kepala Bidang.
               </p>
             </div>
             <button
+              v-if="isKabid"
               type="button"
               class="btn-m-super-csv"
               style="background: #166534; color: #ffffff; padding: 6px 12px; font-size: 0.78rem; border-radius: 6px;"
@@ -187,141 +188,476 @@
             </button>
           </div>
 
-          <!-- Alert jika berhasil simpan -->
+          <!-- Alert jika berhasil simpan/ajukan -->
           <div v-if="pesanSuksesMobile" class="staff-success-banner">
             {{ pesanSuksesMobile }}
           </div>
 
-          <!-- FORMULIR PENETAPAN HARGA -->
-          <div class="staff-form-panel" id="formPenetapanPanel">
-            <div class="panel-title-row">
-              <span class="plus-icon-red">{{ idDiedit ? '✏️' : '+' }}</span>
-              <h3>{{ idDiedit ? 'Ubah Penetapan Harga' : 'Formulir Penetapan Harga' }}</h3>
-              <button v-if="idDiedit" type="button" class="btn-cancel-edit-pill" @click="batalEditItem">
-                ✕ Batal
+          <!-- SUB-TAB PENGAJUAN: BARU | DAFTAR | TERBIT -->
+          <div class="m-pengajuan-subtabs">
+            <button
+              type="button"
+              :class="['m-pengajuan-stab', subTabPengajuanStafMobile === 'baru' ? 'active' : '']"
+              @click="subTabPengajuanStafMobile = 'baru'"
+            >
+              {{
+                dokumenPengajuanDieditMobile?.id
+                  ? `✏️ Ubah ${pengajuanHargaMobileService.formatLabelStatus(dokumenPengajuanDieditMobile.status)}`
+                  : dokumenPengajuanDieditMobile?.status === 'Revisi'
+                    ? '🔄 Revisi'
+                    : '📝 Baru'
+              }}
+            </button>
+            <button
+              type="button"
+              :class="['m-pengajuan-stab', subTabPengajuanStafMobile === 'daftar' ? 'active' : '']"
+              @click="subTabPengajuanStafMobile = 'daftar'"
+            >
+              📋 Daftar ({{ daftarPengajuanHargaMobile.length }})
+            </button>
+            <button
+              type="button"
+              :class="['m-pengajuan-stab', subTabPengajuanStafMobile === 'terbit' ? 'active' : '']"
+              @click="subTabPengajuanStafMobile = 'terbit'"
+            >
+              🏷️ Terbit ({{ hargaAktifPasarDipilihMobile.length }})
+            </button>
+          </div>
+
+          <!-- ── TAB 1: PENGAJUAN BARU (FORM + DAFTAR HARGA PANGAN HYBRID) ── -->
+          <template v-if="subTabPengajuanStafMobile === 'baru'">
+            <!-- Banner Konteks Edit / Revisi -->
+            <div
+              v-if="dokumenPengajuanDieditMobile"
+              :class="[
+                'm-pengajuan-ctx-banner',
+                dokumenPengajuanDieditMobile.status === 'Revisi'
+                  ? 'is-reject'
+                  : dokumenPengajuanDieditMobile.status === 'Draft'
+                    ? 'is-draft'
+                    : 'is-pending'
+              ]"
+            >
+              <div>
+                <template v-if="dokumenPengajuanDieditMobile.status === 'Revisi'">
+                  <strong>🔄 Mode Revisi ({{ dokumenPengajuanDieditMobile.nama_pasar }}):</strong>
+                  {{ dokumenPengajuanDieditMobile.catatan_verifikasi || 'Perbaiki harga lalu Ajukan kembali.' }}
+                </template>
+                <template v-else-if="dokumenPengajuanDieditMobile.status === 'Draft'">
+                  <strong>📝 Membuka Draft ({{ dokumenPengajuanDieditMobile.nama_pasar }}):</strong> Ubah daftar lalu klik Simpan atau Ajukan.
+                </template>
+                <template v-else>
+                  <strong>⏳ Mengubah Pengajuan Aktif ({{ dokumenPengajuanDieditMobile.nama_pasar }}):</strong> Mengajukan ulang akan otomatis menimpa paket ini.
+                </template>
+              </div>
+              <button type="button" class="m-staf-mini-btn" style="margin-top: 6px;" @click="mulaiPengajuanBaruKosongMobile">
+                ➕ Buat Pengajuan Baru
               </button>
             </div>
 
-            <form @submit.prevent="simpanHargaPetugas('Terbit')" class="staff-entry-form">
-              <div class="s-field">
-                <label>1. Pilih Pasar Terlebih Dahulu *</label>
-                <select v-model="formPenetapan.nama_pasar" class="s-select-market" required>
-                  <option value="">-- Pilih Pasar --</option>
-                  <option v-for="p in Array.from(new Set([...daftarPasar, formPenetapan.nama_pasar].filter(Boolean)))" :key="p" :value="p">
-                    {{ p }}
-                  </option>
-                </select>
-              </div>
-
-              <div class="s-field">
-                <label>2. Komoditas / Varian Resmi (Master Admin)</label>
-                <select
-                  class="s-select-market"
-                  :value="formPenetapan.nama_komoditas"
-                  @change="pilihKomoditasMasterStaf(($event.target as HTMLSelectElement).value)"
-                  required
-                >
-                  <option value="">-- Pilih Komoditas / Varian Resmi --</option>
-                  <optgroup
-                    v-for="grup in grupKomoditasDropdownMobile"
-                    :key="grup.kelompok"
-                    :label="`🌾 ${grup.kelompok}`"
-                  >
-                    <option
-                      v-for="k in grup.items"
-                      :key="k.nama_komoditas"
-                      :value="k.nama_komoditas"
-                    >
-                      {{ k.nama_komoditas }} ({{ k.satuan_bawaan }})
-                    </option>
-                  </optgroup>
-                  <optgroup
-                    v-if="formPenetapan.nama_komoditas && !daftarMasterKomoditas.some(k => k.nama_komoditas.toLowerCase() === formPenetapan.nama_komoditas.toLowerCase())"
-                    label="Data Sebelumnya"
-                  >
-                    <option :value="formPenetapan.nama_komoditas">{{ formPenetapan.nama_komoditas }}</option>
-                  </optgroup>
-                </select>
-                <small style="color: #64748b; font-size: 0.7rem; margin-top: 3px; display: block;">
-                  Kategori ({{ formPenetapan.kategori }}) & satuan otomatis mengikuti Master Komoditas Admin.
-                </small>
-              </div>
-
-              <div class="s-row-two">
-                <div class="s-field">
-                  <label>Satuan Resmi (Per 1 • Master Admin)</label>
-                  <select v-model="formPenetapan.satuan" class="s-select-market" :disabled="Boolean(formPenetapan.nama_komoditas)">
-                    <option v-for="s in Array.from(new Set([...daftarSatuan, formPenetapan.satuan].filter(Boolean)))" :key="s" :value="s">
-                      {{ s }}
-                    </option>
-                  </select>
-                </div>
-                <div class="s-field">
-                  <label>Harga Acuan (Rp)</label>
-                  <input 
-                    type="text" 
-                    inputmode="numeric"
-                    pattern="[0-9]*"
-                    v-model="formPenetapan.harga" 
-                    @keydown="hanyaBolehAngka"
-                    @input="formPenetapan.harga = (($event.target as HTMLInputElement).value || '').replace(/[^0-9]/g, '')"
-                    required 
-                    placeholder="13500 (angka saja)" 
-                  />
-                  <small v-if="formPenetapan.harga" style="color: #059669; font-weight: 600; font-size: 0.72rem; margin-top: 2px; display: block;">
-                    Terformat: {{ formatRupiah(parseInt(formPenetapan.harga, 10)) }}
-                  </small>
-                </div>
-              </div>
-
-              <div class="s-button-stack">
-                <!-- Staf: 1 tombol harus verifikasi lewat Kepala Bidang (Ajukan Harga / Ajukan Perubahan Harga) -->
-                <button 
-                  v-if="!isKabid" 
-                  type="submit" 
-                  class="btn-publish-action" 
-                  style="background: #8b1e1e; color: #ffffff; width: 100%; justify-content: center; font-weight: 700; padding: 14px; border-radius: 8px; border: none; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;"
-                >
-                  <span>📨</span> {{ idDiedit ? 'Ajukan Perubahan Harga' : 'Ajukan Harga' }}
-                </button>
-                <button 
-                  v-if="!isKabid && idDiedit" 
-                  type="button" 
-                  class="btn-draft-action" 
-                  @click="batalEditItem" 
-                  style="background: #f1f5f9; color: #475569; width: 100%; justify-content: center; font-weight: 600; padding: 10px; margin-top: 6px; border-radius: 8px; border: 1px solid #cbd5e1;"
-                >
-                  ✕ Batal Ubah
-                </button>
-
-                <!-- Kabid / Admin: Memiliki tombol Terbitkan langsung dan Simpan Draf -->
-                <template v-if="isKabid">
-                  <button type="submit" class="btn-publish-action">
-                    <span>🚀</span> {{ idDiedit ? 'Simpan & Terbitkan ke Masyarakat' : 'Terbitkan ke Halaman Masyarakat' }}
-                  </button>
-                  <button type="button" class="btn-draft-action" @click="simpanHargaPetugas('Draft')">
-                    {{ idDiedit ? 'Simpan Perubahan Draf' : 'Simpan sebagai Draf' }}
-                  </button>
-                  <button 
-                    v-if="idDiedit" 
-                    type="button" 
-                    class="btn-draft-action" 
-                    @click="batalEditItem" 
-                    style="background: #f1f5f9; color: #475569; width: 100%; justify-content: center; font-weight: 600; padding: 10px; margin-top: 6px; border-radius: 8px; border: 1px solid #cbd5e1;"
-                  >
-                    ✕ Batal Ubah
-                  </button>
+            <!-- Banner Paket Aktif / Draft jika belum masuk mode edit -->
+            <div
+              v-else-if="pengajuanAktifPasarIniMobile || draftAktifPasarIniMobile"
+              class="m-pengajuan-ctx-banner is-pending"
+            >
+              <div>
+                <template v-if="pengajuanAktifPasarIniMobile">
+                  <strong>⏳ Ada Pengajuan Aktif ({{ pengajuanAktifPasarIniMobile.items?.length || 0 }} komoditas)</strong> untuk {{ formPenetapan.nama_pasar }} tanggal ini. Muat untuk ubah agar item lama terbawa.
+                </template>
+                <template v-else-if="draftAktifPasarIniMobile">
+                  <strong>📝 Ada Draft Tersimpan ({{ draftAktifPasarIniMobile.items?.length || 0 }} komoditas)</strong> untuk {{ formPenetapan.nama_pasar }} tanggal ini.
                 </template>
               </div>
-            </form>
-          </div>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;">
+                <button
+                  type="button"
+                  class="m-staf-mini-btn"
+                  @click="bukaDokumenUntukUbahMobile((pengajuanAktifPasarIniMobile || draftAktifPasarIniMobile)!)"
+                >
+                  📂 Muat untuk Ubah
+                </button>
+                <button
+                  v-if="pengajuanAktifPasarIniMobile"
+                  type="button"
+                  class="m-staf-mini-btn"
+                  style="color: #b91c1c; border-color: #fca5a5;"
+                  :disabled="sedangAjukanBatchMobile"
+                  @click="batalkanPengajuanBatchMobile(pengajuanAktifPasarIniMobile)"
+                >
+                  🗑️ Batalkan
+                </button>
+              </div>
+            </div>
 
-          <!-- DAFTAR HARGA SAAT INI (STACKED BELOW FORM SESUAI GAMBAR 3) -->
-          <div class="staff-list-panel">
-            <h3 class="panel-heading-text">Daftar Harga Saat Ini</h3>
+            <!-- PANEL 1: FORM PENGAJUAN BARU -->
+            <div class="staff-form-panel" id="formPenetapanPanel">
+              <div style="margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                <strong style="font-size: 0.94rem; color: #0f172a;">📝 Pengajuan Baru</strong>
+                <div style="font-size: 0.72rem; color: #64748b;">Pilih pasar &amp; komoditas, lalu klik Tambah ke Daftar Harga Pangan.</div>
+              </div>
+
+              <form @submit.prevent="tambahItemKeKeranjangMobile">
+                <div class="m-fast-header-grid">
+                  <div class="s-field">
+                    <label>Pilih Pasar *</label>
+                    <select
+                      :value="formPenetapan.nama_pasar"
+                      @change="gantiPasarPengajuanMobile(($event.target as HTMLSelectElement).value)"
+                      class="s-select-market"
+                      required
+                    >
+                      <option value="">-- Pilih Pasar --</option>
+                      <option v-for="p in Array.from(new Set([...daftarPasar, formPenetapan.nama_pasar].filter(Boolean)))" :key="p" :value="p">
+                        {{ p }}
+                      </option>
+                    </select>
+                  </div>
+                  <div class="s-field">
+                    <label>Tanggal *</label>
+                    <input type="date" v-model="tanggalPengambilanMobile" class="m-date-input" required />
+                  </div>
+                </div>
+
+                <div class="s-field" style="margin-bottom: 8px;">
+                  <label>Jenis Komoditas</label>
+                  <select
+                    v-model="jenisKomoditasTerpilihMobile"
+                    @change="formPenetapan.nama_komoditas = ''; if (jenisKomoditasTerpilihMobile !== 'Semua') formPenetapan.kategori = jenisKomoditasTerpilihMobile"
+                    class="s-select-market"
+                  >
+                    <option value="Semua">Semua Jenis Komoditas</option>
+                    <option v-for="kat in daftarJenisKomoditasMobile" :key="kat" :value="kat">{{ kat }}</option>
+                  </select>
+                </div>
+
+                <div class="s-field" style="margin-bottom: 8px;">
+                  <label>Nama Komoditas *</label>
+                  <select
+                    class="s-select-market"
+                    :value="formPenetapan.nama_komoditas"
+                    @change="pilihKomoditasMasterStafHybrid(($event.target as HTMLSelectElement).value)"
+                    required
+                  >
+                    <option value="">-- Pilih Nama Komoditas --</option>
+                    <optgroup v-for="grup in grupKomoditasTerfilterJenisMobile" :key="grup.kelompok" :label="`🌾 ${grup.kelompok}`">
+                      <option v-for="k in grup.items" :key="k.nama_komoditas" :value="k.nama_komoditas">
+                        {{ k.nama_komoditas }} ({{ formatSatuanTampil(k.satuan_bawaan) }})
+                      </option>
+                    </optgroup>
+                  </select>
+                </div>
+
+                <div class="s-row-two" style="margin-bottom: 8px;">
+                  <div class="s-field">
+                    <label>Satuan</label>
+                    <select v-model="formPenetapan.satuan" class="s-select-market">
+                      <option
+                        v-for="sat in Array.from(new Set([...daftarSatuan.map((s) => formatSatuanTampil(s)), formatSatuanTampil(formPenetapan.satuan)].filter(Boolean)))"
+                        :key="sat"
+                        :value="sat"
+                      >
+                        {{ sat }}
+                      </option>
+                    </select>
+                  </div>
+                  <div class="s-field">
+                    <label>Harga Pangan (Rp) *</label>
+                    <input
+                      type="text"
+                      inputmode="numeric"
+                      pattern="[0-9]*"
+                      v-model="formPenetapan.harga"
+                      @keydown="hanyaBolehAngka"
+                      @input="formPenetapan.harga = (($event.target as HTMLInputElement).value || '').replace(/[^0-9]/g, '')"
+                      required
+                      placeholder="15000"
+                    />
+                  </div>
+                </div>
+
+                <!-- Patokan Harga Terbit Saat Ini -->
+                <div v-if="formPenetapan.nama_komoditas && formPenetapan.nama_pasar" class="m-pengajuan-ref-box">
+                  <template v-if="hargaTerbitKomoditasDipilihMobile">
+                    <span>
+                      🏷️ Terbit saat ini: <strong>{{ formatRupiah(hargaTerbitKomoditasDipilihMobile.harga) }}</strong> / {{ formatSatuanTampil(hargaTerbitKomoditasDipilihMobile.satuan) }}
+                    </span>
+                    <button
+                      type="button"
+                      class="m-staf-mini-btn"
+                      @click="formPenetapan.harga = String(Math.round(Number(hargaTerbitKomoditasDipilihMobile.harga) || 0))"
+                    >
+                      Pakai Angka
+                    </button>
+                  </template>
+                  <span v-else>✨ Komoditas ini belum memiliki harga terbit di {{ formPenetapan.nama_pasar }}.</span>
+                </div>
+
+                <!-- 3 TOMBOL UTAMA PERSIS CONTOH DOSEN: TAMBAH | SIMPAN | AJUKAN -->
+                <div class="m-pengajuan-3btns">
+                  <button type="submit" class="m-btn-p-tambah" :disabled="sedangAjukanBatchMobile">
+                    ➕ Tambah
+                  </button>
+                  <button
+                    type="button"
+                    class="m-btn-p-simpan"
+                    :disabled="sedangAjukanBatchMobile || ringkasanKeranjangMobile.valid.length === 0"
+                    @click="simpanAtauAjukanPengajuanMobile('Draft')"
+                  >
+                    💾 Simpan
+                  </button>
+                  <button
+                    type="button"
+                    class="m-btn-p-ajukan"
+                    :disabled="sedangAjukanBatchMobile || ringkasanKeranjangMobile.valid.length === 0"
+                    @click="simpanAtauAjukanPengajuanMobile('Diajukan')"
+                  >
+                    {{ sedangAjukanBatchMobile ? '⏳...' : (sedangMenimpaDiajukanMobile ? '🔄 Timpa' : '📨 Ajukan') }}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- PANEL 2: DAFTAR HARGA PANGAN (KERANJANG + PINTASAN HYBRID MUAT SEMUA) -->
+            <div class="staff-list-panel">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+                <div>
+                  <strong style="font-size: 0.92rem; color: #0f172a;">📋 Daftar Harga Pangan ({{ keranjangPengajuanMobile.length }})</strong>
+                  <div style="font-size: 0.72rem; color: #64748b;">
+                    {{ formPenetapan.nama_pasar || 'Pilih pasar terlebih dahulu' }}
+                  </div>
+                </div>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                  <button
+                    type="button"
+                    class="m-btn-hybrid-load"
+                    :disabled="!formPenetapan.nama_pasar || sedangAjukanBatchMobile"
+                    @click="muatSemuaHargaPasarKeKeranjangMobile"
+                  >
+                    ⚡ Muat Harga Pasar
+                  </button>
+                  <button
+                    v-if="keranjangPengajuanMobile.length > 0 && ringkasanKeranjangMobile.berubah.length > 0 && ringkasanKeranjangMobile.berubah.length < keranjangPengajuanMobile.length"
+                    type="button"
+                    class="m-staf-mini-btn"
+                    @click="saringHanyaBerubahKeranjangMobile"
+                  >
+                    ✂️ Berubah ({{ ringkasanKeranjangMobile.berubah.length }})
+                  </button>
+                  <button
+                    v-if="keranjangPengajuanMobile.length > 0"
+                    type="button"
+                    class="m-staf-mini-btn"
+                    style="color: #b91c1c; border-color: #fca5a5;"
+                    @click="kosongkanKeranjangMobile"
+                  >
+                    🗑️ Kosongkan
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="keranjangPengajuanMobile.length > 4" class="m-fast-search-wrap">
+                <input
+                  type="text"
+                  v-model="cariKeranjangStafMobile"
+                  placeholder="🔍 Filter isi Daftar Harga Pangan..."
+                  class="m-fast-search-input"
+                />
+              </div>
+
+              <div v-if="keranjangPengajuanMobile.length === 0" class="m-empty-box">
+                Daftar Harga Pangan masih kosong. Tambahkan komoditas lewat tombol <strong>➕ Tambah</strong> di atas, atau ketuk <strong>⚡ Muat Harga Pasar</strong> untuk langsung memuat semua komoditas pasar.
+              </div>
+              <div v-else class="m-fast-rows-list">
+                <div
+                  v-for="row in keranjangTerfilterMobile"
+                  :key="row.tempId"
+                  :class="['m-fast-row-card', cekBarisBerubahMobile(row) ? 'is-edited' : '']"
+                >
+                  <div class="m-fast-row-top">
+                    <div>
+                      <strong class="m-fast-row-name">{{ row.nama_komoditas }}</strong>
+                      <div class="m-fast-row-meta">{{ row.kategori }} · {{ row.satuan }}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span :class="['m-fast-diff-badge', hitungBadgeSelisihMobile(row).kelas]">
+                        {{ hitungBadgeSelisihMobile(row).teks }}
+                      </span>
+                      <button
+                        type="button"
+                        class="m-btn-row-hapus"
+                        @click="hapusItemKeranjangMobile(row.tempId)"
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  </div>
+                  <div class="m-fast-row-bottom">
+                    <div class="m-fast-old-col">
+                      <span class="m-fast-old-lbl">Harga Terbit</span>
+                      <strong>{{ row.harga_lama !== null ? formatRupiah(row.harga_lama) : 'Baru' }}</strong>
+                    </div>
+                    <div class="m-fast-input-col">
+                      <span class="m-fast-old-lbl">Harga Pangan (Rp)</span>
+                      <input
+                        type="text"
+                        inputmode="numeric"
+                        pattern="[0-9]*"
+                        placeholder="Isi angka..."
+                        class="m-fast-num-input"
+                        :value="row.harga_usulan"
+                        @keydown="hanyaBolehAngka"
+                        @input="ubahHargaItemKeranjangMobile(row.tempId, ($event.target as HTMLInputElement).value)"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="m-fast-submit-panel">
+                <div class="m-fast-safe-note">
+                  🛡️ {{ ringkasanKeranjangMobile.valid.length }} komoditas siap diproses. Harga publik tetap tayang sampai disetujui Kabid.
+                </div>
+                <div class="m-fast-submit-btns">
+                  <button
+                    type="button"
+                    class="m-btn-p-simpan"
+                    style="padding: 10px 12px;"
+                    :disabled="sedangAjukanBatchMobile || ringkasanKeranjangMobile.valid.length === 0"
+                    @click="simpanAtauAjukanPengajuanMobile('Draft')"
+                  >
+                    💾 Simpan Draft
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-publish-action"
+                    style="flex: 1; justify-content: center;"
+                    :disabled="sedangAjukanBatchMobile || ringkasanKeranjangMobile.valid.length === 0"
+                    @click="simpanAtauAjukanPengajuanMobile('Diajukan')"
+                  >
+                    {{
+                      sedangAjukanBatchMobile
+                        ? '⏳ Memproses...'
+                        : sedangMenimpaDiajukanMobile
+                          ? `🔄 Perbarui & Ajukan (${ringkasanKeranjangMobile.valid.length})`
+                          : `📨 Ajukan (${ringkasanKeranjangMobile.valid.length})`
+                    }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- ── TAB 2: DAFTAR PENGAJUAN (PERSIS TABEL DOSEN TANPA KODE PASAR) ── -->
+          <div v-else-if="subTabPengajuanStafMobile === 'daftar'" class="staff-list-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px;">
+              <strong style="font-size: 0.94rem; color: #0f172a;">📋 Daftar Pengajuan</strong>
+              <button type="button" class="m-staf-mini-btn" style="background: #8b1e1e; color: #fff; border-color: #8b1e1e;" @click="mulaiPengajuanBaruKosongMobile">
+                ➕ Pengajuan Baru
+              </button>
+            </div>
+
+            <div class="m-fast-pills-row">
+              <button
+                type="button"
+                :class="['m-fast-pill', filterStatusPengajuanStafMobile === 'semua' ? 'active' : '']"
+                @click="filterStatusPengajuanStafMobile = 'semua'"
+              >
+                Semua ({{ daftarPengajuanHargaMobile.length }})
+              </button>
+              <button
+                type="button"
+                :class="['m-fast-pill', filterStatusPengajuanStafMobile === 'Draft' ? 'active' : '']"
+                @click="filterStatusPengajuanStafMobile = 'Draft'"
+              >
+                Draft ({{ daftarPengajuanHargaMobile.filter((x) => x.status === 'Draft').length }})
+              </button>
+              <button
+                type="button"
+                :class="['m-fast-pill', filterStatusPengajuanStafMobile === 'Diajukan' ? 'active' : '']"
+                @click="filterStatusPengajuanStafMobile = 'Diajukan'"
+              >
+                Diajukan ({{ daftarPengajuanHargaMobile.filter((x) => x.status === 'Diajukan').length }})
+              </button>
+              <button
+                type="button"
+                :class="['m-fast-pill', filterStatusPengajuanStafMobile === 'Diverifikasi' ? 'active' : '']"
+                @click="filterStatusPengajuanStafMobile = 'Diverifikasi'"
+              >
+                Disetujui ({{ daftarPengajuanHargaMobile.filter((x) => x.status === 'Diverifikasi').length }})
+              </button>
+              <button
+                type="button"
+                :class="['m-fast-pill', filterStatusPengajuanStafMobile === 'Ditolak' ? 'active' : '']"
+                @click="filterStatusPengajuanStafMobile = 'Ditolak'"
+              >
+                Ditolak ({{ daftarPengajuanHargaMobile.filter((x) => x.status === 'Ditolak').length }})
+              </button>
+            </div>
 
             <div class="prices-items-stack">
-              <div v-for="item in semuaKomoditas" :key="item.id" class="price-stack-row">
+              <div v-if="daftarPengajuanTerfilterMobile.length === 0" class="m-empty-box">
+                {{ belumMigrasiPengajuanMobile ? 'Menunggu migrasi tabel pengajuan_harga.' : 'Belum ada dokumen pengajuan untuk status ini.' }}
+              </div>
+              <div v-else v-for="p in daftarPengajuanTerfilterMobile" :key="p.id" class="m-staf-sub-card">
+                <div class="m-staf-sub-top">
+                  <strong>📍 {{ p.nama_pasar }}</strong>
+                  <span :class="['m-staf-batch-pill', 'st-' + String(p.status || 'Diajukan').toLowerCase()]">
+                    {{ pengajuanHargaMobileService.formatLabelStatus(p.status) }}
+                  </span>
+                </div>
+                <div class="m-staf-sub-meta">📅 {{ p.tanggal_tampil }} · {{ p.items?.length || 0 }} komoditas</div>
+                <div v-if="p.catatan_verifikasi" :class="['m-staf-sub-note', p.status === 'Ditolak' ? 'is-reject' : '']">
+                  💬 {{ p.catatan_verifikasi }}
+                </div>
+                <div class="m-staf-sub-btns">
+                  <template v-if="p.status === 'Diverifikasi'">
+                    <button type="button" class="m-staf-mini-btn" @click="detailPengajuanBatchMobile = p">👁️ Lihat</button>
+                    <button type="button" class="m-staf-mini-btn" @click="bukaDokumenUntukUbahMobile(p, true)">📋 Salin ke Baru</button>
+                  </template>
+                  <template v-else>
+                    <button
+                      type="button"
+                      :class="['m-staf-mini-btn', p.status === 'Ditolak' ? 'is-revisi' : '']"
+                      @click="bukaDokumenUntukUbahMobile(p)"
+                    >
+                      {{ p.status === 'Ditolak' ? '🔄 Lihat / Revisi' : '✏️ Lihat / Ubah' }}
+                    </button>
+                    <button
+                      v-if="p.status === 'Draft' || p.status === 'Diajukan'"
+                      type="button"
+                      class="m-staf-mini-btn"
+                      style="color: #b91c1c; border-color: #fca5a5;"
+                      :disabled="sedangAjukanBatchMobile"
+                      @click="batalkanPengajuanBatchMobile(p)"
+                    >
+                      {{ p.status === 'Draft' ? '🗑️ Hapus' : '🗑️ Batalkan' }}
+                    </button>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── TAB 3: REFERENSI HARGA TERBIT PASAR INI ── -->
+          <div v-else class="staff-list-panel">
+            <div class="s-field" style="margin-bottom: 10px;">
+              <label>Pilih Pasar Pantauan</label>
+              <select
+                :value="formPenetapan.nama_pasar"
+                @change="gantiPasarPengajuanMobile(($event.target as HTMLSelectElement).value)"
+                class="s-select-market"
+              >
+                <option value="">-- Pilih Pasar --</option>
+                <option v-for="p in Array.from(new Set([...daftarPasar, formPenetapan.nama_pasar].filter(Boolean)))" :key="p" :value="p">
+                  {{ p }}
+                </option>
+              </select>
+            </div>
+            <div class="prices-items-stack">
+              <div v-if="hargaAktifPasarDipilihMobile.length === 0" class="m-empty-box">
+                Belum ada komoditas terbit untuk {{ formPenetapan.nama_pasar || 'pasar ini' }}.
+              </div>
+              <div v-for="item in hargaAktifPasarDipilihMobile" :key="item.id" class="price-stack-row">
                 <div class="price-info-left">
                   <div class="item-main-title">
                     <strong>{{ item.nama_komoditas }}</strong>
@@ -331,39 +667,29 @@
                     {{ item.nama_pasar }} · {{ item.tanggal_penetapan || '-' }}
                   </div>
                 </div>
-
                 <div class="price-info-right">
                   <div class="price-nominal-red">{{ formatRupiah(item.harga) }}</div>
                   <div class="item-actions-row">
-                    <!-- Status Badge: Kabid bisa toggle status (Setujui/Tarik), Staf hanya melihat status -->
-                    <span 
-                      v-if="isKabid"
-                      :class="['status-badge-tag', (item.status || '').toLowerCase() === 'draft' ? 'is-draft' : 'is-terbit']"
-                      @click="ubahStatusItem(item)"
-                      :title="(item.status || '').toLowerCase() === 'draft' ? 'Klik untuk Setujui & Terbitkan' : 'Klik untuk Tarik ke Draf'"
-                      style="cursor: pointer;"
+                    <button
+                      type="button"
+                      class="btn-mini-action edit"
+                      @click.stop="
+                        jenisKomoditasTerpilihMobile = item.kategori || 'Semua';
+                        formPenetapan.nama_pasar = item.nama_pasar;
+                        formPenetapan.nama_komoditas = item.nama_komoditas;
+                        formPenetapan.kategori = item.kategori || 'Bahan Pokok';
+                        formPenetapan.satuan = formatSatuanTampil(item.satuan);
+                        formPenetapan.harga = String(Math.round(Number(item.harga) || 0));
+                        subTabPengajuanStafMobile = 'baru';
+                      "
                     >
-                      {{ (item.status || '').toLowerCase() === 'draft' ? '⏳ Setujui' : '↩️ Tarik' }}
-                    </span>
-                    <span 
-                      v-else
-                      :class="['status-badge-tag', (item.status || '').toLowerCase() === 'draft' ? 'is-draft' : 'is-terbit']"
-                      style="cursor: default;"
-                    >
-                      {{ (item.status || '').toLowerCase() === 'draft' ? 'Draf' : (item.status || 'Terbit') }}
-                    </span>
-
-                    <!-- Tombol Edit: BISA diklik oleh Staf maupun Kabid untuk semua data (baik Draft maupun Terbit) -->
-                    <button type="button" class="btn-mini-action edit" @click.stop="mulaiEditItem(item)" title="Edit harga dan keterangan">
-                      ✏️ Edit
+                      ✏️ Ajukan Ubah
                     </button>
-
-                    <!-- Tombol Hapus: HANYA untuk Kabid / Admin -->
-                    <button 
-                      v-if="isKabid" 
-                      type="button" 
-                      class="btn-mini-action delete" 
-                      @click.stop="hapusItem(item)" 
+                    <button
+                      v-if="isKabid"
+                      type="button"
+                      class="btn-mini-action delete"
+                      @click.stop="hapusItem(item)"
                       title="Hapus komoditas"
                     >
                       🗑️
@@ -373,11 +699,202 @@
               </div>
             </div>
           </div>
-
         </div>
 
-        <!-- SUB-VIEW B: DASHBOARD STATS & BERANDA PERAN RESMI -->
+        <!-- SUB-VIEW B: DASHBOARD OPERASIONAL STAF & BERANDA PERAN LAINNYA -->
         <div v-if="menuPetugas === 'dashboard'" class="staff-view-container">
+          <!-- BERANDA OPERASIONAL KHUSUS STAF -->
+          <template v-if="peranAktif === 'Staf'">
+            <div class="m-staf-hero-box">
+              <span class="m-staf-date-chip">📅 Operasional · {{ ringkasanBerandaStafMobile.hariIniID }}</span>
+              <h2 class="m-staf-hero-title">Halo, {{ userAktif?.nama || 'Staf Pangan' }}</h2>
+              <p class="m-staf-hero-desc">
+                Pantau progres survey harga per pasar hari ini, revisi dari Kepala Bidang, dan agenda pemindaian QR GPM.
+              </p>
+              <div class="m-staf-hero-btns">
+                <button
+                  type="button"
+                  class="m-staf-hero-btn primary"
+                  @click="bukaInputCepatPasarMobile(ringkasanBerandaStafMobile.statusPerPasar[0]?.nama_pasar || daftarPasar[0] || '')"
+                >
+                  📝 Input / Edit Harga
+                </button>
+                <button
+                  type="button"
+                  class="m-staf-hero-btn secondary"
+                  @click="menuPetugas = 'kelola-gpm'; subMenuPetugasGPM = 'scan'"
+                >
+                  📷 Pindai QR GPM
+                </button>
+              </div>
+            </div>
+
+            <div class="staff-stats-grid">
+              <div class="stat-box-card">
+                <div class="stat-val">{{ ringkasanBerandaStafMobile.kpi.pasarSelesaiHariIni }}/{{ ringkasanBerandaStafMobile.kpi.totalPasar }}</div>
+                <div class="stat-lbl">Survey Hari Ini</div>
+                <div class="stat-sub">{{ ringkasanBerandaStafMobile.kpi.persenProgresPasar }}% pasar selesai</div>
+              </div>
+              <div class="stat-box-card" @click="subTabPengajuanStafMobile = 'daftar'; menuPetugas = 'input-harga'" style="cursor: pointer;">
+                <div class="stat-val" :style="{ color: ringkasanBerandaStafMobile.kpi.pengajuanDitolak > 0 ? '#dc2626' : '' }">
+                  {{ ringkasanBerandaStafMobile.kpi.pengajuanMenunggu }}
+                </div>
+                <div class="stat-lbl">Menunggu Kabid</div>
+                <div class="stat-sub">
+                  {{ ringkasanBerandaStafMobile.kpi.pengajuanDitolak > 0 ? `⚠️ ${ringkasanBerandaStafMobile.kpi.pengajuanDitolak} ditolak` : '0 ditolak' }}
+                  {{ ringkasanBerandaStafMobile.kpi.pengajuanDraft > 0 ? ` · 📝 ${ringkasanBerandaStafMobile.kpi.pengajuanDraft} draft` : '' }}
+                </div>
+              </div>
+              <div class="stat-box-card">
+                <div class="stat-val">{{ ringkasanBerandaStafMobile.kpi.totalTerbit }}</div>
+                <div class="stat-lbl">Harga Terbit</div>
+                <div class="stat-sub">dari {{ ringkasanBerandaStafMobile.kpi.totalMasterKom }} master</div>
+              </div>
+              <div class="stat-box-card" @click="menuPetugas = 'kelola-gpm'; subMenuPetugasGPM = 'scan'" style="cursor: pointer;">
+                <div class="stat-val">{{ ringkasanBerandaStafMobile.kpi.jumlahGPMAktif }}</div>
+                <div class="stat-lbl">GPM Aktif</div>
+                <div class="stat-sub">{{ ringkasanBerandaStafMobile.kpi.totalMenungguScanGPM }} tiket menunggu</div>
+              </div>
+            </div>
+
+            <!-- Checklist Progres Survey Harga per Pasar -->
+            <div class="m-staf-ops-section">
+              <div class="m-staf-sec-head">
+                <div>
+                  <h3>📋 Progres Survey per Pasar Hari Ini</h3>
+                  <small>{{ ringkasanBerandaStafMobile.kpi.pasarPerluSurvey }} pasar belum diperbarui hari ini</small>
+                </div>
+                <span class="m-staf-pct-pill">{{ ringkasanBerandaStafMobile.kpi.persenProgresPasar }}%</span>
+              </div>
+
+              <div class="m-staf-bar-track">
+                <div class="m-staf-bar-fill" :style="{ width: ringkasanBerandaStafMobile.kpi.persenProgresPasar + '%' }"></div>
+              </div>
+
+              <div v-if="ringkasanBerandaStafMobile.statusPerPasar.length === 0" class="m-empty-box" style="margin-top: 10px;">
+                Belum ada pasar di Master Pasar.
+              </div>
+              <div v-else class="m-staf-market-list">
+                <div
+                  v-for="pasar in ringkasanBerandaStafMobile.statusPerPasar"
+                  :key="pasar.nama_pasar"
+                  :class="['m-staf-market-card', 'st-' + pasar.kodeStatus]"
+                >
+                  <div class="m-staf-mc-top">
+                    <strong>📍 {{ pasar.nama_pasar }}</strong>
+                    <span :class="['m-staf-status-tag', 'st-' + pasar.kodeStatus]">{{ pasar.labelStatus }}</span>
+                  </div>
+                  <div class="m-staf-mc-meta">
+                    Kec. {{ pasar.kecamatan }} · {{ pasar.jumlahTerbit }}/{{ pasar.totalMasterKom || pasar.jumlahTerbit }} komoditas · Update: {{ pasar.tanggalTerakhir }}
+                  </div>
+                  <div v-if="pasar.catatanPenolakanTerbaru" class="m-staf-sub-note is-reject">
+                    💬 Catatan Kabid: {{ pasar.catatanPenolakanTerbaru }}
+                  </div>
+                  <button
+                    type="button"
+                    :class="['m-staf-mc-btn', pasar.kodeStatus === 'revisi' ? 'is-urgent' : '']"
+                    @click="bukaInputCepatPasarMobile(pasar.nama_pasar)"
+                  >
+                    {{ pasar.kodeStatus === 'revisi' ? '🔄 Perbaiki Harga Pasar Ini →' : '✏️ Input / Edit Harga Pasar →' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Status Pengajuan Harga Terbaru -->
+            <div class="m-staf-ops-section">
+              <div class="m-staf-sec-head">
+                <div>
+                  <h3>📨 Status Pengajuan Harga Terbaru</h3>
+                  <small>Hasil verifikasi Kepala Bidang atas batch pasar Anda</small>
+                </div>
+              </div>
+
+              <div v-if="ringkasanBerandaStafMobile.pengajuanTerbaru.length === 0" class="m-empty-box">
+                Belum ada pengajuan harga batch tercatat.
+              </div>
+              <div v-else class="m-staf-market-list">
+                <div v-for="p in ringkasanBerandaStafMobile.pengajuanTerbaru" :key="p.id" class="m-staf-sub-card">
+                  <div class="m-staf-sub-top">
+                    <strong>📍 {{ p.nama_pasar }}</strong>
+                    <span :class="['m-staf-batch-pill', 'st-' + String(p.status || 'Diajukan').toLowerCase()]">
+                      {{ pengajuanHargaMobileService.formatLabelStatus(p.status) }}
+                    </span>
+                  </div>
+                  <div class="m-staf-sub-meta">📅 {{ p.tanggal_tampil }} · {{ p.items?.length || 0 }} komoditas</div>
+                  <div v-if="p.catatan_verifikasi" :class="['m-staf-sub-note', p.status === 'Ditolak' ? 'is-reject' : '']">
+                    💬 {{ p.catatan_verifikasi }}
+                  </div>
+                  <div class="m-staf-sub-btns">
+                    <button
+                      v-if="p.status === 'Diverifikasi'"
+                      type="button"
+                      class="m-staf-mini-btn"
+                      @click="detailPengajuanBatchMobile = p"
+                    >
+                      👁️ Lihat
+                    </button>
+                    <button
+                      v-else
+                      type="button"
+                      :class="['m-staf-mini-btn', p.status === 'Ditolak' ? 'is-revisi' : '']"
+                      @click="bukaDokumenUntukUbahMobile(p)"
+                    >
+                      {{ p.status === 'Ditolak' ? '🔄 Revisi' : '✏️ Lihat / Ubah' }}
+                    </button>
+                    <button
+                      v-if="p.status === 'Diajukan' || p.status === 'Draft'"
+                      type="button"
+                      class="m-staf-mini-btn"
+                      style="color: #b91c1c; border-color: #fca5a5;"
+                      :disabled="sedangAjukanBatchMobile"
+                      @click="batalkanPengajuanBatchMobile(p)"
+                    >
+                      {{ p.status === 'Draft' ? '🗑️ Hapus' : '🗑️ Batalkan' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Agenda GPM Terdekat -->
+            <div class="m-staf-ops-section">
+              <div class="m-staf-sec-head">
+                <div>
+                  <h3>🎟️ Agenda Tugas GPM Terdekat</h3>
+                  <small>Lokasi aktif siap layanan pemindaian QR</small>
+                </div>
+              </div>
+              <div v-if="ringkasanBerandaStafMobile.agendaGPMTerdekat.length === 0" class="m-empty-box">
+                Tidak ada jadwal GPM aktif saat ini.
+              </div>
+              <div v-else class="m-staf-market-list">
+                <div v-for="acara in ringkasanBerandaStafMobile.agendaGPMTerdekat" :key="acara.id" class="m-staf-sub-card">
+                  <div class="m-staf-sub-top">
+                    <strong>{{ acara.nama_acara }}</strong>
+                    <span class="m-staf-batch-pill st-diverifikasi">{{ acara.statusOperasional.label }}</span>
+                  </div>
+                  <div class="m-staf-sub-meta">
+                    📍 {{ acara.lokasi }} · 📅 {{ acara.tanggal }} ({{ acara.jam_mulai }}–{{ acara.jam_selesai }} WITA)
+                  </div>
+                  <div class="m-staf-sub-meta">
+                    Terdaftar: <strong>{{ acara.statusOperasional.terisi }}/{{ acara.statusOperasional.kuotaMaks }}</strong> · Hadir: <strong>{{ acara.statusOperasional.totalHadir }}</strong>
+                  </div>
+                  <button
+                    type="button"
+                    class="m-staf-mc-btn"
+                    style="background: #8b1e1e; margin-top: 8px;"
+                    @click="menuPetugas = 'kelola-gpm'; subMenuPetugasGPM = 'scan'"
+                  >
+                    📷 Buka Pemindai QR →
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- BERANDA PERAN LAINNYA (ADMIN, KABID, KADIS, SUPERADMIN) -->
+          <template v-else>
           <!-- Role Welcome Hero Banner -->
           <div class="m-role-banner" :class="'banner-' + peranAktif.toLowerCase()">
             <div class="m-role-banner-avatar">
@@ -398,9 +915,9 @@
               <div class="stat-sub">aktif di website</div>
             </div>
             <div class="stat-box-card">
-              <div class="stat-val">{{ statsDashboard.draft_harga }}</div>
-              <div class="stat-lbl">Draf Harga</div>
-              <div class="stat-sub">menunggu persetujuan</div>
+              <div class="stat-val">{{ daftarPengajuanDiajukanMobile.length + statsDashboard.draft_harga }}</div>
+              <div class="stat-lbl">Menunggu Verif</div>
+              <div class="stat-sub">{{ daftarPengajuanDiajukanMobile.length }} paket · {{ statsDashboard.draft_harga }} draf</div>
             </div>
             <div class="stat-box-card">
               <div class="stat-val">{{ statsDashboard.gpm_terjadwal }}</div>
@@ -418,13 +935,13 @@
           <div class="m-qa-panel">
             <h3 class="m-qa-title">Akses Cepat Modul Kedinasan:</h3>
             <div class="m-qa-grid">
-              <!-- Menu Cepat Khusus Staf -->
+              <!-- Menu Cepat Khusus Staf / Superadmin -->
               <template v-if="isStaf">
                 <button type="button" class="m-qa-card" @click="menuPetugas = 'input-harga'">
                   <span class="m-qa-icon">📝</span>
                   <div class="m-qa-detail">
-                    <strong>Masukan Data Pangan</strong>
-                    <small>Input harga komoditas pangan</small>
+                    <strong>Input &amp; Edit Harga Cepat</strong>
+                    <small>Update harga komoditas per pasar</small>
                   </div>
                 </button>
                 <button type="button" class="m-qa-card" @click="menuPetugas = 'kelola-gpm'; subMenuPetugasGPM = 'scan'">
@@ -442,21 +959,21 @@
                   <span class="m-qa-icon">✅</span>
                   <div class="m-qa-detail">
                     <strong>Verifikasi Harga Pangan</strong>
-                    <small>{{ statsDashboard.draft_harga }} draf perlu verifikasi</small>
+                    <small>{{ daftarPengajuanDiajukanMobile.length }} paket · {{ statsDashboard.draft_harga }} draf</small>
                   </div>
                 </button>
                 <button type="button" class="m-qa-card" @click="menuPetugas = 'laporan'">
                   <span class="m-qa-icon">📑</span>
                   <div class="m-qa-detail">
                     <strong>Laporan Bidang Pangan</strong>
-                    <small>Rekap harga & unduh CSV</small>
+                    <small>Rekap harga &amp; unduh CSV</small>
                   </div>
                 </button>
                 <button type="button" class="m-qa-card" @click="menuPetugas = 'kelola-gpm'">
                   <span class="m-qa-icon">🎟️</span>
                   <div class="m-qa-detail">
                     <strong>Kelola Acara GPM</strong>
-                    <small>Selesaikan & arsipkan acara</small>
+                    <small>Selesaikan &amp; arsipkan acara</small>
                   </div>
                 </button>
               </template>
@@ -467,13 +984,13 @@
                   <span class="m-qa-icon">👥</span>
                   <div class="m-qa-detail">
                     <strong>Kelola Pengguna Sistem</strong>
-                    <small>Atur peran & reset kata sandi</small>
+                    <small>Atur peran &amp; reset kata sandi</small>
                   </div>
                 </button>
                 <button type="button" class="m-qa-card" @click="menuPetugas = 'master-data'">
                   <span class="m-qa-icon">🏛️</span>
                   <div class="m-qa-detail">
-                    <strong>Master Pasar & Wilayah</strong>
+                    <strong>Master Pasar &amp; Wilayah</strong>
                     <small>Kelola pasar dan kecamatan</small>
                   </div>
                 </button>
@@ -481,7 +998,7 @@
                   <span class="m-qa-icon">🔍</span>
                   <div class="m-qa-detail">
                     <strong>Supervisi Menu Cek GPM</strong>
-                    <small>Pantau kuota & pendaftar</small>
+                    <small>Pantau kuota &amp; pendaftar</small>
                   </div>
                 </button>
               </template>
@@ -505,6 +1022,7 @@
               </template>
             </div>
           </div>
+          </template>
         </div>
 
         <!-- SUB-VIEW C: PENGELOLAAN GPM & SCAN QR CODE OLEH PETUGAS -->
@@ -691,14 +1209,27 @@
                 </div>
               </div>
               <div v-else-if="hasilScanPetugas.status_kehadiran === 'Hadir'" class="m-verified-box">
-                <div>✅ Pendaftar telah diverifikasi hadir di lokasi GPM.</div>
-                <button
-                  type="button"
-                  class="btn-m-cancel-hadir"
-                  @click="verifikasiKehadiranMobile('Menunggu')"
-                >
-                  ↩ Batalkan Kehadiran
-                </button>
+                <div>
+                  ✅ Pendaftar telah diverifikasi hadir di lokasi GPM ({{ hasilScanPetugas.status_pengambilan === 'Sudah Diambil' ? '📦 Pangan Sudah Diambil' : '⏳ Belum Mengambil Pangan' }}).
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+                  <button
+                    v-if="hasilScanPetugas.status_pengambilan !== 'Sudah Diambil'"
+                    type="button"
+                    class="btn-m-verify-confirm"
+                    style="background: #0369a1; flex: 1; padding: 8px 10px; font-size: 0.78rem;"
+                    @click="konfirmasiPengambilanPanganMobile(hasilScanPetugas.id, true)"
+                  >
+                    📦 Konfirmasi Ambil Pangan
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-m-cancel-hadir"
+                    @click="verifikasiKehadiranMobile('Menunggu')"
+                  >
+                    ↩ Batalkan Kehadiran
+                  </button>
+                </div>
               </div>
               <button 
                 v-else 
@@ -843,6 +1374,12 @@
                   <span :class="['m-status-tag', item.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu']">
                     {{ item.status_kehadiran === 'Hadir' ? '✓ Hadir' : 'Menunggu' }}
                   </span>
+                  <span
+                    v-if="item.status_kehadiran === 'Hadir'"
+                    :style="{ fontSize: '0.68rem', fontWeight: 700, color: item.status_pengambilan === 'Sudah Diambil' ? '#15803d' : '#b45309' }"
+                  >
+                    {{ item.status_pengambilan === 'Sudah Diambil' ? '📦 Diambil' : '⏳ Belum Diambil' }}
+                  </span>
                   <button
                     v-if="!statusAcaraDipilihMobile?.sudahBerakhir"
                     type="button"
@@ -850,6 +1387,15 @@
                     @click="ubahStatusPendaftarDiListMobile(item)"
                   >
                     {{ item.status_kehadiran === 'Hadir' ? '↩ Batal' : '✓ Hadirkan' }}
+                  </button>
+                  <button
+                    v-if="!statusAcaraDipilihMobile?.sudahBerakhir && item.status_kehadiran === 'Hadir' && item.status_pengambilan !== 'Sudah Diambil'"
+                    type="button"
+                    class="btn-m-toggle-hadir"
+                    style="background: #0369a1; color: #ffffff; border-color: #0369a1;"
+                    @click="konfirmasiPengambilanPanganMobile(item.id, false)"
+                  >
+                    📦 Ambil Pangan
                   </button>
                 </div>
               </div>
@@ -905,12 +1451,12 @@
                 ⏱️ Acara otomatis terkunci & berpindah ke Riwayat pada pukul <strong>{{ formGPMBaru.jam_selesai || '14:00' }} WITA</strong>.
               </div>
 
-              <!-- Preset Titik Peta Manado + Koordinat GPS -->
-              <div class="s-field">
-                <label>Preset Titik Peta Kota Manado (Klik untuk isi Koordinat)</label>
+              <!-- Titik Peta Pasar Resmi dari Master Pasar Supabase (0% Preset Dummy) -->
+              <div v-if="presetLokasiPasarMobile.length > 0" class="s-field">
+                <label>Titik Lokasi Pasar Resmi (Master Data Supabase)</label>
                 <div class="m-preset-loc-chips">
                   <button
-                    v-for="preset in PRESET_LOKASI_MANADO_MOBILE"
+                    v-for="preset in presetLokasiPasarMobile"
                     :key="preset.label"
                     type="button"
                     class="m-preset-loc-btn"
@@ -999,6 +1545,24 @@
                   </button>
                 </div>
               </div>
+              <div class="s-row-two">
+                <div class="s-field">
+                  <label>Mode Pendaftaran Warga</label>
+                  <select v-model="formGPMBaru.mode_pendaftaran" class="s-select-market">
+                    <option value="online">🌐 Online + Lokasi</option>
+                    <option value="keduanya">🔄 Online &amp; Langsung</option>
+                    <option value="langsung">📍 Datang Langsung Saja</option>
+                  </select>
+                </div>
+                <div class="s-field">
+                  <label>Mekanisme Penerima</label>
+                  <select v-model="formGPMBaru.mode_penerima" class="s-select-market">
+                    <option value="individu">👤 Per Individu (1 NIK)</option>
+                    <option value="keluarga">👨‍👩‍👧‍👦 Per Keluarga (1 KK)</option>
+                  </select>
+                </div>
+              </div>
+
               <button type="submit" class="btn-publish-action" :disabled="sedangSimpanGPMBaru">
                 <span>📍</span> {{ sedangSimpanGPMBaru ? 'Menyimpan ke Supabase...' : 'Terbitkan Acara ke Peta' }}
               </button>
@@ -1112,6 +1676,54 @@
           <!-- Alert jika berhasil simpan/verif -->
           <div v-if="pesanSuksesMobile" class="staff-success-banner">
             {{ pesanSuksesMobile }}
+          </div>
+
+          <!-- PAKET PENGAJUAN BATCH PER PASAR DARI STAF -->
+          <div class="m-staf-ops-section" style="margin-bottom: 14px;">
+            <div class="m-staf-sec-head">
+              <div>
+                <h3>📦 Paket Pengajuan Pasar ({{ daftarPengajuanDiajukanMobile.length }})</h3>
+                <small>Usulan batch per pasar dari Staf menunggu persetujuan</small>
+              </div>
+            </div>
+
+            <div v-if="daftarPengajuanDiajukanMobile.length === 0" class="m-empty-box">
+              Tidak ada paket pengajuan batch yang tertunda saat ini.
+            </div>
+            <div v-else class="m-staf-market-list">
+              <div v-for="p in daftarPengajuanDiajukanMobile" :key="p.id" class="m-verif-batch-card">
+                <div class="m-staf-sub-top">
+                  <strong>📍 {{ p.nama_pasar }}</strong>
+                  <span class="m-staf-batch-pill st-diajukan">{{ p.items?.length || 0 }} komoditas</span>
+                </div>
+                <div class="m-staf-sub-meta">📅 {{ p.tanggal_tampil }} · 👤 {{ p.nama_petugas }}</div>
+                <div class="m-verif-batch-preview">
+                  <div v-for="it in (p.items || []).slice(0, 4)" :key="it.id" class="m-vbp-row">
+                    <span>{{ it.nama_komoditas }} ({{ it.satuan }})</span>
+                    <strong>{{ formatRupiah(it.harga) }}</strong>
+                  </div>
+                  <div v-if="(p.items?.length || 0) > 4" style="font-size: 0.72rem; color: #64748b; margin-top: 4px;">
+                    +{{ (p.items?.length || 0) - 4 }} komoditas lainnya (klik Rincian)
+                  </div>
+                </div>
+                <div class="m-verif-actions" style="margin-top: 8px;">
+                  <button type="button" class="btn-m-approve" :disabled="sedangAjukanBatchMobile" @click="setujuiPengajuanBatchMobile(p)">
+                    ✓ Setujui Semua
+                  </button>
+                  <button type="button" class="btn-m-edit" @click="detailPengajuanBatchMobile = p">
+                    👁️ Rincian
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-m-del"
+                    :disabled="sedangAjukanBatchMobile"
+                    @click="modalTolakBatchMobile = { buka: true, pengajuan: p, catatan: '' }"
+                  >
+                    ✕ Tolak
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Filter Status Tab -->
@@ -1981,6 +2593,29 @@
               </select>
             </div>
 
+            <!-- Baris Filter Wilayah Kecamatan & Tanggal Penetapan -->
+            <div v-if="daftarKecamatanPasarPublik.length > 0 || daftarTanggalUnikPublik.length > 0" class="m-filter-row-2" style="margin-top: 6px;">
+              <select
+                v-if="daftarKecamatanPasarPublik.length > 0"
+                v-model="kecamatanAktifPublik"
+                @change="pilihKecamatanPublik(kecamatanAktifPublik)"
+                class="m-sort-select"
+                aria-label="Filter kecamatan pasar"
+              >
+                <option value="Semua">🏘️ Semua Kecamatan</option>
+                <option v-for="kec in daftarKecamatanPasarPublik" :key="kec" :value="kec">Kec. {{ kec }}</option>
+              </select>
+              <select
+                v-if="daftarTanggalUnikPublik.length > 0"
+                v-model="tanggalFilterPublik"
+                class="m-sort-select"
+                aria-label="Filter tanggal penetapan"
+              >
+                <option value="Semua">📅 Semua Tanggal</option>
+                <option v-for="tgl in daftarTanggalUnikPublik" :key="tgl" :value="tgl">{{ tgl }}</option>
+              </select>
+            </div>
+
             <!-- Pill Pasar Terpilih (jika ada) -->
             <div v-if="pasarTerpilihPublik.length > 0" class="m-picked-markets-bar">
               <span v-for="p in pasarTerpilihPublik" :key="p" class="m-picked-chip">
@@ -2068,11 +2703,11 @@
                           {{ baris.tanggalPenetapanTerbaru }}
                         </div>
                         <div
-                          v-if="baris.delta && baris.delta.selisih !== 0"
+                          v-if="baris.deltaTerbaru && baris.deltaTerbaru.selisih !== 0"
                           class="m-mx-sub"
-                          :style="{ fontSize: '0.65rem', fontWeight: 700, color: baris.delta.selisih > 0 ? '#dc2626' : '#15803d' }"
+                          :style="{ fontSize: '0.65rem', fontWeight: 700, color: baris.deltaTerbaru.selisih > 0 ? '#dc2626' : '#15803d' }"
                         >
-                          {{ baris.delta.selisih > 0 ? '▲ +' : '▼ -' }}{{ formatRupiah(Math.abs(baris.delta.selisih)) }}
+                          {{ baris.deltaTerbaru.selisih > 0 ? '▲ +' : '▼ -' }}{{ formatRupiah(Math.abs(baris.deltaTerbaru.selisih)) }}
                         </div>
                       </td>
                       <td
@@ -2462,10 +3097,23 @@
                     </div>
                   </div>
 
+                  <!-- KONDISI 2B: MODE DATANG LANGSUNG (TANPA PENDAFTARAN DARING) -->
+                  <div v-else-if="acaraGPMDipilihTeranalisis.mode_pendaftaran === 'langsung'" class="m-gpm-locked-banner" style="background: #eff6ff; border-color: #bfdbfe; color: #1e3a8a;">
+                    <span class="m-lock-ico">📍</span>
+                    <div>
+                      <strong>Datang Langsung ke Lokasi (Tanpa Daftar Online)</strong>
+                      <p>Kegiatan ini tidak memerlukan antrean online. Silakan datang langsung ke <strong>{{ acaraGPMDipilihTeranalisis.lokasi }}</strong> dengan membawa KTP/KK pada jadwal yang tertera.</p>
+                    </div>
+                  </div>
+
                   <!-- KONDISI 3: FORMULIR AMBIL ANTREAN AKTIF (TANPA LOGIN) -->
                   <form v-else @submit.prevent="ambilNomorAntreanMobile" class="m-queue-form">
                     <h4 class="m-form-heading">🎟️ Formulir Ambil Nomor Antrean</h4>
-                    <p class="m-form-subheading">Masyarakat tidak perlu masuk akun, cukup isi NIK (16 digit) dan nama lengkap:</p>
+                    <p class="m-form-subheading">
+                      {{ acaraGPMDipilihTeranalisis.mode_penerima === 'keluarga'
+                        ? 'Berbasis Keluarga: 1 Kartu Keluarga (16 digit) = 1 nomor antrean.'
+                        : 'Masyarakat tidak perlu masuk akun, cukup isi NIK (16 digit) dan nama lengkap:' }}
+                    </p>
 
                     <div v-if="pesanErrorGPM" class="m-error-alert">
                       ⚠️ {{ pesanErrorGPM }}
@@ -2486,6 +3134,34 @@
                         {{ formAntreanGPM.nik?.length || 0 }}/16 digit {{ formAntreanGPM.nik?.length > 0 && formAntreanGPM.nik?.length < 16 ? `(Kurang ${16 - formAntreanGPM.nik.length} digit)` : '' }}
                       </small>
                     </div>
+
+                    <template v-if="acaraGPMDipilihTeranalisis.mode_penerima === 'keluarga'">
+                      <div class="m-input-group-mobile">
+                        <label>NOMOR KARTU KELUARGA (KK) <span style="color: #ef4444;">* (Wajib 16 Digit)</span></label>
+                        <input
+                          type="text"
+                          required
+                          maxlength="16"
+                          v-model="formAntreanGPM.no_kk"
+                          placeholder="Contoh: 7171011234560001"
+                          class="m-input-text"
+                          @input="formAntreanGPM.no_kk = formAntreanGPM.no_kk.replace(/[^0-9]/g, '').slice(0, 16)"
+                        />
+                        <small :style="{ color: formAntreanGPM.no_kk?.length === 16 ? '#16a34a' : '#64748b', fontSize: '0.74rem', marginTop: '3px', display: 'block' }">
+                          {{ formAntreanGPM.no_kk?.length || 0 }}/16 digit
+                        </small>
+                      </div>
+                      <div class="m-input-group-mobile">
+                        <label>JUMLAH ANGGOTA KELUARGA (ORANG)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="20"
+                          v-model.number="formAntreanGPM.jumlah_anggota"
+                          class="m-input-text"
+                        />
+                      </div>
+                    </template>
 
                     <div class="m-input-group-mobile">
                       <label>NAMA LENGKAP <span style="color: #ef4444;">*</span></label>
@@ -3124,6 +3800,35 @@
               />
             </div>
 
+            <div
+              v-if="acaraManualDipilihMobile && String(acaraManualDipilihMobile.mode_penerima || 'individu').toLowerCase() === 'keluarga'"
+              style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px; margin-bottom: 12px;"
+            >
+              <div style="font-size: 0.76rem; font-weight: 800; color: #1e40af; margin-bottom: 8px;">
+                👨‍👩‍👧‍👦 Mode Keluarga (1 KK = 1 Antrean)
+              </div>
+              <div class="s-field" style="margin-bottom: 8px;">
+                <label>Nomor KK (16 Digit) <span style="font-weight: normal; color: #64748b;">(Opsional di lokasi)</span></label>
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="16"
+                  v-model="modalTambahManualMobile.no_kk"
+                  placeholder="16 digit Nomor KK"
+                  @input="modalTambahManualMobile.no_kk = modalTambahManualMobile.no_kk.replace(/[^0-9]/g, '').slice(0, 16)"
+                />
+              </div>
+              <div class="s-field">
+                <label>Jumlah Anggota Keluarga</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  v-model.number="modalTambahManualMobile.jumlah_anggota"
+                />
+              </div>
+            </div>
+
             <div style="background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
               <label style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; font-weight: 600; color: #334155; cursor: pointer;">
                 <input type="checkbox" v-model="modalTambahManualMobile.langsungHadir" />
@@ -3386,6 +4091,88 @@
       </div>
     </div>
 
+    <!-- MODAL RINCIAN PAKET PENGAJUAN HARGA BATCH (STAF / KABID) -->
+    <div v-if="detailPengajuanBatchMobile" class="m-mp-backdrop" @click="detailPengajuanBatchMobile = null">
+      <div class="m-mp-sheet" @click.stop>
+        <div class="m-mp-header">
+          <div>
+            <h4>📋 Rincian Pengajuan Harga</h4>
+            <p>📍 {{ detailPengajuanBatchMobile.nama_pasar }} · 📅 {{ detailPengajuanBatchMobile.tanggal_tampil }}</p>
+          </div>
+          <button type="button" class="m-mp-close" @click="detailPengajuanBatchMobile = null">✕</button>
+        </div>
+
+        <div style="padding: 12px 16px; max-height: 60vh; overflow-y: auto;">
+          <div
+            v-if="detailPengajuanBatchMobile.catatan_verifikasi"
+            :class="['m-staf-sub-note', detailPengajuanBatchMobile.status === 'Ditolak' ? 'is-reject' : '']"
+            style="margin-bottom: 10px;"
+          >
+            💬 <strong>Catatan Kabid ({{ pengajuanHargaMobileService.formatLabelStatus(detailPengajuanBatchMobile.status) }}):</strong> {{ detailPengajuanBatchMobile.catatan_verifikasi }}
+          </div>
+          <div v-for="it in (detailPengajuanBatchMobile.items || [])" :key="it.id" class="m-vbp-row" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
+            <div>
+              <strong style="display: block; font-size: 0.84rem; color: #0f172a;">{{ it.nama_komoditas }}</strong>
+              <small style="color: #64748b;">{{ it.satuan }} · Sebelumnya: {{ it.harga_lama !== null && it.harga_lama !== undefined ? formatRupiah(it.harga_lama) : 'Baru' }}</small>
+            </div>
+            <strong style="color: #8b1e1e; font-size: 0.9rem;">{{ formatRupiah(it.harga) }}</strong>
+          </div>
+        </div>
+
+        <div class="m-mp-footer" v-if="isStaf">
+          <button
+            v-if="detailPengajuanBatchMobile.status === 'Diverifikasi'"
+            type="button"
+            class="m-mp-apply-btn"
+            @click="bukaDokumenUntukUbahMobile(detailPengajuanBatchMobile, true)"
+          >
+            📋 Salin ke Pengajuan Baru
+          </button>
+          <button
+            v-else
+            type="button"
+            class="m-mp-apply-btn"
+            @click="bukaDokumenUntukUbahMobile(detailPengajuanBatchMobile)"
+          >
+            {{ detailPengajuanBatchMobile.status === 'Ditolak' ? '🔄 Muat ke Form untuk Revisi' : '✏️ Buka di Form untuk Diubah' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL TOLAK PAKET PENGAJUAN BATCH DENGAN CATATAN (KABID) -->
+    <div v-if="modalTolakBatchMobile.buka && modalTolakBatchMobile.pengajuan" class="m-mp-backdrop" @click="modalTolakBatchMobile = { buka: false, pengajuan: null, catatan: '' }">
+      <div class="m-mp-sheet" @click.stop>
+        <div class="m-mp-header">
+          <div>
+            <h4>✕ Tolak Pengajuan Pasar</h4>
+            <p>{{ modalTolakBatchMobile.pengajuan.nama_pasar }} · {{ modalTolakBatchMobile.pengajuan.tanggal_tampil }}</p>
+          </div>
+          <button type="button" class="m-mp-close" @click="modalTolakBatchMobile = { buka: false, pengajuan: null, catatan: '' }">✕</button>
+        </div>
+        <form @submit.prevent="eksekusiTolakBatchMobile" style="padding: 14px 16px;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 6px; color: #334155;">
+            Catatan / Alasan Revisi untuk Staf *
+          </label>
+          <textarea
+            v-model="modalTolakBatchMobile.catatan"
+            rows="3"
+            required
+            placeholder="Contoh: Mohon verifikasi ulang harga cabai rawit..."
+            style="width: 100%; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px; font-size: 0.85rem; box-sizing: border-box;"
+          ></textarea>
+          <button
+            type="submit"
+            class="m-mp-apply-btn"
+            style="margin-top: 12px; background: #dc2626;"
+            :disabled="sedangAjukanBatchMobile"
+          >
+            {{ sedangAjukanBatchMobile ? 'Memproses...' : 'Kirim Penolakan & Catatan' }}
+          </button>
+        </form>
+      </div>
+    </div>
+
     <!-- MODAL DETAIL KOMODITAS: PERBANDINGAN PASAR & GRAFIK RIWAYAT RIIL -->
     <ModalDetailHargaMobile
       :grup-komoditas="grupDetailDipilih"
@@ -3401,7 +4188,7 @@
 // LOGIKA SCRIPT (VUE 3 COMPOSITION API & OOP SERVICE MOBILE)
 // ===================================================================================
 
-import { ref, computed, onMounted, nextTick, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import L from 'leaflet';
 import { Html5Qrcode } from 'html5-qrcode';
 import { IonPage, IonHeader, IonContent, IonRefresher, IonRefresherContent } from '@ionic/vue';
@@ -3461,6 +4248,12 @@ import {
   DataTrenKomoditas, 
   ItemRekapGPM 
 } from '../services/LaporanService';
+import {
+  pengajuanHargaMobileService,
+  type BarisInputCepatPasar,
+  type DokumenPengajuanHarga
+} from '../services/PengajuanHargaService';
+import { berandaStafMobileService } from '../services/BerandaStafService';
 
 
 // ─── LEAFLET MAP MOBILE GPM (100% DATA RIIL DB, TANPA PIN DUMMY) ──
@@ -3666,6 +4459,8 @@ const waktuSekarangGPMMs = ref(Date.now());
 const errorMuatGPMPublik = ref('');
 const formAntreanGPM = ref({
   nik: '',
+  no_kk: '',
+  jumlah_anggota: 1,
   nama_lengkap: '',
   nomor_telepon: ''
 });
@@ -3673,17 +4468,23 @@ const sedangDaftarGPM = ref(false);
 const pesanErrorGPM = ref('');
 const tiketGPMHasil = ref<HasilTiketGPM | null>(null);
 
-// Modal Tambah Pendaftar Manual Mobile (Di Tempat / Walk-In Tanpa HP — Tunduk Kuota & WITA)
+// Modal Tambah Pendaftar Manual Mobile (Di Tempat / Walk-In Tanpa HP — Tunduk Kuota, KK & WITA)
 const modalTambahManualMobile = ref({
   buka: false,
   acaraId: '',
   nama: '',
   nik: '',
   telepon: '',
+  no_kk: '',
+  jumlah_anggota: 1,
   langsungHadir: true,
   sedangKirim: false,
   pesanError: ''
 });
+
+const acaraManualDipilihMobile = computed(() =>
+  daftarAcaraGPM.value.find((a) => String(a.id) === String(modalTambahManualMobile.value.acaraId)) || null
+);
 
 // Modal Atur / Tambah Kuota Acara GPM (Khusus Kepala Bidang & Superadmin)
 const modalUbahKuotaMobile = ref<{
@@ -3700,15 +4501,18 @@ const modalUbahKuotaMobile = ref<{
   pesanError: ''
 });
 
-// Preset Koordinat Titik GPM Populer Kota Manado untuk Formulir Mobile
-const PRESET_LOKASI_MANADO_MOBILE = [
-  { label: 'Lap. Sparta Tikala', lokasi: 'Lapangan Sparta Tikala', kecamatan: 'Tikala', lat: 1.4878, lng: 124.8427 },
-  { label: 'Pasar Bersehati', lokasi: 'Pelataran Pasar Bersehati Karombasan', kecamatan: 'Wanea', lat: 1.4647, lng: 124.8415 },
-  { label: 'Lap. Bantik Malalayang', lokasi: 'Lapangan Bantik Malalayang', kecamatan: 'Malalayang', lat: 1.4545, lng: 124.8124 },
-  { label: 'Taman Berkat Boulevard', lokasi: 'Taman Berkat Jalan Piere Tendean', kecamatan: 'Sario', lat: 1.4776, lng: 124.8351 },
-  { label: 'Kantor Kec. Mapanget', lokasi: 'Pelataran Kantor Kecamatan Mapanget', kecamatan: 'Mapanget', lat: 1.5208, lng: 124.9062 },
-  { label: 'Pasar Tuminting', lokasi: 'Pelataran Pasar Tuminting', kecamatan: 'Tuminting', lat: 1.5056, lng: 124.8467 }
-];
+// Titik Koordinat Cepat 100% dari Master Pasar Supabase yang sudah memiliki koordinat GPS
+const presetLokasiPasarMobile = computed(() =>
+  daftarPasarLengkap.value
+    .filter((p) => p && p.punyaKoordinat && p.latitude !== null && p.longitude !== null)
+    .map((p) => ({
+      label: p.nama_pasar,
+      lokasi: p.alamat ? `${p.nama_pasar}, ${p.alamat}` : p.nama_pasar,
+      kecamatan: p.kecamatan || '',
+      lat: Number(p.latitude),
+      lng: Number(p.longitude)
+    }))
+);
 
 // Computed GPM Publik & Operasional Deterministik (via JadwalGPMMobileService OOP)
 const semuaAcaraGPMAktif = computed<AcaraGPMTeranalisis[]>(() =>
@@ -3836,7 +4640,7 @@ const pendaftarGPMList = ref<ItemPendaftarGPM[]>([]);
 const formGPMBaru = ref({
   nama_acara: '',
   lokasi: '',
-  kecamatan: 'Wenang',
+  kecamatan: '',
   tanggal: new Date().toISOString().split('T')[0],
   jam_mulai: '08:00',
   jam_selesai: '14:00',
@@ -3844,18 +4648,16 @@ const formGPMBaru = ref({
   longitude: 124.8427,
   kuota_maksimal: 250,
   komoditas_tersedia: '',
-  deskripsi: ''
+  deskripsi: '',
+  mode_pendaftaran: 'online' as 'online' | 'keduanya' | 'langsung',
+  mode_penerima: 'individu' as 'individu' | 'keluarga'
 });
 const sedangSimpanGPMBaru = ref(false);
 const dropdownGPMKomoditasBuka = ref(false);
 const cariAntreanMobile = ref('');
 
 const daftarKecamatanPilihanFormGPM = computed<string[]>(() => {
-  if (daftarKecamatan.value.length > 0) return daftarKecamatan.value;
-  return [
-    'Wenang', 'Tikala', 'Wanea', 'Sario', 'Malalayang',
-    'Tuminting', 'Singkil', 'Mapanget', 'Paal Dua', 'Bunaken', 'Bunaken Kepulauan'
-  ];
+  return daftarKecamatan.value;
 });
 
 const daftarKomoditasPilihanGPM = computed(() => {
@@ -3881,10 +4683,12 @@ const toggleKomoditasGPM = (nama: string) => {
   formGPMBaru.value.komoditas_tersedia = list.join(', ');
 };
 
-// State Filter Kategori, Kelompok Induk, Sub-Varian & Pasar (Publik + Multi-Select & Sortir)
+// State Filter Kategori, Kelompok Induk, Sub-Varian, Kecamatan, Tanggal & Pasar (Publik + Multi-Select & Sortir)
 const kategoriAktif = ref('Semua');
 const kelompokAktifPublik = ref('Semua');
 const varianAktifPublik = ref('Semua');
+const kecamatanAktifPublik = ref('Semua');
+const tanggalFilterPublik = ref('Semua');
 const pasarAktif = ref('Semua');
 const kataKunciPencarian = ref('');
 const pasarTerpilihPublik = ref<string[]>([]);
@@ -3937,11 +4741,38 @@ const petaDeltaPublik = computed(() =>
   analisisHargaMobileService.buatPetaDeltaTerbaru(riwayatPublikTerbaru.value)
 );
 
+const daftarKecamatanPasarPublik = computed<string[]>(() => {
+  const setPasarAktif = new Set(daftarPasarPublikDB.value.map((p) => p.toLowerCase()));
+  const setKec = new Set<string>();
+  daftarPasarLengkap.value.forEach((p) => {
+    if (p?.kecamatan && (setPasarAktif.size === 0 || setPasarAktif.has((p.nama_pasar || '').toLowerCase()))) {
+      setKec.add(p.kecamatan);
+    }
+  });
+  return Array.from(setKec).sort((a, b) => a.localeCompare(b, 'id-ID'));
+});
+
+const daftarTanggalUnikPublik = computed<string[]>(() =>
+  Array.from(new Set(dataHargaPublikRiil.value.map((i) => i.tanggal_penetapan).filter((t): t is string => Boolean(t))))
+);
+
+const pilihKecamatanPublik = (kec: string) => {
+  kecamatanAktifPublik.value = kec;
+  if (kec === 'Semua') {
+    pasarTerpilihPublik.value = [];
+  } else {
+    pasarTerpilihPublik.value = daftarPasarLengkap.value
+      .filter((p) => String(p.kecamatan || '').toLowerCase() === kec.toLowerCase())
+      .map((p) => p.nama_pasar);
+  }
+};
+
 const statistikPublikRiil = computed(() =>
   analisisHargaMobileService.hitungStatistikKategori(
     dataHargaPublikRiil.value,
     pasarTerpilihPublik.value,
-    modeTampilanPublik.value
+    modeTampilanPublik.value,
+    tanggalFilterPublik.value
   )
 );
 
@@ -3949,6 +4780,7 @@ const daftarKelompokIndukPublik = computed(() =>
   analisisHargaMobileService.ekstrakKelompokInduk(dataHargaPublikRiil.value, {
     kategori: kategoriAktif.value,
     pasarTerpilih: pasarTerpilihPublik.value,
+    tanggalFilter: tanggalFilterPublik.value,
     petaMaster: petaMasterKomoditas.value
   })
 );
@@ -3959,6 +4791,7 @@ const daftarSubVarianPublik = computed(() =>
     pencarian: kataKunciPencarian.value,
     pasarTerpilih: pasarTerpilihPublik.value,
     kelompokAktif: kelompokAktifPublik.value,
+    tanggalFilter: tanggalFilterPublik.value,
     petaMaster: petaMasterKomoditas.value
   })
 );
@@ -3982,6 +4815,7 @@ const daftarRingkasanPublik = computed(() =>
     pasarTerpilih: pasarTerpilihPublik.value,
     kelompokAktif: kelompokAktifPublik.value,
     varianAktif: varianAktifPublik.value,
+    tanggalFilter: tanggalFilterPublik.value,
     urutkan: urutanPublik.value,
     petaDelta: petaDeltaPublik.value,
     petaMaster: petaMasterKomoditas.value
@@ -3995,6 +4829,7 @@ const matriksPerbandinganPublik = computed(() =>
     pasarTerpilih: pasarTerpilihPublik.value,
     kelompokAktif: kelompokAktifPublik.value,
     varianAktif: varianAktifPublik.value,
+    tanggalFilter: tanggalFilterPublik.value,
     urutkan: urutanPublik.value,
     petaDelta: petaDeltaPublik.value,
     petaMaster: petaMasterKomoditas.value
@@ -4008,6 +4843,7 @@ const daftarSemuaPasarPublik = computed(() =>
     pasarTerpilih: pasarTerpilihPublik.value,
     kelompokAktif: kelompokAktifPublik.value,
     varianAktif: varianAktifPublik.value,
+    tanggalFilter: tanggalFilterPublik.value,
     urutkan: urutanPublik.value,
     petaDelta: petaDeltaPublik.value,
     petaMaster: petaMasterKomoditas.value
@@ -4027,6 +4863,7 @@ const labelTombolPasarPublik = computed(() => {
 });
 
 const togglePasarPublik = (namaPasar: string) => {
+  kecamatanAktifPublik.value = 'Semua';
   if (pasarTerpilihPublik.value.includes(namaPasar)) {
     pasarTerpilihPublik.value = pasarTerpilihPublik.value.filter((p) => p !== namaPasar);
   } else {
@@ -4043,6 +4880,8 @@ const resetFilterPublik = () => {
   kategoriAktif.value = 'Semua';
   kelompokAktifPublik.value = 'Semua';
   varianAktifPublik.value = 'Semua';
+  kecamatanAktifPublik.value = 'Semua';
+  tanggalFilterPublik.value = 'Semua';
   kataKunciPencarian.value = '';
   pasarTerpilihPublik.value = [];
   urutanPublik.value = 'prioritas';
@@ -4099,15 +4938,39 @@ const pesanSuksesMobile = ref('');
 // ID Komoditas sedang diedit
 const idDiedit = ref<string | null>(null);
 
-// Form Penetapan Harga Petugas Mobile (Komoditas & Satuan terkunci dari Master Admin)
+// Form Penetapan Harga Petugas Mobile (Komoditas & Satuan terkunci dari Master Admin — tanpa pasar hardcoded)
 const formPenetapan = ref({
   nama_komoditas: '',
   kategori: 'Bahan Pokok',
   satuan: '1 KG',
   harga: '',
-  nama_pasar: 'Pasar Tradisional Bahu',
-  status: 'Terbit',
+  nama_pasar: '',
+  status: 'Draft',
   prioritas_tampil: 50
+});
+
+// State Pengajuan Harga Hybrid Per Pasar (Master-Detail + Draft + Timpa Cerdas) & Beranda Staf
+const daftarPengajuanHargaMobile = ref<DokumenPengajuanHarga[]>([]);
+const belumMigrasiPengajuanMobile = ref(false);
+const tanggalPengambilanMobile = ref(berandaStafMobileService.ambilTanggalHariIniISO());
+const subTabPengajuanStafMobile = ref<'baru' | 'daftar' | 'terbit'>('baru');
+const filterStatusPengajuanStafMobile = ref<'semua' | 'Draft' | 'Diajukan' | 'Diverifikasi' | 'Ditolak'>('semua');
+const jenisKomoditasTerpilihMobile = ref<string>('Semua');
+const keranjangPengajuanMobile = ref<BarisInputCepatPasar[]>([]);
+const cariKeranjangStafMobile = ref('');
+const dokumenPengajuanDieditMobile = ref<{
+  id: string | null;
+  status: string;
+  nama_pasar: string;
+  tanggal_pengambilan: string;
+  catatan_verifikasi?: string;
+} | null>(null);
+const sedangAjukanBatchMobile = ref(false);
+const detailPengajuanBatchMobile = ref<DokumenPengajuanHarga | null>(null);
+const modalTolakBatchMobile = ref<{ buka: boolean; pengajuan: DokumenPengajuanHarga | null; catatan: string }>({
+  buka: false,
+  pengajuan: null,
+  catatan: ''
 });
 
 // ─── ADMIN: KELOLA PENGGUNA & MASTER DATA ──────────────────────────
@@ -4306,6 +5169,14 @@ watch(daftarAcaraGPMPublikAktif, (daftarBaru) => {
   }
 });
 
+let timerPollingMobile: ReturnType<typeof setInterval> | null = null;
+const handleWindowFocusMobile = () => {
+  waktuSekarangGPMMs.value = Date.now();
+  muatData(true);
+  muatDataGPM();
+  muatStatsDashboard();
+};
+
 onMounted(async () => {
   await cekKoneksiServer(false);
   await muatData();
@@ -4327,24 +5198,29 @@ onMounted(async () => {
     setTimeout(inisialisasiPetaGpm, 300);
   }
 
-  // Sinkronisasi otomatis saat HP kembali dibuka (Focus)
+  // Sinkronisasi otomatis saat HP kembali dibuka (Focus) tanpa flicker
   if (typeof window !== 'undefined') {
-    window.addEventListener('focus', () => {
-      waktuSekarangGPMMs.value = Date.now();
-      muatData();
-      muatDataGPM();
-      muatStatsDashboard();
-    });
+    window.addEventListener('focus', handleWindowFocusMobile);
   }
 
   // Polling berkala setiap 15 detik: sinkron data harga, auto-close waktu WITA & status kuota GPM
-  setInterval(() => {
+  timerPollingMobile = setInterval(() => {
     waktuSekarangGPMMs.value = Date.now();
-    muatData();
+    muatData(true);
     muatDataGPM();
     muatStatsDashboard();
   }, 15000);
+});
 
+onUnmounted(() => {
+  if (timerPollingMobile) {
+    clearInterval(timerPollingMobile);
+    timerPollingMobile = null;
+  }
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('focus', handleWindowFocusMobile);
+  }
+  hentikanScanKameraMobile();
 });
 
 // ===================== METHOD GPM MOBILE =====================
@@ -4554,11 +5430,14 @@ const toggleLihatRiwayatAntrean = async (acara: ItemAcaraGPM) => {
 };
 
 watch(menuPetugas, async (baru) => {
+  if (baru !== 'gpm' && baru !== 'kelola-gpm' && kameraAktifMobile.value) {
+    await hentikanScanKameraMobile();
+  }
   if (baru === 'gpm' || baru === 'kelola-gpm' || baru === 'cek-gpm') {
     await muatDataGPM();
   }
   if (baru === 'verif-harga' || baru === 'dashboard' || baru === 'input-harga' || baru === 'laporan') {
-    await muatData();
+    await muatData(true);
     await muatStatsDashboard();
   }
 });
@@ -4593,6 +5472,14 @@ const ambilNomorAntreanMobile = async () => {
   }
   if (nik.length !== 16) {
     pesanErrorGPM.value = `NIK harus tepat 16 digit angka! (Saat ini: ${nik.length} digit)`;
+    return;
+  }
+
+  // 1B. Validasi No. KK jika mode penerima berbasis keluarga
+  const isModeKeluarga = String(targetAcara.mode_penerima || 'individu').toLowerCase() === 'keluarga';
+  const noKkBersih = String(formAntreanGPM.value.no_kk || '').replace(/[^0-9]/g, '').trim();
+  if (isModeKeluarga && noKkBersih.length !== 16) {
+    pesanErrorGPM.value = `Nomor Kartu Keluarga (KK) wajib tepat 16 digit untuk kegiatan berbasis Keluarga! (Saat ini: ${noKkBersih.length} digit)`;
     return;
   }
 
@@ -4634,10 +5521,20 @@ const ambilNomorAntreanMobile = async () => {
       nama,
       telp || '-',
       nik,
-      'Daring'
+      'Daring',
+      false,
+      isModeKeluarga
+        ? {
+            no_kk: noKkBersih,
+            nama_kepala_keluarga: nama,
+            jumlah_anggota: Math.max(1, Number(formAntreanGPM.value.jumlah_anggota) || 1)
+          }
+        : null
     );
     tiketGPMHasil.value = hasil;
     formAntreanGPM.value.nik = '';
+    formAntreanGPM.value.no_kk = '';
+    formAntreanGPM.value.jumlah_anggota = 1;
     formAntreanGPM.value.nama_lengkap = '';
     formAntreanGPM.value.nomor_telepon = '';
     await muatDataGPM();
@@ -4649,7 +5546,7 @@ const ambilNomorAntreanMobile = async () => {
   }
 };
 
-// Handlers Pendaftaran Manual di Lokasi GPM untuk Petugas (Walk-In Tanpa HP — Tunduk Kuota & WITA)
+// Handlers Pendaftaran Manual di Lokasi GPM untuk Petugas (Walk-In Tanpa HP — Tunduk Kuota, KK & WITA)
 const bukaModalManualMobile = () => {
   if (daftarAcaraGPM.value.length === 0) {
     alert('Tidak ada kegiatan GPM aktif yang dapat menerima pendaftaran manual saat ini.');
@@ -4661,6 +5558,8 @@ const bukaModalManualMobile = () => {
     nama: '',
     nik: '',
     telepon: '',
+    no_kk: '',
+    jumlah_anggota: 1,
     langsungHadir: true,
     sedangKirim: false,
     pesanError: ''
@@ -4698,16 +5597,31 @@ const simpanPendaftarManualMobile = async () => {
       return;
     }
   }
+  const acaraTarget = daftarAcaraGPM.value.find((a) => String(a.id) === String(m.acaraId));
+  const isModeKeluarga = String(acaraTarget?.mode_penerima || 'individu').toLowerCase() === 'keluarga';
+  const noKkBersih = (m.no_kk || '').replace(/[^0-9]/g, '').trim();
+  if (isModeKeluarga && noKkBersih && noKkBersih.length !== 16) {
+    m.pesanError = `Nomor Kartu Keluarga (KK) harus tepat 16 digit angka! (Saat ini: ${noKkBersih.length} digit)`;
+    return;
+  }
 
   m.sedangKirim = true;
   m.pesanError = '';
   try {
+    const opsiKeluarga = isModeKeluarga
+      ? {
+          no_kk: noKkBersih || null,
+          nama_kepala_keluarga: nama,
+          jumlah_anggota: Math.max(1, parseInt(String(m.jumlah_anggota), 10) || 1)
+        }
+      : null;
     const res = await gpmMobileService.tambahPendaftarManual(
       m.acaraId,
       nama,
       telp || '-',
       nik,
-      m.langsungHadir
+      m.langsungHadir,
+      opsiKeluarga
     );
     m.buka = false;
     pesanSuksesMobile.value = `Warga "${nama}" berhasil didaftarkan langsung (Antrean #${res.tiket.nomor_antrean})${m.langsungHadir ? ' dan otomatis diverifikasi Hadir!' : '!'}`;
@@ -4742,7 +5656,7 @@ const pindaiBarcodeMobile = async (barcodeOverride?: string) => {
 const verifikasiKehadiranMobile = async (statusTarget: 'Hadir' | 'Menunggu' = 'Hadir') => {
   if (!hasilScanPetugas.value) return;
   try {
-    await gpmMobileService.verifikasiKehadiran(hasilScanPetugas.value.kode_barcode, statusTarget);
+    await gpmMobileService.verifikasiKehadiran(hasilScanPetugas.value.kode_barcode, statusTarget, userAktif.value?.id || null);
     hasilScanPetugas.value.status_kehadiran = statusTarget;
     await muatDataGPM();
   } catch (err: any) {
@@ -4753,10 +5667,29 @@ const verifikasiKehadiranMobile = async (statusTarget: 'Hadir' | 'Menunggu' = 'H
 const ubahStatusPendaftarDiListMobile = async (item: ItemPendaftarGPM) => {
   const statusTarget: 'Hadir' | 'Menunggu' = item.status_kehadiran === 'Hadir' ? 'Menunggu' : 'Hadir';
   try {
-    await gpmMobileService.verifikasiKehadiran(item.kode_barcode, statusTarget);
+    await gpmMobileService.verifikasiKehadiran(item.kode_barcode, statusTarget, userAktif.value?.id || null);
     await muatDataGPM();
   } catch (err: any) {
     alert('Gagal mengubah status kehadiran: ' + (err.message || 'Terjadi kesalahan'));
+  }
+};
+
+const konfirmasiPengambilanPanganMobile = async (pendaftarId: string, dariHasilScan = false) => {
+  if (!pendaftarId) return;
+  try {
+    await gpmMobileService.konfirmasiPengambilanPangan(pendaftarId, userAktif.value?.id || null);
+    if (dariHasilScan && hasilScanPetugas.value) {
+      hasilScanPetugas.value = {
+        ...hasilScanPetugas.value,
+        status_pengambilan: 'Sudah Diambil',
+        waktu_pengambilan: new Date().toISOString()
+      };
+    }
+    pesanSuksesMobile.value = '📦 Pengambilan bahan pangan oleh warga berhasil dikonfirmasi!';
+    setTimeout(() => { pesanSuksesMobile.value = ''; }, 3500);
+    await muatDataGPM();
+  } catch (err: any) {
+    alert('Gagal konfirmasi pengambilan: ' + (err?.message || 'Terjadi kesalahan'));
   }
 };
 
@@ -4772,7 +5705,7 @@ const simpanAcaraGPMBaruMobile = async () => {
     formGPMBaru.value = {
       nama_acara: '',
       lokasi: '',
-      kecamatan: daftarKecamatanPilihanFormGPM.value[0] || 'Wenang',
+      kecamatan: daftarKecamatanPilihanFormGPM.value[0] || '',
       tanggal: new Date().toISOString().split('T')[0],
       jam_mulai: '08:00',
       jam_selesai: '14:00',
@@ -4780,7 +5713,9 @@ const simpanAcaraGPMBaruMobile = async () => {
       longitude: 124.8427,
       kuota_maksimal: 250,
       komoditas_tersedia: '',
-      deskripsi: ''
+      deskripsi: '',
+      mode_pendaftaran: 'online',
+      mode_penerima: 'individu'
     };
     subMenuPetugasGPM.value = 'antrean';
     await muatDataGPM();
@@ -4791,8 +5726,11 @@ const simpanAcaraGPMBaruMobile = async () => {
   }
 };
 
-const muatData = async () => {
-  sedangMemuatPublik.value = true;
+const muatData = async (diam: boolean | Event = false) => {
+  const modeDiam = diam === true;
+  if (!modeDiam) {
+    sedangMemuatPublik.value = true;
+  }
   errorMuatPublik.value = '';
   try {
     // 1. Muat data publik TERBIT 100% riil dari basis data (tanpa data dummy) + ringkasan riwayat
@@ -4808,9 +5746,14 @@ const muatData = async () => {
       dataHargaPublikRiil.value = [];
     }
 
-    // 2. Ambil seluruh data komoditas pangan (Terbit + Draft) untuk panel petugas/verifikasi Kabid & Superadmin
-    const data = await hargaPanganMobileService.ambilSemua();
+    // 2. Ambil seluruh data komoditas pangan (Terbit + Draft) & dokumen pengajuan harga batch
+    const [data, pengajuanRes] = await Promise.all([
+      hargaPanganMobileService.ambilSemua(),
+      pengajuanHargaMobileService.ambilSemuaPengajuan().catch(() => ({ belumMigrasi: false, data: [] }))
+    ]);
     semuaKomoditas.value = Array.isArray(data) ? data : [];
+    daftarPengajuanHargaMobile.value = Array.isArray(pengajuanRes?.data) ? pengajuanRes.data : [];
+    belumMigrasiPengajuanMobile.value = Boolean(pengajuanRes?.belumMigrasi);
 
     statistik.value = statistikPublikRiil.value;
 
@@ -4966,6 +5909,11 @@ const eksekusiLogin = async () => {
 };
 
 const eksekusiLogout = () => {
+  hentikanScanKameraMobile();
+  keranjangPengajuanMobile.value = [];
+  dokumenPengajuanDieditMobile.value = null;
+  detailPengajuanBatchMobile.value = null;
+  daftarPengajuanHargaMobile.value = [];
   hargaPanganMobileService.keluar();
   penggunaMobileService.logout();
   userAktif.value = null;
@@ -5053,10 +6001,497 @@ const batalEditItem = () => {
     kategori: 'Bahan Pokok',
     satuan: daftarSatuan.value[0] || '1 KG',
     harga: '',
-    nama_pasar: formPenetapan.value.nama_pasar || daftarPasar.value[0] || 'Pasar Tradisional Bahu',
-    status: 'Terbit',
+    nama_pasar: formPenetapan.value.nama_pasar || daftarPasar.value[0] || '',
+    status: 'Draft',
     prioritas_tampil: 50
   };
+};
+
+// ─────────────────────────────────────────────────────────────
+// OPERASI PENGAJUAN HARGA HYBRID PER PASAR + BERANDA STAF (OOP)
+// ─────────────────────────────────────────────────────────────
+const pengajuanAktifPasarIniMobile = computed<DokumenPengajuanHarga | null>(() =>
+  pengajuanHargaMobileService.cariPengajuanAktifPasar(
+    daftarPengajuanHargaMobile.value,
+    formPenetapan.value.nama_pasar,
+    tanggalPengambilanMobile.value,
+    'Diajukan'
+  )
+);
+
+const draftAktifPasarIniMobile = computed<DokumenPengajuanHarga | null>(() =>
+  pengajuanHargaMobileService.cariPengajuanAktifPasar(
+    daftarPengajuanHargaMobile.value,
+    formPenetapan.value.nama_pasar,
+    tanggalPengambilanMobile.value,
+    'Draft'
+  )
+);
+
+const sedangMenimpaDiajukanMobile = computed<boolean>(() =>
+  Boolean(
+    (dokumenPengajuanDieditMobile.value && dokumenPengajuanDieditMobile.value.status === 'Diajukan') ||
+      (!dokumenPengajuanDieditMobile.value && pengajuanAktifPasarIniMobile.value)
+  )
+);
+
+const daftarJenisKomoditasMobile = computed<string[]>(() =>
+  pengajuanHargaMobileService.ambilDaftarJenisKomoditas(daftarMasterKomoditas.value, semuaKomoditas.value)
+);
+
+const grupKomoditasTerfilterJenisMobile = computed(() => {
+  const sumber =
+    jenisKomoditasTerpilihMobile.value === 'Semua'
+      ? daftarMasterKomoditas.value
+      : daftarMasterKomoditas.value.filter(
+          (k) => String(k.kategori || 'Bahan Pokok').trim().toLowerCase() === jenisKomoditasTerpilihMobile.value.toLowerCase()
+        );
+  return masterDataMobileService.kelompokkanKomoditasUntukDropdown(sumber);
+});
+
+const hargaTerbitKomoditasDipilihMobile = computed(() =>
+  pengajuanHargaMobileService.cariHargaTerbitPasar(
+    formPenetapan.value.nama_pasar,
+    formPenetapan.value.nama_komoditas,
+    semuaKomoditas.value
+  )
+);
+
+const pilihKomoditasMasterStafHybrid = (namaKomoditas: string) => {
+  pilihKomoditasMasterStaf(namaKomoditas);
+  const master = daftarMasterKomoditas.value.find(
+    (k) => k.nama_komoditas.toLowerCase() === String(namaKomoditas || '').toLowerCase()
+  );
+  if (master?.kategori) {
+    jenisKomoditasTerpilihMobile.value = master.kategori;
+  }
+};
+
+const gantiPasarPengajuanMobile = (pasarBaru: string) => {
+  formPenetapan.value.nama_pasar = pasarBaru;
+  if (
+    dokumenPengajuanDieditMobile.value &&
+    String(dokumenPengajuanDieditMobile.value.nama_pasar || '').toLowerCase() !== String(pasarBaru || '').toLowerCase()
+  ) {
+    dokumenPengajuanDieditMobile.value = null;
+    keranjangPengajuanMobile.value = [];
+  }
+  cariKeranjangStafMobile.value = '';
+};
+
+const mulaiPengajuanBaruKosongMobile = () => {
+  dokumenPengajuanDieditMobile.value = null;
+  keranjangPengajuanMobile.value = [];
+  cariKeranjangStafMobile.value = '';
+  tanggalPengambilanMobile.value = berandaStafMobileService.ambilTanggalHariIniISO();
+  formPenetapan.value.nama_komoditas = '';
+  formPenetapan.value.harga = '';
+  formPenetapan.value.satuan = daftarSatuan.value[0] || '1 KG';
+  subTabPengajuanStafMobile.value = 'baru';
+};
+
+const muatSemuaHargaPasarKeKeranjangMobile = () => {
+  if (!formPenetapan.value.nama_pasar) {
+    alert('Pilih Pasar terlebih dahulu!');
+    return;
+  }
+  const paketAktif =
+    dokumenPengajuanDieditMobile.value?.id &&
+    (dokumenPengajuanDieditMobile.value.status === 'Draft' || dokumenPengajuanDieditMobile.value.status === 'Diajukan')
+      ? daftarPengajuanHargaMobile.value.find((p) => p.id === dokumenPengajuanDieditMobile.value?.id) || null
+      : (pengajuanAktifPasarIniMobile.value || draftAktifPasarIniMobile.value || null);
+  const daftar = pengajuanHargaMobileService.bangunDaftarInputCepatPasar(
+    formPenetapan.value.nama_pasar,
+    daftarMasterKomoditas.value,
+    semuaKomoditas.value,
+    paketAktif
+  );
+  keranjangPengajuanMobile.value = daftar;
+  cariKeranjangStafMobile.value = '';
+  pesanSuksesMobile.value = `⚡ ${daftar.length} komoditas pasar dimuat ke Daftar Harga Pangan.`;
+  setTimeout(() => { pesanSuksesMobile.value = ''; }, 3000);
+};
+
+const saringHanyaBerubahKeranjangMobile = () => {
+  const tersaring = keranjangPengajuanMobile.value.filter((row) => cekBarisBerubahMobile(row));
+  if (tersaring.length === 0) {
+    alert('Belum ada komoditas yang harganya diubah atau baru diisi.');
+    return;
+  }
+  keranjangPengajuanMobile.value = tersaring;
+  pesanSuksesMobile.value = `✂️ Daftar diringkas menjadi ${tersaring.length} komoditas yang berubah / baru.`;
+  setTimeout(() => { pesanSuksesMobile.value = ''; }, 3000);
+};
+
+const kosongkanKeranjangMobile = () => {
+  if (!confirm('Kosongkan seluruh isi Daftar Harga Pangan di keranjang ini?')) return;
+  keranjangPengajuanMobile.value = [];
+};
+
+const bukaDokumenUntukUbahMobile = (pengajuan: DokumenPengajuanHarga, modeSalin = false) => {
+  if (!pengajuan) return;
+  const isDisetujui = pengajuan.status === 'Diverifikasi';
+  if (isDisetujui && !modeSalin) {
+    detailPengajuanBatchMobile.value = pengajuan;
+    return;
+  }
+
+  formPenetapan.value.nama_pasar = pengajuan.nama_pasar;
+  formPenetapan.value.nama_komoditas = '';
+  formPenetapan.value.harga = '';
+  tanggalPengambilanMobile.value = modeSalin
+    ? berandaStafMobileService.ambilTanggalHariIniISO()
+    : (pengajuan.tanggal_pengambilan || berandaStafMobileService.ambilTanggalHariIniISO());
+  const itemsKeranjang = pengajuanHargaMobileService.bangunKeranjangDariDokumen(pengajuan, semuaKomoditas.value);
+  keranjangPengajuanMobile.value = itemsKeranjang;
+  cariKeranjangStafMobile.value = '';
+
+  if (modeSalin || pengajuan.status === 'Ditolak' || isDisetujui) {
+    dokumenPengajuanDieditMobile.value =
+      pengajuan.status === 'Ditolak'
+        ? {
+            id: null,
+            status: 'Revisi',
+            nama_pasar: pengajuan.nama_pasar,
+            tanggal_pengambilan: pengajuan.tanggal_pengambilan,
+            catatan_verifikasi: pengajuan.catatan_verifikasi
+          }
+        : null;
+  } else {
+    dokumenPengajuanDieditMobile.value = {
+      id: pengajuan.id,
+      status: pengajuan.status,
+      nama_pasar: pengajuan.nama_pasar,
+      tanggal_pengambilan: pengajuan.tanggal_pengambilan,
+      catatan_verifikasi: pengajuan.catatan_verifikasi
+    };
+  }
+
+  detailPengajuanBatchMobile.value = null;
+  menuPetugas.value = 'input-harga';
+  subTabPengajuanStafMobile.value = 'baru';
+  pesanSuksesMobile.value = modeSalin
+    ? `📋 ${itemsKeranjang.length} komoditas disalin ke Pengajuan Baru.`
+    : pengajuan.status === 'Ditolak'
+      ? `🔄 Pengajuan "${pengajuan.nama_pasar}" dimuat untuk revisi.`
+      : `✏️ Dokumen ${pengajuanHargaMobileService.formatLabelStatus(pengajuan.status)} "${pengajuan.nama_pasar}" dimuat.`;
+  setTimeout(() => { pesanSuksesMobile.value = ''; }, 3500);
+};
+
+const batalkanPengajuanBatchMobile = async (pengajuan: DokumenPengajuanHarga) => {
+  if (!pengajuan || (pengajuan.status !== 'Diajukan' && pengajuan.status !== 'Draft')) return;
+  const isDraft = pengajuan.status === 'Draft';
+  const pesanTanya = isDraft
+    ? `Hapus Draft pengajuan harga untuk "${pengajuan.nama_pasar}" (${pengajuan.tanggal_tampil})?`
+    : `Batalkan pengajuan harga untuk "${pengajuan.nama_pasar}" (${pengajuan.tanggal_tampil})?`;
+  if (!confirm(pesanTanya)) return;
+
+  sedangAjukanBatchMobile.value = true;
+  try {
+    await pengajuanHargaMobileService.hapusPengajuanBatch(pengajuan.id);
+    if (dokumenPengajuanDieditMobile.value?.id === pengajuan.id) {
+      dokumenPengajuanDieditMobile.value = null;
+      keranjangPengajuanMobile.value = [];
+    }
+    detailPengajuanBatchMobile.value = null;
+    pesanSuksesMobile.value = isDraft
+      ? `🗑️ Draft "${pengajuan.nama_pasar}" berhasil dihapus.`
+      : `🗑️ Pengajuan "${pengajuan.nama_pasar}" (${pengajuan.tanggal_tampil}) berhasil dibatalkan.`;
+    setTimeout(() => { pesanSuksesMobile.value = ''; }, 3500);
+    await muatData();
+    await muatStatsDashboard();
+    muatNotifikasiDinamisMobile();
+  } catch (err: any) {
+    alert('Gagal menghapus/membatalkan pengajuan: ' + (err?.message || 'Terjadi kesalahan'));
+  } finally {
+    sedangAjukanBatchMobile.value = false;
+  }
+};
+
+const ringkasanBerandaStafMobile = computed(() =>
+  berandaStafMobileService.hitungRingkasanOperasional({
+    daftarPasarLengkap: daftarPasarLengkap.value,
+    daftarHarga: semuaKomoditas.value,
+    daftarMasterKomoditas: daftarMasterKomoditas.value,
+    daftarPengajuan: daftarPengajuanHargaMobile.value,
+    daftarAcaraGPM: semuaAcaraGPM.value
+  })
+);
+
+const daftarPengajuanDiajukanMobile = computed(() =>
+  daftarPengajuanHargaMobile.value.filter((p) => p && p.status === 'Diajukan')
+);
+
+const daftarPengajuanTerfilterMobile = computed(() => {
+  if (filterStatusPengajuanStafMobile.value === 'semua') return daftarPengajuanHargaMobile.value;
+  return daftarPengajuanHargaMobile.value.filter(
+    (p) => String(p.status || '').toLowerCase() === filterStatusPengajuanStafMobile.value.toLowerCase()
+  );
+});
+
+const hargaAktifPasarDipilihMobile = computed(() =>
+  semuaKomoditas.value.filter(
+    (h) =>
+      String(h.nama_pasar || '').toLowerCase() === String(formPenetapan.value.nama_pasar || '').toLowerCase() &&
+      String(h.status || '').toLowerCase() === 'terbit'
+  )
+);
+
+const cekBarisBerubahMobile = (row: BarisInputCepatPasar): boolean => {
+  const angka = parseInt(String(row.harga_usulan || '').replace(/[^0-9]/g, ''), 10) || 0;
+  return angka > 0 && (row.harga_lama === null || angka !== Number(row.harga_lama));
+};
+
+const hitungBadgeSelisihMobile = (row: BarisInputCepatPasar): { teks: string; kelas: string } => {
+  const angka = parseInt(String(row.harga_usulan || '').replace(/[^0-9]/g, ''), 10) || 0;
+  if (angka <= 0) return { teks: '—', kelas: 'is-idle' };
+  if (row.harga_lama === null) return { teks: '✨ Baru', kelas: 'is-new' };
+  const diff = angka - Number(row.harga_lama);
+  if (diff > 0) return { teks: `▲ +${formatRupiah(diff)}`, kelas: 'is-up' };
+  if (diff < 0) return { teks: `▼ -${formatRupiah(Math.abs(diff))}`, kelas: 'is-down' };
+  return { teks: 'Tetap', kelas: 'is-same' };
+};
+
+const ringkasanKeranjangMobile = computed(() => {
+  const valid: (BarisInputCepatPasar & { hargaAngka: number })[] = [];
+  const berubah: (BarisInputCepatPasar & { hargaAngka: number })[] = [];
+  keranjangPengajuanMobile.value.forEach((r) => {
+    const angka = parseInt(String(r.harga_usulan || '').replace(/[^0-9]/g, ''), 10) || 0;
+    if (angka > 0) {
+      valid.push({ ...r, hargaAngka: angka });
+      if (r.harga_lama === null || angka !== Number(r.harga_lama)) {
+        berubah.push({ ...r, hargaAngka: angka });
+      }
+    }
+  });
+  return { valid, berubah };
+});
+
+const keranjangTerfilterMobile = computed(() => {
+  const q = cariKeranjangStafMobile.value.trim().toLowerCase();
+  if (!q) return keranjangPengajuanMobile.value;
+  return keranjangPengajuanMobile.value.filter((row) =>
+    `${row.nama_komoditas} ${row.kategori} ${row.satuan}`.toLowerCase().includes(q)
+  );
+});
+
+const ubahHargaItemKeranjangMobile = (tempId: string, nilaiMentah: string) => {
+  const bersih = String(nilaiMentah || '').replace(/[^0-9]/g, '');
+  keranjangPengajuanMobile.value = keranjangPengajuanMobile.value.map((r) =>
+    r.tempId === tempId ? { ...r, harga_usulan: bersih } : r
+  );
+};
+
+const hapusItemKeranjangMobile = (tempId: string) => {
+  keranjangPengajuanMobile.value = keranjangPengajuanMobile.value.filter((r) => r.tempId !== tempId);
+};
+
+const bukaInputCepatPasarMobile = (namaPasar: string) => {
+  if (namaPasar) {
+    const hariIni = berandaStafMobileService.ambilTanggalHariIniISO();
+    const pasarKey = namaPasar.trim().toLowerCase();
+    const ditolak = daftarPengajuanHargaMobile.value.find(
+      (p) => p.status === 'Ditolak' && String(p.nama_pasar || '').trim().toLowerCase() === pasarKey
+    );
+    const diajukan = pengajuanHargaMobileService.cariPengajuanAktifPasar(daftarPengajuanHargaMobile.value, namaPasar, hariIni, 'Diajukan');
+    const draft = pengajuanHargaMobileService.cariPengajuanAktifPasar(daftarPengajuanHargaMobile.value, namaPasar, hariIni, 'Draft');
+
+    if (ditolak && !diajukan) {
+      bukaDokumenUntukUbahMobile(ditolak);
+      return;
+    }
+    if (draft) {
+      bukaDokumenUntukUbahMobile(draft);
+      return;
+    }
+    if (diajukan) {
+      bukaDokumenUntukUbahMobile(diajukan);
+      return;
+    }
+
+    formPenetapan.value.nama_pasar = namaPasar;
+    formPenetapan.value.nama_komoditas = '';
+    formPenetapan.value.harga = '';
+    tanggalPengambilanMobile.value = hariIni;
+    dokumenPengajuanDieditMobile.value = null;
+    keranjangPengajuanMobile.value = [];
+  }
+  menuPetugas.value = 'input-harga';
+  subTabPengajuanStafMobile.value = 'baru';
+};
+
+const tambahItemKeKeranjangMobile = () => {
+  if (!formPenetapan.value.nama_pasar) {
+    alert('Pilih pasar terlebih dahulu!');
+    return;
+  }
+  const namaTrim = formPenetapan.value.nama_komoditas.trim();
+  const hargaAngka = parseInt(String(formPenetapan.value.harga).replace(/[^0-9]/g, ''), 10);
+  if (!namaTrim || !hargaAngka || hargaAngka <= 0) {
+    alert('Pilih Nama Komoditas dan masukkan Harga Pangan > 0!');
+    return;
+  }
+  const kunci = namaTrim.toLowerCase();
+  const satuanGabungan = formatSatuanTampil(formPenetapan.value.satuan || daftarSatuan.value[0] || '1 KG');
+  const masterCocok = daftarMasterKomoditas.value.find((k) => k.nama_komoditas.toLowerCase() === kunci);
+  const hargaTerbit = pengajuanHargaMobileService.cariHargaTerbitPasar(
+    formPenetapan.value.nama_pasar,
+    namaTrim,
+    semuaKomoditas.value
+  );
+  const kategoriItem =
+    (jenisKomoditasTerpilihMobile.value !== 'Semua' ? jenisKomoditasTerpilihMobile.value : '') ||
+    masterCocok?.kategori ||
+    formPenetapan.value.kategori ||
+    hargaTerbit?.kategori ||
+    'Bahan Pokok';
+
+  const ada = keranjangPengajuanMobile.value.some((r) => r.nama_komoditas.toLowerCase() === kunci);
+  if (ada) {
+    keranjangPengajuanMobile.value = keranjangPengajuanMobile.value.map((r) =>
+      r.nama_komoditas.toLowerCase() === kunci
+        ? { ...r, kategori: kategoriItem, satuan: satuanGabungan, harga_usulan: String(hargaAngka) }
+        : r
+    );
+  } else {
+    keranjangPengajuanMobile.value = [
+      {
+        tempId: `cart-${kunci}-${Date.now()}`,
+        komoditas_id: masterCocok?.id || null,
+        nama_komoditas: namaTrim,
+        kelompok_komoditas: masterCocok?.kelompok_komoditas || '',
+        kategori: kategoriItem,
+        satuan: satuanGabungan,
+        prioritas_tampil: Number(masterCocok?.prioritas_tampil || formPenetapan.value.prioritas_tampil) || 50,
+        harga_lama: hargaTerbit ? Math.round(Number(hargaTerbit.harga) || 0) : null,
+        tanggal_terakhir: hargaTerbit?.tanggal_penetapan || '-',
+        harga_usulan: String(hargaAngka),
+        sedang_diajukan: false
+      },
+      ...keranjangPengajuanMobile.value
+    ];
+  }
+  formPenetapan.value.nama_komoditas = '';
+  formPenetapan.value.harga = '';
+  pesanSuksesMobile.value = `✅ "${namaTrim}" (${formatRupiah(hargaAngka)}) ditambahkan ke Daftar Harga Pangan.`;
+  setTimeout(() => { pesanSuksesMobile.value = ''; }, 2500);
+};
+
+const simpanAtauAjukanPengajuanMobile = async (statusTarget: 'Draft' | 'Diajukan' = 'Diajukan') => {
+  if (!formPenetapan.value.nama_pasar || !tanggalPengambilanMobile.value) {
+    alert('Pasar dan tanggal pengajuan wajib diisi!');
+    return;
+  }
+  const daftarKirim = ringkasanKeranjangMobile.value.valid;
+  if (daftarKirim.length === 0) {
+    alert(
+      statusTarget === 'Draft'
+        ? 'Tambahkan minimal 1 komoditas ke Daftar Harga Pangan sebelum menyimpan Draft!'
+        : 'Tambahkan minimal 1 komoditas ke Daftar Harga Pangan sebelum mengajukan ke Kepala Bidang!'
+    );
+    return;
+  }
+
+  const pasarObj = daftarPasarLengkap.value.find(
+    (p) => (p.nama_pasar || '').toLowerCase() === formPenetapan.value.nama_pasar.toLowerCase()
+  );
+  const idEdit =
+    dokumenPengajuanDieditMobile.value?.id &&
+    (dokumenPengajuanDieditMobile.value.status === 'Draft' || dokumenPengajuanDieditMobile.value.status === 'Diajukan')
+      ? dokumenPengajuanDieditMobile.value.id
+      : null;
+
+  sedangAjukanBatchMobile.value = true;
+  try {
+    const payload = {
+      namaPasar: formPenetapan.value.nama_pasar,
+      pasarId: pasarObj?.id || null,
+      tanggalPengambilan: tanggalPengambilanMobile.value,
+      petugasId: userAktif.value?.id || null,
+      namaPetugas: userAktif.value?.nama || userAktif.value?.username || 'Staf Lapangan',
+      items: daftarKirim.map((it) => ({
+        komoditas_id: it.komoditas_id,
+        nama_komoditas: it.nama_komoditas,
+        kategori: it.kategori,
+        satuan: it.satuan,
+        harga: it.hargaAngka,
+        harga_lama: it.harga_lama,
+        prioritas_tampil: it.prioritas_tampil
+      })),
+      daftarHargaAktif: semuaKomoditas.value,
+      daftarPengajuanAktif: daftarPengajuanHargaMobile.value,
+      pengajuanIdDiedit: idEdit
+    };
+
+    const hasil =
+      statusTarget === 'Draft'
+        ? await pengajuanHargaMobileService.simpanDraftBatchHarga(payload)
+        : await pengajuanHargaMobileService.ajukanBatchHarga(payload);
+
+    if (statusTarget === 'Draft') {
+      dokumenPengajuanDieditMobile.value = {
+        id: hasil.id,
+        status: 'Draft',
+        nama_pasar: formPenetapan.value.nama_pasar,
+        tanggal_pengambilan: tanggalPengambilanMobile.value
+      };
+      pesanSuksesMobile.value = hasil.ditimpa
+        ? `💾 Draft "${hasil.namaPasar}" diperbarui (${hasil.jumlahItem} komoditas).`
+        : `💾 Draft "${hasil.namaPasar}" tersimpan (${hasil.jumlahItem} komoditas).`;
+    } else {
+      dokumenPengajuanDieditMobile.value = null;
+      keranjangPengajuanMobile.value = [];
+      subTabPengajuanStafMobile.value = 'daftar';
+      pesanSuksesMobile.value = hasil.ditimpa
+        ? `🔄 Paket "${hasil.namaPasar}" (${hasil.tanggalTampil}) berhasil diperbarui/ditimpa (${hasil.jumlahItem} komoditas)!`
+        : `✅ ${hasil.jumlahItem} komoditas untuk ${hasil.namaPasar} berhasil diajukan ke Kepala Bidang!`;
+    }
+    setTimeout(() => { pesanSuksesMobile.value = ''; }, 4500);
+    await muatData();
+    await muatStatsDashboard();
+    muatNotifikasiDinamisMobile();
+  } catch (err: any) {
+    alert('Gagal memproses pengajuan harga: ' + (err?.message || 'Terjadi kesalahan'));
+  } finally {
+    sedangAjukanBatchMobile.value = false;
+  }
+};
+
+const setujuiPengajuanBatchMobile = async (pengajuan: DokumenPengajuanHarga) => {
+  if (!confirm(`Setujui & terbitkan ${pengajuan.items?.length || 0} harga untuk ${pengajuan.nama_pasar}?`)) return;
+  sedangAjukanBatchMobile.value = true;
+  try {
+    await pengajuanHargaMobileService.setujuiPengajuanBatch(pengajuan, semuaKomoditas.value);
+    pesanSuksesMobile.value = `✅ Paket ${pengajuan.nama_pasar} resmi diverifikasi dan terbit ke publik!`;
+    setTimeout(() => { pesanSuksesMobile.value = ''; }, 4000);
+    await muatData();
+    await muatStatsDashboard();
+    muatNotifikasiDinamisMobile();
+  } catch (err: any) {
+    alert('Gagal menyetujui pengajuan: ' + (err?.message || 'Terjadi kesalahan'));
+  } finally {
+    sedangAjukanBatchMobile.value = false;
+  }
+};
+
+const eksekusiTolakBatchMobile = async () => {
+  if (!modalTolakBatchMobile.value.pengajuan) return;
+  sedangAjukanBatchMobile.value = true;
+  try {
+    await pengajuanHargaMobileService.tolakPengajuanBatch(
+      modalTolakBatchMobile.value.pengajuan.id,
+      modalTolakBatchMobile.value.catatan
+    );
+    pesanSuksesMobile.value = `ℹ️ Pengajuan ${modalTolakBatchMobile.value.pengajuan.nama_pasar} dikembalikan ke Staf dengan catatan revisi.`;
+    setTimeout(() => { pesanSuksesMobile.value = ''; }, 4000);
+    modalTolakBatchMobile.value = { buka: false, pengajuan: null, catatan: '' };
+    await muatData();
+    muatNotifikasiDinamisMobile();
+  } catch (err: any) {
+    alert('Gagal menolak pengajuan: ' + (err?.message || 'Terjadi kesalahan'));
+  } finally {
+    sedangAjukanBatchMobile.value = false;
+  }
 };
 
 const hapusItem = async (item: ItemHargaPangan) => {
@@ -5114,9 +6549,7 @@ const simpanHargaPetugas = async (statusOverride?: string) => {
 
   try {
     if (idDiedit.value) {
-      // Arsipkan baris lama agar tanggal penetapan sebelumnya tidak tertimpa, lalu simpan sebagai data baru
-      await hargaPanganMobileService.perbarui(idDiedit.value, { status: 'Arsip' });
-      await hargaPanganMobileService.tambah({
+      await hargaPanganMobileService.perbarui(idDiedit.value, {
         nama_komoditas: formPenetapan.value.nama_komoditas.trim(),
         kategori: kategoriOtomatis,
         satuan: satuanGabungan,
@@ -5127,8 +6560,8 @@ const simpanHargaPetugas = async (statusOverride?: string) => {
         prioritas_tampil: prioritasFinal
       });
       pesanSuksesMobile.value = isKabid.value
-        ? (status === 'Terbit' ? `✅ Perubahan "${formPenetapan.value.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diterbitkan sebagai data baru!` : `📝 Perubahan "${formPenetapan.value.nama_komoditas}" disimpan sebagai draf baru!`)
-        : `📨 Perubahan "${formPenetapan.value.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diajukan sebagai data baru ke Kepala Bidang!`;
+        ? (status === 'Terbit' ? `✅ Perubahan "${formPenetapan.value.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diterbitkan!` : `📝 Perubahan "${formPenetapan.value.nama_komoditas}" disimpan sebagai draf!`)
+        : `📨 Perubahan "${formPenetapan.value.nama_komoditas}" (${satuanGabungan} - ${formatRupiah(hargaAngka)}) berhasil diajukan ke Kepala Bidang!`;
       batalEditItem();
     } else {
       await hargaPanganMobileService.tambah({
@@ -5163,7 +6596,11 @@ const simpanHargaPetugas = async (statusOverride?: string) => {
 const ubahStatusItem = async (item: ItemHargaPangan) => {
   const statusBaru = (item.status || '').toLowerCase() === 'draft' ? 'Terbit' : 'Draft';
   if (item.id) {
-    await hargaPanganMobileService.perbarui(item.id, { status: statusBaru });
+    if (statusBaru === 'Terbit') {
+      await pengajuanHargaMobileService.setujuiDraftSatuanTanpaDuplikat(item, semuaKomoditas.value);
+    } else {
+      await hargaPanganMobileService.perbarui(item.id, { status: statusBaru });
+    }
     pesanSuksesMobile.value = statusBaru === 'Terbit'
       ? `✅ "${item.nama_komoditas}" diterbitkan ke halaman masyarakat!`
       : `📝 "${item.nama_komoditas}" diubah menjadi draf.`;
@@ -5186,7 +6623,12 @@ const komoditasVerifTampil = computed(() => {
 
 const eksekusiVerifikasiHarga = async (id: string, statusBaru: 'Terbit' | 'Draft') => {
   try {
-    await hargaPanganMobileService.verifikasiHarga(id, statusBaru);
+    const itemTarget = semuaKomoditas.value.find((k) => String(k.id) === String(id));
+    if (statusBaru === 'Terbit' && itemTarget) {
+      await pengajuanHargaMobileService.setujuiDraftSatuanTanpaDuplikat(itemTarget, semuaKomoditas.value);
+    } else {
+      await hargaPanganMobileService.verifikasiHarga(id, statusBaru);
+    }
     pesanSuksesMobile.value = statusBaru === 'Terbit'
       ? '✅ Harga berhasil disetujui & diterbitkan ke masyarakat!'
       : '↺ Harga berhasil ditarik kembali ke draf verifikasi.';
@@ -5637,12 +7079,13 @@ const muatNotifikasiDinamisMobile = () => {
   const gpmAktifList = semuaAcaraGPMAktif.value;
 
   if (isKabid.value) {
+    const batchCount = daftarPengajuanDiajukanMobile.value.length;
     const draftCount = itemsHarga.filter((i: any) => (i.status || '').toLowerCase() === 'draft').length;
-    if (draftCount > 0) {
+    if (batchCount > 0 || draftCount > 0) {
       notifs.push({
         id: 'notif-kabid-draft',
         judul: '📝 Verifikasi Harga Pangan',
-        pesan: `Terdapat ${draftCount} usulan harga draf menunggu verifikasi Anda.`,
+        pesan: `Terdapat ${batchCount} paket pasar & ${draftCount} draf menunggu verifikasi Anda.`,
         waktu: 'Terkini',
         target: 'verif-harga'
       });
@@ -5678,14 +7121,35 @@ const muatNotifikasiDinamisMobile = () => {
   }
 
   if (isStaf.value) {
+    const ditolakList = daftarPengajuanHargaMobile.value.filter((p) => p.status === 'Ditolak');
+    if (ditolakList.length > 0) {
+      notifs.push({
+        id: 'notif-staf-ditolak',
+        judul: '⚠️ Pengajuan Perlu Revisi',
+        pesan: `${ditolakList.length} pengajuan (${ditolakList[0].nama_pasar}) ditolak Kepala Bidang. Ketuk untuk perbaiki.`,
+        waktu: 'Perlu Tindakan',
+        target: 'input-harga-daftar'
+      });
+    }
+    const draftBatchCount = daftarPengajuanHargaMobile.value.filter((p) => p.status === 'Draft').length;
+    if (draftBatchCount > 0) {
+      notifs.push({
+        id: 'notif-staf-draft',
+        judul: '📝 Draft Pengajuan Tersimpan',
+        pesan: `Anda memiliki ${draftBatchCount} Draft pengajuan harga belum dikirim ke Kepala Bidang.`,
+        waktu: 'Draft',
+        target: 'input-harga-daftar'
+      });
+    }
     const terbitCount = itemsHarga.filter((i: any) => (i.status || '').toLowerCase() === 'terbit').length;
     const draftCount = itemsHarga.filter((i: any) => (i.status || '').toLowerCase() === 'draft').length;
+    const batchMenunggu = daftarPengajuanDiajukanMobile.value.length;
     notifs.push({
       id: 'notif-staf-status',
       judul: '📢 Status Publikasi Komoditas',
-      pesan: `${terbitCount} komoditas terbit di publik.${draftCount > 0 ? ` ${draftCount} draf dalam proses telaah.` : ''}`,
+      pesan: `${terbitCount} komoditas terbit.${batchMenunggu + draftCount > 0 ? ` ${batchMenunggu} paket${draftCount > 0 ? ` & ${draftCount} draf lama` : ''} menunggu verifikasi.` : ' Tidak ada pengajuan tertunda.'}`,
       waktu: 'Terkini',
-      target: 'input-harga'
+      target: 'input-harga-daftar'
     });
     if (gpmAktifList.length > 0) {
       notifs.push({
@@ -5713,7 +7177,12 @@ const muatNotifikasiDinamisMobile = () => {
 
 const bukaNotifTarget = (target?: string) => {
   if (target) {
-    menuPetugas.value = target;
+    if (target === 'input-harga-daftar') {
+      subTabPengajuanStafMobile.value = 'daftar';
+      menuPetugas.value = 'input-harga';
+    } else {
+      menuPetugas.value = target;
+    }
   }
   modalNotifMobileBuka.value = false;
 };
@@ -10088,6 +11557,615 @@ const eksekusiGantiFotoProfil = () => {
     min-width: 120px;
     max-width: 135px;
   }
+}
+
+/* ============================================================================
+   BERANDA OPERASIONAL STAF, INPUT CEPAT PER PASAR & VERIFIKASI BATCH (MOBILE)
+   ============================================================================ */
+.m-staf-hero-box {
+  background: linear-gradient(135deg, #8b1e1e 0%, #681313 100%);
+  color: #ffffff;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.m-staf-date-chip {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.18);
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.m-staf-hero-title {
+  margin: 8px 0 4px 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.m-staf-hero-desc {
+  margin: 0 0 12px 0;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.4;
+}
+
+.m-staf-hero-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.m-staf-hero-btn {
+  border: none;
+  border-radius: 9px;
+  padding: 10px 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.m-staf-hero-btn.primary {
+  background: #ffffff;
+  color: #8b1e1e;
+}
+
+.m-staf-hero-btn.secondary {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.m-staf-ops-section {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px;
+  margin-top: 12px;
+}
+
+.m-staf-sec-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.m-staf-sec-head h3 {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.m-staf-sec-head small {
+  color: #64748b;
+  font-size: 0.74rem;
+}
+
+.m-staf-pct-pill {
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 800;
+  font-size: 0.78rem;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.m-staf-bar-track {
+  height: 7px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.m-staf-bar-fill {
+  height: 100%;
+  background: #16a34a;
+  border-radius: 999px;
+}
+
+.m-staf-market-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.m-staf-market-card,
+.m-staf-sub-card,
+.m-verif-batch-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 11px 12px;
+}
+
+.m-staf-market-card {
+  border-left: 4px solid #94a3b8;
+}
+
+.m-staf-market-card.st-revisi { border-left-color: #dc2626; background: #fff5f5; }
+.m-staf-market-card.st-menunggu { border-left-color: #d97706; }
+.m-staf-market-card.st-terbaru { border-left-color: #16a34a; }
+.m-staf-market-card.st-perlu_update { border-left-color: #ea580c; }
+
+.m-staf-mc-top,
+.m-staf-sub-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+  font-size: 0.86rem;
+  color: #0f172a;
+}
+
+.m-staf-status-tag,
+.m-staf-batch-pill {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.m-staf-status-tag.st-revisi,
+.m-staf-batch-pill.st-ditolak { background: #fee2e2; color: #991b1b; }
+.m-staf-status-tag.st-menunggu,
+.m-staf-batch-pill.st-diajukan { background: #fef3c7; color: #92400e; }
+.m-staf-status-tag.st-terbaru,
+.m-staf-batch-pill.st-diverifikasi { background: #dcfce7; color: #166534; }
+.m-staf-status-tag.st-perlu_update { background: #ffedd5; color: #9a3412; }
+.m-staf-status-tag.st-kosong { background: #e2e8f0; color: #475569; }
+
+.m-staf-mc-meta,
+.m-staf-sub-meta {
+  font-size: 0.74rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.m-staf-sub-note {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.m-staf-sub-note.is-reject {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.m-staf-mc-btn {
+  margin-top: 8px;
+  width: 100%;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.m-staf-mc-btn.is-urgent {
+  background: #dc2626;
+}
+
+.m-staf-sub-btns {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.m-staf-mini-btn {
+  background: #ffffff;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.m-staf-mini-btn.is-revisi {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+}
+
+/* Input Cepat Per Pasar Mobile */
+.m-fast-header-grid {
+  display: grid;
+  grid-template-columns: 1fr 140px;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.m-date-input,
+.m-fast-search-input {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.m-fast-search-wrap {
+  margin-bottom: 8px;
+}
+
+.m-fast-pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.m-fast-pill {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.m-fast-pill.active {
+  background: #8b1e1e;
+  color: #ffffff;
+  border-color: #8b1e1e;
+}
+
+.m-fast-pill.is-add {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  margin-left: auto;
+}
+
+.m-fast-single-box {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.btn-m-add-fast-row {
+  width: 100%;
+  background: #8b1e1e;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.m-fast-rows-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 440px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.m-fast-row-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.m-fast-row-card.is-edited {
+  background: #fffbeb;
+  border-color: #f59e0b;
+}
+
+.m-fast-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.m-fast-row-name {
+  font-size: 0.86rem;
+  color: #0f172a;
+}
+
+.m-fast-row-meta {
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+.m-fast-diff-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.m-fast-diff-badge.is-up { background: #fee2e2; color: #b91c1c; }
+.m-fast-diff-badge.is-down { background: #dcfce7; color: #15803d; }
+.m-fast-diff-badge.is-new { background: #dbeafe; color: #1d4ed8; }
+.m-fast-diff-badge.is-same { background: #f1f5f9; color: #475569; }
+.m-fast-diff-badge.is-idle { color: #94a3b8; }
+
+.m-fast-row-bottom {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.m-fast-old-lbl {
+  display: block;
+  font-size: 0.68rem;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.m-fast-old-col strong {
+  font-size: 0.84rem;
+  color: #334155;
+}
+
+.m-fast-num-input {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #8b1e1e;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.m-fast-submit-panel {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1.5px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.m-fast-check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.m-fast-safe-note {
+  font-size: 0.72rem;
+  color: #15803d;
+  font-weight: 600;
+}
+
+.m-fast-submit-btns {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.m-fast-right-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.m-fast-rtab {
+  padding: 8px 6px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.m-fast-rtab.active {
+  background: #8b1e1e;
+  color: #ffffff;
+  border-color: #8b1e1e;
+}
+
+.m-verif-batch-card {
+  border-color: #fecaca;
+  background: #fffafa;
+}
+
+.m-verif-batch-preview {
+  margin-top: 8px;
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.m-vbp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.76rem;
+  padding: 3px 0;
+}
+
+@media (max-width: 400px) {
+  .m-fast-header-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* HYBRID PENGAJUAN HARGA PANGAN MOBILE */
+.m-pengajuan-subtabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.m-pengajuan-stab {
+  padding: 9px 6px;
+  border-radius: 9px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.74rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.m-pengajuan-stab.active {
+  background: #8b1e1e;
+  color: #ffffff;
+  border-color: #8b1e1e;
+}
+
+.m-pengajuan-ctx-banner {
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.m-pengajuan-ctx-banner.is-pending {
+  background: #fffbeb;
+  border: 1.5px solid #fcd34d;
+  color: #92400e;
+}
+
+.m-pengajuan-ctx-banner.is-draft {
+  background: #eff6ff;
+  border: 1.5px solid #93c5fd;
+  color: #1e40af;
+}
+
+.m-pengajuan-ctx-banner.is-reject {
+  background: #fef2f2;
+  border: 1.5px solid #fca5a5;
+  color: #991b1b;
+}
+
+.m-pengajuan-ref-box {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 7px 9px;
+  margin-bottom: 10px;
+  font-size: 0.73rem;
+  color: #475569;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.m-pengajuan-3btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.1fr;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.m-btn-p-tambah {
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.m-btn-p-simpan {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1.5px solid #93c5fd;
+  border-radius: 8px;
+  padding: 10px 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.m-btn-p-ajukan {
+  background: #8b1e1e;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.m-pengajuan-3btns button:disabled,
+.m-btn-p-simpan:disabled,
+.m-btn-hybrid-load:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.m-btn-hybrid-load {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1.5px solid #fcd34d;
+  border-radius: 7px;
+  padding: 5px 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.m-btn-row-hapus {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 3px 7px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.m-staf-batch-pill.st-draft,
+.m-staf-status-tag.st-draft {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.m-staf-market-card.st-draft {
+  border-left: 4px solid #2563eb;
 }
 
 </style>

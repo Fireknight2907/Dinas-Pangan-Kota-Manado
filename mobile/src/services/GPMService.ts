@@ -27,6 +27,8 @@ export interface ItemAcaraGPM {
     sisa_kuota?: number;
     komoditas_tersedia: string;
     deskripsi?: string;
+    mode_pendaftaran?: 'online' | 'keduanya' | 'langsung';
+    mode_penerima?: 'individu' | 'keluarga';
     status: string;
     dibuat_pada?: string | null;
     diperbarui_pada?: string | null;
@@ -38,12 +40,17 @@ export interface ItemPendaftarGPM {
     nama_pendaftar: string;
     nama_bersih?: string;
     nik?: string;
+    no_kk?: string | null;
+    nama_kepala_keluarga?: string | null;
+    jumlah_anggota?: number | null;
     jalur_pendaftaran?: 'Daring' | 'Langsung';
     nomor_telepon: string;
     nomor_antrean: number;
     kode_barcode: string;
     status_kehadiran: 'Menunggu' | 'Hadir' | 'Batal';
+    status_pengambilan?: 'Belum Diambil' | 'Sudah Diambil';
     waktu_kehadiran?: string | null;
+    waktu_pengambilan?: string | null;
     waktu_mendaftar?: string;
     acara?: {
         id?: string;
@@ -57,6 +64,12 @@ export interface ItemPendaftarGPM {
     } | null;
 }
 
+export interface OpsiKeluargaGPM {
+    no_kk?: string | null;
+    nama_kepala_keluarga?: string | null;
+    jumlah_anggota?: number | null;
+}
+
 export interface HasilTiketGPM {
     tiket: ItemPendaftarGPM;
     acara: {
@@ -65,6 +78,7 @@ export interface HasilTiketGPM {
         kecamatan: string;
         tanggal: string;
         jam: string;
+        mode_penerima?: 'individu' | 'keluarga';
     };
 }
 
@@ -169,6 +183,8 @@ class GPMMobileApiService {
                 sisa_kuota: Math.max(0, kuotaMaks - terisi),
                 komoditas_tersedia: item.komoditas_tersedia || '',
                 deskripsi: item.deskripsi || '',
+                mode_pendaftaran: (item.mode_pendaftaran || 'online') as 'online' | 'keduanya' | 'langsung',
+                mode_penerima: (item.mode_penerima || 'individu') as 'individu' | 'keluarga',
                 status: statusFinal,
                 dibuat_pada: item.dibuat_pada || null,
                 diperbarui_pada: item.diperbarui_pada || null
@@ -217,14 +233,15 @@ class GPMMobileApiService {
         };
     }
 
-    // 2. Masyarakat / Walk-In Ambil Antrean & Kode QR (Atomik RPC -> Anti-Tembus Kuota, Anti-Lewat Jam WITA, Anti-NIK Ganda)
+    // 2. Masyarakat / Walk-In Ambil Antrean & Kode QR (Atomik RPC -> Anti-Tembus Kuota, Anti-Lewat Jam WITA, Anti-NIK/KK Ganda)
     async ambilNomorAntrean(
         acara_id: string,
         nama_lengkap: string,
         nomor_telepon: string,
         nik: string,
         jalur_pendaftaran: 'Daring' | 'Langsung' = 'Daring',
-        langsung_hadir: boolean = false
+        langsung_hadir: boolean = false,
+        opsiKeluarga: OpsiKeluargaGPM | null = null
     ): Promise<HasilTiketGPM> {
         const nikBersih = String(nik || '').replace(/[^0-9]/g, '').trim();
         if (nikBersih.length !== 16) {
@@ -248,6 +265,23 @@ class GPMMobileApiService {
             throw new Error('Jadwal acara GPM tidak ditemukan di basis data.');
         }
 
+        if (jalur_pendaftaran !== 'Langsung' && String(acara.mode_pendaftaran || 'online').toLowerCase() === 'langsung') {
+            throw new Error(`Kegiatan GPM "${acara.nama_acara}" hanya melayani pendaftaran langsung di lokasi acara (tanpa pendaftaran daring).`);
+        }
+
+        const noKkBersih = opsiKeluarga?.no_kk ? String(opsiKeluarga.no_kk).replace(/[^0-9]/g, '').trim() : '';
+        const namaKepalaBersih = opsiKeluarga?.nama_kepala_keluarga ? String(opsiKeluarga.nama_kepala_keluarga).trim() : '';
+        const jumlahAnggota = opsiKeluarga?.jumlah_anggota ? Math.max(1, parseInt(String(opsiKeluarga.jumlah_anggota), 10) || 1) : 1;
+
+        if (String(acara.mode_penerima || 'individu').toLowerCase() === 'keluarga') {
+            if (jalur_pendaftaran === 'Daring' && noKkBersih.length !== 16) {
+                throw new Error(`Kegiatan ini berbasis Keluarga (1 KK = 1 Antrean). Nomor Kartu Keluarga (KK) wajib tepat 16 digit! (Saat ini: ${noKkBersih.length} digit)`);
+            }
+            if (noKkBersih && noKkBersih.length !== 16) {
+                throw new Error(`Nomor Kartu Keluarga (KK) harus tepat 16 digit angka! (Saat ini: ${noKkBersih.length} digit)`);
+            }
+        }
+
         const statusOp = jadwalGPMMobileService.hitungStatusOperasional(acara);
         if (statusOp.sudahBerakhir) {
             throw new Error(`Pendaftaran ditutup: Kegiatan GPM "${acara.nama_acara}" telah berakhir sesuai jadwal (${acara.jam_selesai} WITA).`);
@@ -264,7 +298,10 @@ class GPMMobileApiService {
                 nik: nikBersih,
                 jalur_pendaftaran,
                 prefix_kode: prefixKode,
-                langsung_hadir: Boolean(langsung_hadir)
+                langsung_hadir: Boolean(langsung_hadir),
+                no_kk: noKkBersih || null,
+                nama_kepala_keluarga: namaKepalaBersih || (noKkBersih ? namaBersih : null),
+                jumlah_anggota: jumlahAnggota
             });
 
             return {
@@ -274,7 +311,8 @@ class GPMMobileApiService {
                     lokasi: acara.lokasi,
                     kecamatan: acara.kecamatan,
                     tanggal: acara.tanggal,
-                    jam: `${acara.jam_mulai} - ${acara.jam_selesai} WITA`
+                    jam: `${acara.jam_mulai} - ${acara.jam_selesai} WITA`,
+                    mode_penerima: acara.mode_penerima || 'individu'
                 }
             };
         } catch (errRpc: any) {
@@ -305,7 +343,7 @@ class GPMMobileApiService {
 
         const nomorBaru = nomorTerakhir + 1;
         const kodeBarcode = `${prefixKode}-${String(nomorBaru).padStart(3, '0')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-        const dataMasuk = await supabaseClient.daftarAntreanGPM({
+        const payloadDaftar: any = {
             acara_id: acaraSegar.id,
             nama_pendaftar: namaBersih,
             nik: nikBersih,
@@ -314,7 +352,26 @@ class GPMMobileApiService {
             nomor_antrean: nomorBaru,
             kode_barcode: kodeBarcode,
             status_kehadiran: langsung_hadir ? 'Hadir' : 'Menunggu'
-        });
+        };
+        if (noKkBersih) {
+            payloadDaftar.no_kk = noKkBersih;
+            payloadDaftar.nama_kepala_keluarga = namaKepalaBersih || namaBersih;
+            payloadDaftar.jumlah_anggota = jumlahAnggota;
+        }
+        let dataMasuk: any;
+        try {
+            dataMasuk = await supabaseClient.daftarAntreanGPM(payloadDaftar);
+        } catch (errKolom: any) {
+            const msg = String(errKolom?.message || '').toLowerCase();
+            if (noKkBersih && (msg.includes('column') || msg.includes('schema cache'))) {
+                delete payloadDaftar.no_kk;
+                delete payloadDaftar.nama_kepala_keluarga;
+                delete payloadDaftar.jumlah_anggota;
+                dataMasuk = await supabaseClient.daftarAntreanGPM(payloadDaftar);
+            } else {
+                throw errKolom;
+            }
+        }
 
         return {
             tiket: this.parseDataPendaftar(dataMasuk),
@@ -323,7 +380,8 @@ class GPMMobileApiService {
                 lokasi: acaraSegar.lokasi,
                 kecamatan: acaraSegar.kecamatan,
                 tanggal: acaraSegar.tanggal,
-                jam: `${acaraSegar.jam_mulai} - ${acaraSegar.jam_selesai} WITA`
+                jam: `${acaraSegar.jam_mulai} - ${acaraSegar.jam_selesai} WITA`,
+                mode_penerima: acaraSegar.mode_penerima || 'individu'
             }
         };
     }
@@ -334,9 +392,10 @@ class GPMMobileApiService {
         nama_lengkap: string,
         nomor_telepon: string,
         nik: string,
-        langsungHadir: boolean = true
+        langsungHadir: boolean = true,
+        opsiKeluarga: OpsiKeluargaGPM | null = null
     ): Promise<HasilTiketGPM> {
-        return this.ambilNomorAntrean(acara_id, nama_lengkap, nomor_telepon, nik, 'Langsung', Boolean(langsungHadir));
+        return this.ambilNomorAntrean(acara_id, nama_lengkap, nomor_telepon, nik, 'Langsung', Boolean(langsungHadir), opsiKeluarga);
     }
 
     // 4. Petugas Scan Barcode / QR Code (Sertakan status acara untuk kunci tiket lewat jam)
@@ -373,13 +432,13 @@ class GPMMobileApiService {
     }
 
     // 5. Petugas Verifikasi / Batalkan Kehadiran (TERKUNCI OTOMATIS JIKA ACARA LEWAT JAM / SELESAI)
-    async verifikasiKehadiran(kodeBarcode: string, statusBaru: 'Hadir' | 'Menunggu' = 'Hadir'): Promise<ItemPendaftarGPM> {
+    async verifikasiKehadiran(kodeBarcode: string, statusBaru: 'Hadir' | 'Menunggu' = 'Hadir', petugasId: string | null = null): Promise<ItemPendaftarGPM> {
         const kode = String(kodeBarcode || '').trim().toUpperCase();
         if (!kode) throw new Error('Kode tiket QR tidak boleh kosong!');
         const statusFinal: 'Hadir' | 'Menunggu' = String(statusBaru).toLowerCase() === 'menunggu' ? 'Menunggu' : 'Hadir';
 
         try {
-            const resRpc = await supabaseClient.verifikasiPendaftarGPMViaRPC(kode, statusFinal);
+            const resRpc = await supabaseClient.verifikasiPendaftarGPMViaRPC(kode, statusFinal, petugasId);
             return Array.isArray(resRpc) ? resRpc[0] : resRpc;
         } catch (errRpc: any) {
             if (!this.adalahErrorRpcBelumAda(errRpc)) {
@@ -392,12 +451,21 @@ class GPMMobileApiService {
             throw new Error(`Verifikasi QR dikunci: Jadwal kegiatan GPM "${tiket.acara?.nama_acara || 'GPM'}" telah berakhir.`);
         }
 
-        const payload = {
+        const payload: any = {
             status_kehadiran: statusFinal,
             waktu_kehadiran: statusFinal === 'Hadir' ? new Date().toISOString() : null
         };
+        if (petugasId && statusFinal === 'Hadir') {
+            payload.petugas_verifikasi = petugasId;
+        }
         const res = await supabaseClient.request<any[]>(`pendaftar_gpm?kode_barcode=eq.${encodeURIComponent(kode)}`, 'PATCH', payload);
         return Array.isArray(res) && res.length > 0 ? res[0] : (res as any);
+    }
+
+    // 5B. Petugas Konfirmasi Pengambilan Bahan Pangan oleh Warga (Setelah Diverifikasi Hadir)
+    async konfirmasiPengambilanPangan(pendaftarId: string, petugasId: string | null = null): Promise<any> {
+        if (!pendaftarId) throw new Error('ID pendaftar tidak valid.');
+        return supabaseClient.konfirmasiPengambilanPanganGPM(pendaftarId, petugasId);
     }
 
     // 6. Mengambil Daftar Pendaftar untuk Petugas (Data Riil DB)

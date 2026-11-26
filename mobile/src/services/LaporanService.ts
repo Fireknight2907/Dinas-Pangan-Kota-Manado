@@ -178,26 +178,55 @@ class LaporanMobileService {
     if (riwayatKronologis.length > 0) {
       let titikData: TitikTrenHarga[] = [];
       if (pasarBersih === 'Semua') {
-        const perTanggal = new Map<string, { total: number; jumlah: number; pasarSet: Set<string> }>();
+        // Agregasi rata-rata per hari kalender (WITA): ambil harga TERBARU per pasar pada hari tersebut
+        // lalu hitung rata-rata lintas pasar dan selisih riil terhadap hari pantauan sebelumnya.
+        const perHari = new Map<string, { label: string; hargaPerPasar: Map<string, number> }>();
         riwayatKronologis.forEach((r) => {
-          const tglKey = this.formatLabelTanggalTitik(r.dicatat_pada, false);
-          if (!perTanggal.has(tglKey)) {
-            perTanggal.set(tglKey, { total: 0, jumlah: 0, pasarSet: new Set() });
+          const d = new Date(r.dicatat_pada || 0);
+          const kunciHari = Number.isNaN(d.getTime())
+            ? String(r.dicatat_pada || '').slice(0, 10) || 'lainnya'
+            : d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Makassar' });
+          if (!perHari.has(kunciHari)) {
+            perHari.set(kunciHari, {
+              label: this.formatLabelTanggalTitik(r.dicatat_pada, false),
+              hargaPerPasar: new Map<string, number>()
+            });
           }
-          const b = perTanggal.get(tglKey)!;
-          b.total += Number(r.harga_baru) || 0;
-          b.jumlah += 1;
-          if (r.nama_pasar) b.pasarSet.add(r.nama_pasar);
+          const b = perHari.get(kunciHari)!;
+          const kunciPasar = String(r.nama_pasar || 'Pasar').trim().toLowerCase();
+          b.hargaPerPasar.set(kunciPasar, Number(r.harga_baru) || 0);
         });
-        titikData = Array.from(perTanggal.entries()).slice(-20).map(([tglKey, b]) => ({
-          tanggal: tglKey,
-          tanggalLengkap: `${tglKey} (Rata-rata ${b.pasarSet.size || 1} pasar)`,
-          harga: Math.round(b.total / (b.jumlah || 1)),
-          hargaLama: null,
-          selisih: 0,
-          pasar: `Rata-rata (${b.pasarSet.size || 1} pasar)`,
-          keterangan: ''
-        }));
+
+        const daftarHariTerurut = Array.from(perHari.entries())
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .slice(-20);
+
+        let hargaSebelumnya: number | null = null;
+        titikData = daftarHariTerurut.map(([, b], idx) => {
+          const nilaiPasar = Array.from(b.hargaPerPasar.values()).filter((v) => v > 0);
+          const rataHari = nilaiPasar.length > 0
+            ? Math.round(nilaiPasar.reduce((acc, v) => acc + v, 0) / nilaiPasar.length)
+            : 0;
+          const hargaLama = idx > 0 && hargaSebelumnya !== null ? hargaSebelumnya : null;
+          const selisihHari = hargaLama !== null ? rataHari - hargaLama : 0;
+          hargaSebelumnya = rataHari;
+          const jmlPasar = b.hargaPerPasar.size || 1;
+          return {
+            tanggal: b.label,
+            tanggalLengkap: `${b.label} (Rata-rata ${jmlPasar} pasar)`,
+            harga: rataHari,
+            hargaLama,
+            selisih: selisihHari,
+            pasar: `Rata-rata (${jmlPasar} pasar)`,
+            keterangan: idx === 0
+              ? 'Titik awal periode pantauan'
+              : selisihHari > 0
+                ? 'Rata-rata kota naik dibanding hari sebelumnya'
+                : selisihHari < 0
+                  ? 'Rata-rata kota turun dibanding hari sebelumnya'
+                  : 'Rata-rata kota stabil'
+          };
+        });
       } else {
         const potongan = riwayatKronologis.slice(-20);
         const hariUnik = new Set(potongan.map(r => this.formatLabelTanggalTitik(r.dicatat_pada, false)));
