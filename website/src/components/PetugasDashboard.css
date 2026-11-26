@@ -2281,6 +2281,152 @@
   flex-wrap: wrap;
 }
 
+.kabid-hero-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.kabid-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.kabid-btn-outline {
+  background: #ffffff;
+  color: #334155;
+  border: 1.5px solid #cbd5e1;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.kabid-btn-outline:hover {
+  border-color: #8b1e1e;
+  color: #8b1e1e;
+  background: #fff5f5;
+}
+
+.kabid-btn-approve-sm {
+  background: #166534;
+  color: #ffffff;
+  border: none;
+  padding: 8px 13px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(22, 101, 52, 0.22);
+  transition: all 0.16s ease;
+}
+
+.kabid-btn-approve-sm:hover:not(:disabled) {
+  background: #14532d;
+  transform: translateY(-1px);
+}
+
+.kabid-btn-reject-sm {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1.5px solid #fecaca;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.kabid-btn-reject-sm:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #f87171;
+}
+
+.kabid-btn-bulk-approve {
+  background: linear-gradient(135deg, #166534 0%, #15803d 100%);
+  color: #ffffff;
+  border: none;
+  padding: 11px 18px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(22, 101, 52, 0.25);
+  transition: all 0.16s ease;
+  white-space: nowrap;
+}
+
+.kabid-btn-bulk-approve:hover:not(:disabled) {
+  background: #14532d;
+  transform: translateY(-1px);
+}
+
+.kabid-btn-bulk-approve:disabled,
+.kabid-btn-approve-sm:disabled,
+.kabid-btn-reject-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.kabid-bulk-banner {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  border: 1.5px solid #bbf7d0;
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.kabid-direct-banner {
+  background: #eff6ff;
+  border: 1.5px solid #bfdbfe;
+  color: #1e3a8a;
+  border-radius: 12px;
+  padding: 13px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+.kabid-direct-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.kabid-gpm-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .kabid-hero-controls {
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .kabid-direct-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 .kabid-period-btn {
   border: none;
   background: transparent;

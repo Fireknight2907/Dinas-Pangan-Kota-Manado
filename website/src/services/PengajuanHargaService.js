@@ -612,6 +612,194 @@ export class PengajuanHargaService {
         return true;
     }
 
+    // Kepala Bidang menginput & langsung menerbitkan harga pasar ke publik (wewenang darurat / koreksi langsung)
+    async terbitkanLangsungOlehKabid({
+        namaPasar,
+        pasarId = null,
+        tanggalPengambilan,
+        petugasId = null,
+        namaPetugas = 'Kepala Bidang',
+        items = [],
+        daftarHargaAktif = []
+    }) {
+        const pasarBersih = String(namaPasar || '').trim();
+        if (!pasarBersih) throw new Error('Pasar wajib dipilih terlebih dahulu!');
+        if (!tanggalPengambilan) throw new Error('Tanggal penetapan harga wajib diisi!');
+
+        const itemValid = (Array.isArray(items) ? items : [])
+            .map((r) => ({
+                komoditas_id: r.komoditas_id || null,
+                nama_komoditas: String(r.nama_komoditas || '').trim(),
+                kategori: r.kategori || 'Bahan Pokok',
+                satuan: hargaPanganService.normalisasiSatuan(r.satuan || '1 KG'),
+                harga: Math.round(Number(String(r.harga ?? r.harga_usulan ?? '').replace(/[^0-9]/g, '')) || 0),
+                harga_lama: r.harga_lama !== null && r.harga_lama !== undefined ? Number(r.harga_lama) : null,
+                prioritas_tampil: Number(r.prioritas_tampil) || 50
+            }))
+            .filter((r) => r.nama_komoditas && r.harga > 0);
+
+        if (itemValid.length === 0) {
+            throw new Error('Tambahkan minimal 1 komoditas (harga > 0) ke daftar sebelum menerbitkan langsung!');
+        }
+
+        const tglBersih = String(tanggalPengambilan || '').split('T')[0].trim();
+        const tglFormatted = this.formatTanggalID(tglBersih);
+
+        const petaTerbit = new Map();
+        const petaDraft = new Map();
+        (Array.isArray(daftarHargaAktif) ? daftarHargaAktif : []).forEach((h) => {
+            const k = this.kunciPasangan(h.nama_komoditas, h.nama_pasar);
+            if (String(h.status || '').toLowerCase() === 'terbit') {
+                petaTerbit.set(k, h);
+            } else if (String(h.status || '').toLowerCase() === 'draft') {
+                petaDraft.set(k, h);
+            }
+        });
+
+        for (const it of itemValid) {
+            const kunci = this.kunciPasangan(it.nama_komoditas, pasarBersih);
+            const barisTerbit = petaTerbit.get(kunci);
+            const barisDraft = petaDraft.get(kunci);
+
+            const payloadHarga = {
+                nama_komoditas: it.nama_komoditas,
+                kategori: it.kategori,
+                satuan: it.satuan,
+                harga: it.harga,
+                nama_pasar: pasarBersih,
+                tanggal_penetapan: tglFormatted,
+                prioritas_tampil: it.prioritas_tampil,
+                catatan_perubahan: `Diterbitkan langsung oleh Kepala Bidang (${namaPetugas || 'Kabid'})`,
+                status: 'Terbit'
+            };
+
+            if (barisTerbit && barisTerbit.id) {
+                await hargaPanganService.perbarui(barisTerbit.id, payloadHarga);
+                if (barisDraft && barisDraft.id && barisDraft.id !== barisTerbit.id) {
+                    await hargaPanganService.hapus(barisDraft.id).catch(() => {});
+                }
+            } else if (barisDraft && barisDraft.id) {
+                await hargaPanganService.perbarui(barisDraft.id, payloadHarga);
+            } else {
+                const baru = await hargaPanganService.tambah(payloadHarga);
+                if (baru) petaTerbit.set(kunci, baru);
+            }
+        }
+
+        // Rekam jejak audit ke tabel pengajuan_harga dengan status langsung 'Diverifikasi'
+        try {
+            const header = await supabaseClient.tambahPengajuanHarga({
+                pasar_id: this.validasiUuidAtauNull(pasarId),
+                nama_pasar: pasarBersih,
+                tanggal_pengambilan: tglBersih,
+                petugas_id: this.validasiUuidAtauNull(petugasId),
+                nama_petugas: `${namaPetugas || 'Kepala Bidang'} (Kabid)`,
+                status: 'Diverifikasi',
+                catatan_verifikasi: 'Input & publikasi langsung oleh Kepala Bidang'
+            });
+            if (header && header.id) {
+                const detailPayload = itemValid.map((it) => ({
+                    pengajuan_id: header.id,
+                    komoditas_id: this.validasiUuidAtauNull(it.komoditas_id),
+                    nama_komoditas: it.nama_komoditas,
+                    kategori: it.kategori,
+                    satuan: it.satuan,
+                    harga: it.harga,
+                    harga_lama: it.harga_lama
+                }));
+                try {
+                    await supabaseClient.tambahItemPengajuanHargaBatch(detailPayload);
+                } catch (errDetail) {
+                    if (String(errDetail?.message || '').toLowerCase().includes('harga_lama')) {
+                        const tanpaLama = detailPayload.map(({ harga_lama, ...rest }) => rest);
+                        await supabaseClient.tambahItemPengajuanHargaBatch(tanpaLama);
+                    }
+                }
+            }
+        } catch (errAudit) {
+            if (!this.apakahTabelBelumMigrasi(errAudit)) {
+                console.warn('Gagal mencatat jejak audit terbit langsung Kabid:', errAudit?.message);
+            }
+        }
+
+        return {
+            jumlahItem: itemValid.length,
+            namaPasar: pasarBersih,
+            tanggalTampil: tglFormatted
+        };
+    }
+
+    // Kepala Bidang menyetujui semua draf satuan lama dalam 1 klik (anti-duplikat)
+    async setujuiSemuaDraftSatuan(daftarDraftSatuan = [], daftarHargaAktif = []) {
+        const listDraft = Array.isArray(daftarDraftSatuan) ? daftarDraftSatuan : [];
+        if (listDraft.length === 0) return { jumlahDraftDisetujui: 0 };
+
+        const petaTerbit = new Map();
+        (Array.isArray(daftarHargaAktif) ? daftarHargaAktif : []).forEach((h) => {
+            if (String(h.status || '').toLowerCase() === 'terbit') {
+                petaTerbit.set(this.kunciPasangan(h.nama_komoditas, h.nama_pasar), h);
+            }
+        });
+
+        let jumlahDraftDisetujui = 0;
+        for (const itemDraft of listDraft) {
+            if (!itemDraft || !itemDraft.id) continue;
+            const kunci = this.kunciPasangan(itemDraft.nama_komoditas, itemDraft.nama_pasar);
+            const barisTerbitLain = petaTerbit.get(kunci);
+
+            if (barisTerbitLain && barisTerbitLain.id && String(barisTerbitLain.id) !== String(itemDraft.id)) {
+                await hargaPanganService.perbarui(barisTerbitLain.id, {
+                    harga: Number(itemDraft.harga),
+                    satuan: hargaPanganService.normalisasiSatuan(itemDraft.satuan),
+                    kategori: itemDraft.kategori,
+                    tanggal_penetapan: itemDraft.tanggal_penetapan,
+                    prioritas_tampil: itemDraft.prioritas_tampil,
+                    status: 'Terbit'
+                });
+                await hargaPanganService.hapus(itemDraft.id).catch(() => {});
+            } else {
+                await hargaPanganService.perbarui(itemDraft.id, { status: 'Terbit' });
+                petaTerbit.set(kunci, { ...itemDraft, status: 'Terbit' });
+            }
+            jumlahDraftDisetujui += 1;
+        }
+
+        return { jumlahDraftDisetujui };
+    }
+
+    // Kepala Bidang menyetujui SELURUH antrean (paket pasar + draf satuan) dalam 1 klik
+    async setujuiSemuaAntrean({
+        daftarPengajuanDiajukan = [],
+        daftarDraftSatuan = [],
+        daftarHargaAktif = [],
+        catatanVerifikasi = 'Disetujui massal oleh Kepala Bidang'
+    } = {}) {
+        let jumlahPaketDisetujui = 0;
+        let totalItemPaket = 0;
+        let snapshotHarga = Array.isArray(daftarHargaAktif) ? [...daftarHargaAktif] : [];
+
+        for (const paket of Array.isArray(daftarPengajuanDiajukan) ? daftarPengajuanDiajukan : []) {
+            if (!paket || !paket.id) continue;
+            await this.setujuiPengajuanBatch(paket, snapshotHarga, catatanVerifikasi);
+            jumlahPaketDisetujui += 1;
+            totalItemPaket += Array.isArray(paket.items) ? paket.items.length : 0;
+            // Segarkan snapshot agar paket berikutnya & draf satuan selalu bebas duplikat
+            const segar = await hargaPanganService.ambilSemua().catch(() => null);
+            if (Array.isArray(segar)) snapshotHarga = segar;
+        }
+
+        // Ambil sisa draf yang masih berstatus Draft setelah paket disetujui
+        const sisaDraft = snapshotHarga.filter((h) => String(h.status || '').toLowerCase() === 'draft');
+        const targetDraft = jumlahPaketDisetujui > 0 ? sisaDraft : daftarDraftSatuan;
+        const hasilDraft = await this.setujuiSemuaDraftSatuan(targetDraft, snapshotHarga);
+
+        return {
+            jumlahPaketDisetujui,
+            jumlahDraftDisetujui: hasilDraft.jumlahDraftDisetujui,
+            totalItemTerbit: totalItemPaket + hasilDraft.jumlahDraftDisetujui
+        };
+    }
+
     // Kepala Bidang menolak pengajuan batch beserta catatan alasan (harga Terbit publik tetap utuh!)
     async tolakPengajuanBatch(pengajuanId, catatanAlasan = '') {
         const alasan = String(catatanAlasan || '').trim();

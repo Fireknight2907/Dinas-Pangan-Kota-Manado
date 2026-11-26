@@ -684,6 +684,192 @@ export class PengajuanHargaMobileService {
     return true;
   }
 
+  async terbitkanLangsungOlehKabid(params: {
+    namaPasar: string;
+    pasarId?: string | null;
+    tanggalPengambilan: string;
+    petugasId?: string | null;
+    namaPetugas?: string;
+    items: any[];
+    daftarHargaAktif?: ItemHargaPangan[];
+  }): Promise<{ jumlahItem: number; namaPasar: string; tanggalTampil: string }> {
+    const pasarBersih = String(params.namaPasar || '').trim();
+    if (!pasarBersih) throw new Error('Pasar wajib dipilih terlebih dahulu!');
+    if (!params.tanggalPengambilan) throw new Error('Tanggal penetapan harga wajib diisi!');
+
+    const itemValid = (Array.isArray(params.items) ? params.items : [])
+      .map((r: any) => ({
+        komoditas_id: r.komoditas_id || null,
+        nama_komoditas: String(r.nama_komoditas || '').trim(),
+        kategori: r.kategori || 'Bahan Pokok',
+        satuan: hargaPanganMobileService.normalisasiSatuan(r.satuan || '1 KG'),
+        harga: Math.round(Number(String(r.harga ?? r.harga_usulan ?? '').replace(/[^0-9]/g, '')) || 0),
+        harga_lama: r.harga_lama !== null && r.harga_lama !== undefined ? Number(r.harga_lama) : null,
+        prioritas_tampil: Number(r.prioritas_tampil) || 50
+      }))
+      .filter((r) => r.nama_komoditas && r.harga > 0);
+
+    if (itemValid.length === 0) {
+      throw new Error('Tambahkan minimal 1 komoditas (harga > 0) ke daftar sebelum menerbitkan langsung!');
+    }
+
+    const tglBersih = String(params.tanggalPengambilan || '').split('T')[0].trim();
+    const tglFormatted = this.formatTanggalID(tglBersih);
+
+    const petaTerbit = new Map<string, ItemHargaPangan>();
+    const petaDraft = new Map<string, ItemHargaPangan>();
+    (Array.isArray(params.daftarHargaAktif) ? params.daftarHargaAktif : []).forEach((h) => {
+      const k = this.kunciPasangan(h.nama_komoditas, h.nama_pasar);
+      if (String(h.status || '').toLowerCase() === 'terbit') {
+        petaTerbit.set(k, h);
+      } else if (String(h.status || '').toLowerCase() === 'draft') {
+        petaDraft.set(k, h);
+      }
+    });
+
+    for (const it of itemValid) {
+      const kunci = this.kunciPasangan(it.nama_komoditas, pasarBersih);
+      const barisTerbit = petaTerbit.get(kunci);
+      const barisDraft = petaDraft.get(kunci);
+
+      const payloadHarga: ItemHargaPangan = {
+        nama_komoditas: it.nama_komoditas,
+        kategori: it.kategori,
+        satuan: it.satuan,
+        harga: it.harga,
+        nama_pasar: pasarBersih,
+        tanggal_penetapan: tglFormatted,
+        prioritas_tampil: it.prioritas_tampil,
+        catatan_perubahan: `Diterbitkan langsung oleh Kepala Bidang (${params.namaPetugas || 'Kabid'})`,
+        status: 'Terbit'
+      };
+
+      if (barisTerbit && barisTerbit.id) {
+        await hargaPanganMobileService.perbarui(barisTerbit.id, payloadHarga);
+        if (barisDraft && barisDraft.id && barisDraft.id !== barisTerbit.id) {
+          await hargaPanganMobileService.hapus(barisDraft.id).catch(() => {});
+        }
+      } else if (barisDraft && barisDraft.id) {
+        await hargaPanganMobileService.perbarui(barisDraft.id, payloadHarga);
+      } else {
+        const baru = await hargaPanganMobileService.tambah(payloadHarga);
+        if (baru) petaTerbit.set(kunci, baru);
+      }
+    }
+
+    try {
+      const header = await supabaseClient.tambahPengajuanHarga({
+        pasar_id: this.validasiUuidAtauNull(params.pasarId),
+        nama_pasar: pasarBersih,
+        tanggal_pengambilan: tglBersih,
+        petugas_id: this.validasiUuidAtauNull(params.petugasId),
+        nama_petugas: `${params.namaPetugas || 'Kepala Bidang'} (Kabid)`,
+        status: 'Diverifikasi',
+        catatan_verifikasi: 'Input & publikasi langsung oleh Kepala Bidang'
+      });
+      if (header && header.id) {
+        const detailPayload = itemValid.map((it) => ({
+          pengajuan_id: header.id,
+          komoditas_id: this.validasiUuidAtauNull(it.komoditas_id),
+          nama_komoditas: it.nama_komoditas,
+          kategori: it.kategori,
+          satuan: it.satuan,
+          harga: it.harga,
+          harga_lama: it.harga_lama
+        }));
+        try {
+          await supabaseClient.tambahItemPengajuanHargaBatch(detailPayload);
+        } catch (errDetail: any) {
+          if (String(errDetail?.message || '').toLowerCase().includes('harga_lama')) {
+            const tanpaLama = detailPayload.map(({ harga_lama, ...rest }) => rest);
+            await supabaseClient.tambahItemPengajuanHargaBatch(tanpaLama);
+          }
+        }
+      }
+    } catch (errAudit: any) {
+      if (!this.apakahTabelBelumMigrasi(errAudit)) {
+        console.warn('Gagal mencatat jejak audit terbit langsung Kabid mobile:', errAudit?.message);
+      }
+    }
+
+    return {
+      jumlahItem: itemValid.length,
+      namaPasar: pasarBersih,
+      tanggalTampil: tglFormatted
+    };
+  }
+
+  async setujuiSemuaDraftSatuan(
+    daftarDraftSatuan: ItemHargaPangan[] = [],
+    daftarHargaAktif: ItemHargaPangan[] = []
+  ): Promise<{ jumlahDraftDisetujui: number }> {
+    const listDraft = Array.isArray(daftarDraftSatuan) ? daftarDraftSatuan : [];
+    if (listDraft.length === 0) return { jumlahDraftDisetujui: 0 };
+
+    const petaTerbit = new Map<string, ItemHargaPangan>();
+    (Array.isArray(daftarHargaAktif) ? daftarHargaAktif : []).forEach((h) => {
+      if (String(h.status || '').toLowerCase() === 'terbit') {
+        petaTerbit.set(this.kunciPasangan(h.nama_komoditas, h.nama_pasar), h);
+      }
+    });
+
+    let jumlahDraftDisetujui = 0;
+    for (const itemDraft of listDraft) {
+      if (!itemDraft || !itemDraft.id) continue;
+      const kunci = this.kunciPasangan(itemDraft.nama_komoditas, itemDraft.nama_pasar);
+      const barisTerbitLain = petaTerbit.get(kunci);
+
+      if (barisTerbitLain && barisTerbitLain.id && String(barisTerbitLain.id) !== String(itemDraft.id)) {
+        await hargaPanganMobileService.perbarui(barisTerbitLain.id, {
+          harga: Number(itemDraft.harga),
+          satuan: hargaPanganMobileService.normalisasiSatuan(itemDraft.satuan),
+          kategori: itemDraft.kategori,
+          tanggal_penetapan: itemDraft.tanggal_penetapan,
+          prioritas_tampil: itemDraft.prioritas_tampil,
+          status: 'Terbit'
+        });
+        await hargaPanganMobileService.hapus(itemDraft.id).catch(() => {});
+      } else {
+        await hargaPanganMobileService.perbarui(itemDraft.id, { status: 'Terbit' });
+        petaTerbit.set(kunci, { ...itemDraft, status: 'Terbit' });
+      }
+      jumlahDraftDisetujui += 1;
+    }
+
+    return { jumlahDraftDisetujui };
+  }
+
+  async setujuiSemuaAntrean(params: {
+    daftarPengajuanDiajukan?: DokumenPengajuanHarga[];
+    daftarDraftSatuan?: ItemHargaPangan[];
+    daftarHargaAktif?: ItemHargaPangan[];
+    catatanVerifikasi?: string;
+  }): Promise<{ jumlahPaketDisetujui: number; jumlahDraftDisetujui: number; totalItemTerbit: number }> {
+    const catatan = params.catatanVerifikasi || 'Disetujui massal oleh Kepala Bidang';
+    let jumlahPaketDisetujui = 0;
+    let totalItemPaket = 0;
+    let snapshotHarga: ItemHargaPangan[] = Array.isArray(params.daftarHargaAktif) ? [...params.daftarHargaAktif] : [];
+
+    for (const paket of Array.isArray(params.daftarPengajuanDiajukan) ? params.daftarPengajuanDiajukan : []) {
+      if (!paket || !paket.id) continue;
+      await this.setujuiPengajuanBatch(paket, snapshotHarga, catatan);
+      jumlahPaketDisetujui += 1;
+      totalItemPaket += Array.isArray(paket.items) ? paket.items.length : 0;
+      const segar = await hargaPanganMobileService.ambilSemua().catch(() => null);
+      if (Array.isArray(segar)) snapshotHarga = segar;
+    }
+
+    const sisaDraft = snapshotHarga.filter((h) => String(h.status || '').toLowerCase() === 'draft');
+    const targetDraft = jumlahPaketDisetujui > 0 ? sisaDraft : (params.daftarDraftSatuan || []);
+    const hasilDraft = await this.setujuiSemuaDraftSatuan(targetDraft, snapshotHarga);
+
+    return {
+      jumlahPaketDisetujui,
+      jumlahDraftDisetujui: hasilDraft.jumlahDraftDisetujui,
+      totalItemTerbit: totalItemPaket + hasilDraft.jumlahDraftDisetujui
+    };
+  }
+
   async tolakPengajuanBatch(pengajuanId: string, catatanAlasan: string = ''): Promise<boolean> {
     const alasan = String(catatanAlasan || '').trim();
     await supabaseClient.updatePengajuanHarga(pengajuanId, {
