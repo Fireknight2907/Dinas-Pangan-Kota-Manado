@@ -1438,34 +1438,38 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                       : '1️⃣ Pilih Pasar, Tanggal & Tambah Komoditas'}
                 </h3>
 
-                {/* Langkah 1: Pilih Pasar & Tanggal Pengambilan Terlebih Dahulu */}
+                {/* Langkah 1: Pilih Pasar & Tanggal Pengambilan Terlebih Dahulu (Ringkas) */}
                 {!idEditHarga && (
-                  <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
-                    <div className="form-two-cols-row">
-                      <div className="form-field-group">
-                        <label className="field-label-text">1. Pilih Pasar Terdaftar *</label>
+                  <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 155px', gap: '8px', alignItems: 'end' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>
+                          📍 Pasar Terdaftar *
+                        </label>
                         <select
                           required
-                          className="field-select-box"
                           value={formHarga.nama_pasar}
                           disabled={daftarSementaraHarga.length > 0}
                           title={daftarSementaraHarga.length > 0 ? 'Ajukan atau kosongkan daftar sementara untuk ganti pasar' : ''}
                           onChange={(e) => setFormHarga({ ...formHarga, nama_pasar: e.target.value })}
+                          style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', fontWeight: 600, background: daftarSementaraHarga.length > 0 ? '#e2e8f0' : '#ffffff' }}
                         >
-                          <option value="">-- Pilih Pasar Terlebih Dahulu --</option>
+                          <option value="">-- Pilih Pasar --</option>
                           {daftarPasar.map((pasar, idx) => (
                             <option key={idx} value={pasar}>{pasar}</option>
                           ))}
                         </select>
                       </div>
-                      <div className="form-field-group">
-                        <label className="field-label-text">2. Tanggal Pengambilan Harga *</label>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>
+                          📅 Tanggal *
+                        </label>
                         <input
                           type="date"
-                          className="field-input-box"
                           value={tanggalPengambilan}
                           disabled={daftarSementaraHarga.length > 0}
                           onChange={(e) => setTanggalPengambilan(e.target.value)}
+                          style={{ width: '100%', padding: '5px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', fontWeight: 600, boxSizing: 'border-box', background: daftarSementaraHarga.length > 0 ? '#e2e8f0' : '#ffffff' }}
                         />
                       </div>
                     </div>
@@ -1544,31 +1548,14 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                     </select>
                   </div>
 
-                  <div className="form-two-cols-row">
-                    <div className="form-field-group">
-                      <label className="field-label-text">Kategori</label>
-                      <input
-                        type="text"
-                        readOnly
-                        className="field-input-box"
-                        style={{ background: '#f1f5f9', cursor: 'not-allowed' }}
-                        value={formHarga.kategori}
-                      />
-                    </div>
-
-                    <div className="form-field-group">
-                      <label className="field-label-text">Satuan Resmi (Terkunci)</label>
-                      <select
-                        className="field-select-box"
-                        value={formHarga.satuan}
-                        disabled={Boolean(formHarga.nama_komoditas)}
-                        onChange={(e) => setFormHarga({ ...formHarga, satuan: e.target.value })}
-                      >
-                        {Array.from(new Set([...daftarSatuan, formHarga.satuan].filter(Boolean))).map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
-                    </div>
+                  {/* Info ringkas Kategori & Satuan (hanya informasi terkunci) */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', margin: '4px 0 8px 0' }}>
+                    <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px 10px', fontSize: '0.76rem', color: '#475569', fontWeight: 600 }}>
+                      📦 Kategori: <strong style={{ color: '#0f172a' }}>{formHarga.kategori || '-'}</strong>
+                    </span>
+                    <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px 10px', fontSize: '0.76rem', color: '#475569', fontWeight: 600 }}>
+                      ⚖️ Satuan Resmi: <strong style={{ color: '#0f172a' }}>{formHarga.satuan || '1 KG'}</strong>
+                    </span>
                   </div>
 
                   <div className="form-field-group">
@@ -1693,19 +1680,18 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                 )}
               </div>
 
-              {/* PK-15: Daftar Pengajuan Harga (Dikelompokkan per Pasar & Tanggal) + Detail Pengajuan */}
+              {/* PK-15: Daftar Pengajuan Harga (Dikelompokkan per Pasar saja, Tanggal di dalam Detail Pengajuan) */}
               <div className="tetapkan-list-card">
-                <h3 className="list-card-heading">Daftar Pengajuan Harga (Per Pasar &amp; Tanggal)</h3>
+                <h3 className="list-card-heading">Daftar Pengajuan Harga (Per Pasar)</h3>
                 <div className="current-prices-stack">
                   {(() => {
                     const grupMap = new Map();
                     daftarHarga.forEach((item) => {
-                      const k = `${item.nama_pasar || '-'}||${item.tanggal_penetapan || '-'}`;
+                      const k = item.nama_pasar || '-';
                       if (!grupMap.has(k)) {
                         grupMap.set(k, {
                           kunci: k,
-                          nama_pasar: item.nama_pasar || '-',
-                          tanggal_penetapan: item.tanggal_penetapan || '-',
+                          nama_pasar: k,
                           items: []
                         });
                       }
@@ -1724,7 +1710,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                               <strong className="item-name">📍 {grup.nama_pasar}</strong>
                             </div>
                             <div className="item-market-date">
-                              📅 {grup.tanggal_penetapan} · <strong>{grup.items.length} komoditas</strong>
+                              <strong>{grup.items.length} data komoditas</strong>
                             </div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1745,15 +1731,15 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   })()}
                 </div>
 
-                {/* Modal Detail Pengajuan */}
+                {/* Modal Detail Pengajuan (Menampilkan Tanggal per item) */}
                 {detailPengajuanBuka && (
                   <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-                    <div style={{ background: '#ffffff', borderRadius: '14px', maxWidth: '680px', width: '100%', maxHeight: '85vh', overflowY: 'auto', padding: '22px', boxShadow: '0 20px 45px rgba(0,0,0,0.25)' }}>
+                    <div style={{ background: '#ffffff', borderRadius: '14px', maxWidth: '760px', width: '100%', maxHeight: '85vh', overflowY: 'auto', padding: '22px', boxShadow: '0 20px 45px rgba(0,0,0,0.25)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', marginBottom: '14px' }}>
                         <div>
                           <h3 style={{ margin: 0, fontSize: '1.08rem', color: '#0f172a' }}>📋 Detail Pengajuan Harga</h3>
                           <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: '#475569' }}>
-                            📍 <strong>{detailPengajuanBuka.nama_pasar}</strong> · 📅 {detailPengajuanBuka.tanggal_penetapan}
+                            📍 <strong>{detailPengajuanBuka.nama_pasar}</strong> · {detailPengajuanBuka.items.length} data komoditas
                           </p>
                         </div>
                         <button type="button" onClick={() => setDetailPengajuanBuka(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '8px', padding: '6px 12px', fontWeight: 700, cursor: 'pointer' }}>
@@ -1764,6 +1750,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                         <thead>
                           <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
                             <th style={{ padding: '8px' }}>Komoditas</th>
+                            <th style={{ padding: '8px' }}>Tanggal</th>
                             <th style={{ padding: '8px' }}>Satuan</th>
                             <th style={{ padding: '8px' }}>Harga</th>
                             <th style={{ padding: '8px' }}>Status</th>
@@ -1774,6 +1761,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                           {detailPengajuanBuka.items.map((item) => (
                             <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                               <td style={{ padding: '8px', fontWeight: 700 }}>{item.nama_komoditas}</td>
+                              <td style={{ padding: '8px', fontSize: '0.8rem', color: '#475569' }}>{item.tanggal_penetapan || '-'}</td>
                               <td style={{ padding: '8px' }}>{formatSatuanTampil(item.satuan)}</td>
                               <td style={{ padding: '8px', fontWeight: 700, color: '#8b1e1e' }}>{formatRupiah(item.harga)}</td>
                               <td style={{ padding: '8px' }}>
