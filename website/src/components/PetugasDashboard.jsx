@@ -2206,7 +2206,8 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* ─────────────────────────────────────────────
             15. VIEW 7: MASTER SATUAN, PASAR & WILAYAH (ADMIN & SUPERADMIN)
