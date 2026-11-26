@@ -24,28 +24,28 @@ router.post('/antrian', (req, res) => GPMController.ambilNomorAntrean(req, res))
 
 
 // ===============================================================================
-// 2. RUTE PETUGAS & ADMIN (Akses Khusus Pengurus Dinas Pangan)
+// 2. RUTE PETUGAS & ADMIN (Akses Khusus Pengurus Dinas Pangan — WAJIB TOKEN & PERAN)
 // ===============================================================================
 
 // [Modul Rute] Mengambil ringkasan statistik antrean dan kegiatan GPM
-router.get('/statistik', (req, res) => GPMController.ambilStatistik(req, res));
+router.get('/statistik', verifikasiToken, periksaPeran(['Admin', 'Superadmin', 'Kabid', 'Staf', 'Kadis']), (req, res) => GPMController.ambilStatistik(req, res));
 
 // [Modul Rute] Petugas mendaftarkan/menulis lokasi dan jadwal acara GPM baru
-router.post('/acara', (req, res) => GPMController.tambahAcara(req, res));
+router.post('/acara', verifikasiToken, periksaPeran(['Admin', 'Superadmin', 'Kabid', 'Staf']), (req, res) => GPMController.tambahAcara(req, res));
 
 // [Modul Rute] Petugas memperbarui jadwal atau kuota acara GPM
-router.put('/acara/:id', (req, res) => GPMController.perbaruiAcara(req, res));
+router.put('/acara/:id', verifikasiToken, periksaPeran(['Admin', 'Superadmin', 'Kabid', 'Staf']), (req, res) => GPMController.perbaruiAcara(req, res));
 
 // [Modul Rute] Petugas menghapus jadwal acara GPM
-router.delete('/acara/:id', (req, res) => GPMController.hapusAcara(req, res));
+router.delete('/acara/:id', verifikasiToken, periksaPeran(['Admin', 'Superadmin', 'Kabid']), (req, res) => GPMController.hapusAcara(req, res));
 
 // [Modul Rute] Petugas melihat berapa banyak nomor antrean yang dibuat dan data orang2 yang mendaftar
-router.get('/acara/:acara_id/pendaftar', (req, res) => GPMController.daftarPendaftar(req, res));
+router.get('/acara/:acara_id/pendaftar', verifikasiToken, periksaPeran(['Admin', 'Superadmin', 'Kabid', 'Staf', 'Kadis']), (req, res) => GPMController.daftarPendaftar(req, res));
 
 // [Modul Rute] Petugas melakukan SCAN Barcode tiket masyarakat
-router.get('/scan/:barcode', (req, res) => GPMController.scanBarcode(req, res));
+router.get('/scan/:barcode', verifikasiToken, periksaPeran(['Admin', 'Superadmin', 'Kabid', 'Staf']), (req, res) => GPMController.scanBarcode(req, res));
 
 // [Modul Rute] Petugas mengonfirmasi verifikasi kehadiran pendaftar setelah di-scan
-router.post('/verifikasi/:barcode', (req, res) => GPMController.verifikasiKehadiran(req, res));
+router.post('/verifikasi/:barcode', verifikasiToken, periksaPeran(['Admin', 'Superadmin', 'Kabid', 'Staf']), (req, res) => GPMController.verifikasiKehadiran(req, res));
 
 module.exports = router;

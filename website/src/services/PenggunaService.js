@@ -8,19 +8,7 @@
 import { supabaseClient } from './SupabaseClient';
 
 export async function hitungHashSandi(kataSandi) {
-    if (!kataSandi) return '';
-    if (/^[a-f0-9]{64}$/i.test(kataSandi)) return kataSandi.toLowerCase();
-    const garam = 'SIPATOKAAN_MANADO_2026_SECURE_SALT';
-    try {
-        if (typeof crypto !== 'undefined' && crypto.subtle) {
-            const encoder = new TextEncoder();
-            const data = encoder.encode(garam + kataSandi);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        }
-    } catch (_) { }
-    return kataSandi;
+    return supabaseClient.hitungHashSandi(kataSandi);
 }
 
 class PenggunaService {

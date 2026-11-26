@@ -35,17 +35,16 @@ router.get('/:id', (req, res) => HargaPanganController.detailSatu(req, res));
 
 
 // =======================================================
-// RUTE MANAJEMEN / INPUT DATA OLEH STAF & PETUGAS
+// RUTE MANAJEMEN / INPUT DATA OLEH STAF & PETUGAS (WAJIB TOKEN & PERAN)
 // =======================================================
 
-// 5. Tambah data komoditas pangan baru (Tempat input staf)
-// Catatan: Jika token disertakan, data petugas akan tercatat otomatis
-router.post('/', (req, res) => HargaPanganController.tambah(req, res));
+// 5. Tambah data komoditas pangan baru (Staf / Kabid / Admin / Superadmin)
+router.post('/', verifikasiToken, periksaPeran(['Admin', 'Superadmin', 'Kabid', 'Staf']), (req, res) => HargaPanganController.tambah(req, res));
 
-// 6. Perbarui data komoditas pangan
-router.put('/:id', (req, res) => HargaPanganController.perbarui(req, res));
+// 6. Perbarui data komoditas pangan (Staf / Kabid / Admin / Superadmin)
+router.put('/:id', verifikasiToken, periksaPeran(['Admin', 'Superadmin', 'Kabid', 'Staf']), (req, res) => HargaPanganController.perbarui(req, res));
 
-// 7. Hapus data komoditas pangan
-router.delete('/:id', (req, res) => HargaPanganController.hapus(req, res));
+// 7. Hapus data komoditas pangan (Kabid / Admin / Superadmin)
+router.delete('/:id', verifikasiToken, periksaPeran(['Admin', 'Superadmin', 'Kabid']), (req, res) => HargaPanganController.hapus(req, res));
 
 module.exports = router;

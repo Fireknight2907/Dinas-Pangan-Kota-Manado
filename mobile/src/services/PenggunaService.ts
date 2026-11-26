@@ -8,19 +8,7 @@
 import { supabaseClient } from './SupabaseClient';
 
 export async function hitungHashSandi(kataSandi: string): Promise<string> {
-  if (!kataSandi) return '';
-  if (/^[a-f0-9]{64}$/i.test(kataSandi)) return kataSandi.toLowerCase();
-  const garam = 'SIPATOKAAN_MANADO_2026_SECURE_SALT';
-  try {
-    if (typeof crypto !== 'undefined' && crypto.subtle) {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(garam + kataSandi);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-  } catch (_) { }
-  return kataSandi;
+  return supabaseClient.hitungHashSandi(kataSandi);
 }
 
 export type PeranPengguna = 'Admin' | 'Kabid' | 'Staf' | 'Kadis' | 'Superadmin';
@@ -52,7 +40,7 @@ class PenggunaMobileService {
     try {
       localStorage.removeItem('sipatokaan_master_users');
       localStorage.removeItem('sipatokean_master_users');
-    } catch (_) {}
+    } catch (_) { }
   }
 
   // Normalisasi string peran agar konsisten dengan standar sistem
@@ -558,7 +546,7 @@ class PenggunaMobileService {
     if (dariSession && this.tokenMasihBerlaku(tokenSession)) {
       try {
         return this.normalisasiDataPengguna(JSON.parse(dariSession));
-      } catch (_) {}
+      } catch (_) { }
     } else if (dariSession || tokenSession) {
       sessionStorage.removeItem(this.kunciSesiToken);
       sessionStorage.removeItem(this.kunciSesiUser);
@@ -569,7 +557,7 @@ class PenggunaMobileService {
     if (data && this.tokenMasihBerlaku(tokenLocal)) {
       try {
         return this.normalisasiDataPengguna(JSON.parse(data));
-      } catch (_) {}
+      } catch (_) { }
     } else if (data || tokenLocal) {
       localStorage.removeItem(this.kunciSesiToken);
       localStorage.removeItem(this.kunciSesiUser);

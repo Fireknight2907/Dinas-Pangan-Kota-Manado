@@ -20,7 +20,11 @@ class PenggunaController {
 
     async gantiSandi(req, res) {
         try {
-            const { idPengguna, kataSandiLama, kataSandiBaru } = req.body;
+            const idPengguna = req.pengguna?.id;
+            if (!idPengguna) {
+                return res.status(401).json({ sukses: false, pesan: 'Sesi pengguna tidak valid.' });
+            }
+            const { kataSandiLama, kataSandiBaru } = req.body;
             await ModelPengguna.gantiKataSandi(idPengguna, kataSandiLama, kataSandiBaru);
             res.status(200).json({ sukses: true, pesan: 'Kata sandi berhasil diubah' });
         } catch (error) {
