@@ -18,6 +18,7 @@ import { gpmService } from '../services/GPMService';
 import { jadwalGPMService } from '../services/JadwalGPMService';
 import { pengajuanHargaService } from '../services/PengajuanHargaService';
 import { berandaStafService } from '../services/BerandaStafService';
+import { berandaKabidService } from '../services/BerandaKabidService';
 import PetugasGPMManager from './PetugasGPMManager';
 import AdminMasterPasarPanel from './AdminMasterPasarPanel';
 import './PetugasDashboard.css';
@@ -171,6 +172,16 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   const [dataTren, setDataTren] = useState(null);
   const [sedangMuatTren, setSedangMuatTren] = useState(false);
   const [filterLaporanHarga, setFilterLaporanHarga] = useState({ pasar: 'Semua', kategori: 'Semua', status: 'Semua' });
+  const [cariLaporanHarga, setCariLaporanHarga] = useState('');
+  const [subTabLaporanKabid, setSubTabLaporanKabid] = useState('harga'); // 'harga' | 'gpm'
+  const [periodeBerandaKabid, setPeriodeBerandaKabid] = useState('tahun_ini'); // 'bulan_ini' | 'tahun_ini' | 'semua'
+  const [filterLaporanGPMKabid, setFilterLaporanGPMKabid] = useState({
+    periode: 'tahun_ini',
+    kecamatan: 'Semua',
+    status: 'Semua'
+  });
+  const [cariVerifTerbitKabid, setCariVerifTerbitKabid] = useState('');
+  const [filterPasarVerifTerbitKabid, setFilterPasarVerifTerbitKabid] = useState('Semua');
 
   // Data Riil Pelaksanaan GPM & Pendaftar Warga (Kadis, Admin, Kabid)
   const [daftarAcaraGPM, setDaftarAcaraGPM] = useState([]);
@@ -189,9 +200,6 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     mode: 'semua', // 'semua' | 'acara'
     acaraId: ''
   });
-
-  // State Dokumen Cetak Resmi Anti-Blank
-  const [dataCetakResmi, setDataCetakResmi] = useState(null);
 
   // Ref Input Unggah Berkas Foto Profil dari Perangkat
   const inputBerkasFotoRef = useRef(null);
@@ -1271,12 +1279,42 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     reader.readAsDataURL(file);
   };
 
-  // Cetak Dokumen Resmi Anti-Blank dengan Kop Surat Pemkot Manado
+  // Cetak Dokumen PDF Resmi Anti-Blank (Isolated Iframe A4 dengan Kop Surat & Filter Aktif)
   const handleCetakDokumen = (konfigurasi) => {
-    setDataCetakResmi(konfigurasi);
-    setTimeout(() => {
-      window.print();
-    }, 250);
+    if (!konfigurasi || !konfigurasi.jenis) return;
+    if (konfigurasi.jenis === 'kabid-harga') {
+      laporanService.cetakLaporanHargaPDF(konfigurasi.data || [], {
+        penandatangan: { nama: ambilNamaPenandatangan('Kabid') },
+        jabatanPenandatangan: 'Kepala Bidang Cadangan dan Distribusi Pangan',
+        filter: konfigurasi.filter || {}
+      });
+      return;
+    }
+    if (konfigurasi.jenis === 'kabid-gpm') {
+      laporanService.cetakLaporanGPMPDF(konfigurasi.data || [], {
+        penandatangan: { nama: ambilNamaPenandatangan('Kabid') },
+        jabatanPenandatangan: 'Kepala Bidang Cadangan dan Distribusi Pangan',
+        filter: konfigurasi.filter || {}
+      });
+      return;
+    }
+    if (konfigurasi.jenis === 'kadis-gpm-semua') {
+      laporanService.cetakLaporanGPMPDF(konfigurasi.data || rekapitulasiGPMList, {
+        penandatangan: { nama: ambilNamaPenandatangan('Kadis') },
+        jabatanPenandatangan: 'Kepala Dinas Pangan Kota Manado',
+        filter: konfigurasi.filter || { labelPeriode: 'Semua Periode' }
+      });
+      return;
+    }
+    if (konfigurasi.jenis === 'kadis-gpm-acara') {
+      const targetPeran = peran === 'Kabid' ? 'Kabid' : 'Kadis';
+      laporanService.cetakLaporanPendaftarGPMPDF(konfigurasi.acara, konfigurasi.pendaftar || [], {
+        penandatangan: { nama: ambilNamaPenandatangan(targetPeran) },
+        jabatanPenandatangan: targetPeran === 'Kabid'
+          ? 'Kepala Bidang Cadangan dan Distribusi Pangan'
+          : 'Kepala Dinas Pangan Kota Manado'
+      });
+    }
   };
 
   const handleSimpanPasswordPribadi = async (e) => {
@@ -1363,6 +1401,19 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         daftarAcaraGPM: listAcaraAman
       }),
     [daftarPasarLengkap, daftarHarga, daftarMasterKomoditas, daftarPengajuanHarga, listAcaraAman]
+  );
+  const ringkasanBerandaKabid = useMemo(
+    () =>
+      berandaKabidService.hitungRingkasanKabid({
+        daftarPasarLengkap,
+        daftarHarga,
+        daftarMasterKomoditas,
+        daftarPengajuan: daftarPengajuanHarga,
+        daftarAcaraGPM: listAcaraAman,
+        daftarPendaftarGPM: listPendaftarAman,
+        periode: periodeBerandaKabid
+      }),
+    [daftarPasarLengkap, daftarHarga, daftarMasterKomoditas, daftarPengajuanHarga, listAcaraAman, listPendaftarAman, periodeBerandaKabid]
   );
   const grupKomoditasDropdown = masterDataService.kelompokkanKomoditasUntukDropdown(daftarMasterKomoditas);
   const daftarKelompokIndukMaster = Array.from(new Set(daftarMasterKomoditas.map(k => k.kelompok_komoditas).filter(Boolean)));
@@ -1893,7 +1944,254 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           </div>
         )}
 
-        {menuAktif === 'dashboard' && peran !== 'Staf' && (
+        {/* ─────────────────────────────────────────────
+            9B. VIEW 1B: BERANDA OPERASIONAL KEPALA BIDANG (100% DATA RIIL + FILTER PERIODE)
+            ───────────────────────────────────────────── */}
+        {menuAktif === 'dashboard' && peran === 'Kabid' && (
+          <div className="dashboard-page-container">
+            <div className="staf-hero-banner">
+              <div className="staf-hero-left">
+                <div className="staf-hero-date">🏛️ {ringkasanBerandaKabid.hariIniID} • Periode: {ringkasanBerandaKabid.labelPeriode}</div>
+                <h1 className="dashboard-main-heading" style={{ marginBottom: '4px' }}>
+                  Beranda Kepala Bidang — Pengawasan &amp; Verifikasi
+                </h1>
+                <p className="dashboard-main-subheading" style={{ marginBottom: 0 }}>
+                  Ringkasan real-time verifikasi harga pasar, kepatuhan survey harian staf, dan capaian Gerakan Pangan Murah ({ringkasanBerandaKabid.labelPeriode}).
+                </p>
+              </div>
+              <div className="staf-hero-actions" style={{ flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                <div className="kabid-period-switch" role="group" aria-label="Pilih periode ringkasan">
+                  {[
+                    { id: 'bulan_ini', label: 'Bulan Ini' },
+                    { id: 'tahun_ini', label: `Tahun ${ringkasanBerandaKabid.tahunBerjalan}` },
+                    { id: 'semua', label: 'Semua Periode' }
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      className={`kabid-period-btn ${periodeBerandaKabid === opt.id ? 'active' : ''}`}
+                      onClick={() => setPeriodeBerandaKabid(opt.id)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="staf-hero-cta-primary"
+                    onClick={() => setMenuAktif('verif-harga')}
+                  >
+                    ✅ Verifikasi Harga ({ringkasanBerandaKabid.kpi.totalMenungguVerifikasi})
+                  </button>
+                  <button
+                    type="button"
+                    className="staf-hero-cta-secondary"
+                    onClick={() => setMenuAktif('laporan')}
+                  >
+                    📑 Laporan &amp; Excel
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="dashboard-stat-cards-grid">
+              <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('verif-harga')}>
+                <div className="stat-icon-square icon-amber">📦</div>
+                <div className="stat-number-big">{ringkasanBerandaKabid.kpi.totalMenungguVerifikasi}</div>
+                <div className="stat-title-label">Menunggu Verifikasi</div>
+                <div className="stat-caption-sub">
+                  {ringkasanBerandaKabid.kpi.menungguVerifikasiPaket} paket pasar · {ringkasanBerandaKabid.kpi.menungguVerifikasiSatuan} draf satuan
+                </div>
+              </div>
+
+              <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('verif-harga')}>
+                <div className="stat-icon-square icon-pink">🏪</div>
+                <div className="stat-number-big">
+                  {ringkasanBerandaKabid.kpi.pasarSelesaiHariIni}/{ringkasanBerandaKabid.kpi.totalPasar}
+                </div>
+                <div className="stat-title-label">Kepatuhan Pasar Hari Ini</div>
+                <div className="stat-caption-sub">
+                  {ringkasanBerandaKabid.kpi.persenKepatuhanPasar}% pasar terdata · {ringkasanBerandaKabid.kpi.totalHargaTerbit} harga terbit
+                </div>
+              </div>
+
+              <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => { setSubTabGpmTarget('riwayat'); setMenuAktif('kelola-gpm'); }}>
+                <div className="stat-icon-square icon-green">✅</div>
+                <div className="stat-number-big">{ringkasanBerandaKabid.kpi.gpmTerlaksanaPeriode}</div>
+                <div className="stat-title-label">GPM Terlaksana ({ringkasanBerandaKabid.labelPeriode})</div>
+                <div className="stat-caption-sub">
+                  Aktif: {ringkasanBerandaKabid.kpi.gpmAktifSekarang} · Total arsip: {ringkasanBerandaKabid.kpi.gpmTerlaksanaTotalArsip}
+                </div>
+              </div>
+
+              <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => { setSubTabLaporanKabid('gpm'); setMenuAktif('laporan'); }}>
+                <div className="stat-icon-square icon-blue">🎟️</div>
+                <div className="stat-number-big">{ringkasanBerandaKabid.kpi.persenSerapanPeriode}%</div>
+                <div className="stat-title-label">Serapan Kuota GPM</div>
+                <div className="stat-caption-sub">
+                  {ringkasanBerandaKabid.kpi.totalHadirPeriode.toLocaleString('id-ID')} hadir dari {ringkasanBerandaKabid.kpi.totalKuotaPeriode.toLocaleString('id-ID')} kuota
+                </div>
+              </div>
+            </div>
+
+            <div className="staf-ops-grid">
+              {/* Kiri: Antrean Verifikasi Paket Harga Pasar (Hanya Diajukan, bukan Draft pribadi Staf) */}
+              <section className="staf-ops-card">
+                <div className="staf-ops-card-head">
+                  <div>
+                    <h3 className="staf-ops-card-title">📦 Antrean Verifikasi Paket Harga</h3>
+                    <p className="staf-ops-card-sub">Usulan resmi dari Staf Pangan yang siap disetujui atau ditolak.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="staf-btn-link"
+                    onClick={() => setMenuAktif('verif-harga')}
+                  >
+                    Buka Menu Verifikasi →
+                  </button>
+                </div>
+
+                {ringkasanBerandaKabid.antreanPengajuanTerbaru.length === 0 ? (
+                  <div className="staf-empty-box">
+                    Semua pengajuan harga dari staf sudah selesai diverifikasi. Tidak ada antrean tertunda saat ini.
+                  </div>
+                ) : (
+                  <div className="staf-batch-mini-list">
+                    {ringkasanBerandaKabid.antreanPengajuanTerbaru.map((p) => (
+                      <div key={p.id} className="staf-batch-mini-row">
+                        <div>
+                          <div className="staf-batch-mini-title">📍 {p.nama_pasar}</div>
+                          <div className="staf-batch-mini-sub">
+                            📅 {p.tanggal_tampil} · 👤 {p.nama_petugas} · {p.items?.length || 0} komoditas
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <button
+                            type="button"
+                            className="staf-market-btn"
+                            onClick={() => setDetailPengajuanBatch(p)}
+                          >
+                            👁️ Tinjau
+                          </button>
+                          <button
+                            type="button"
+                            className="staf-market-btn"
+                            style={{ background: '#166534', color: '#fff', borderColor: '#166534' }}
+                            onClick={() => setMenuAktif('verif-harga')}
+                          >
+                            Verifikasi
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {/* Kanan: Kepatuhan Survey Harian per Pasar */}
+              <section className="staf-ops-card">
+                <div className="staf-ops-card-head">
+                  <div>
+                    <h3 className="staf-ops-card-title">🏪 Kepatuhan Survey Pasar Hari Ini</h3>
+                    <p className="staf-ops-card-sub">
+                      {ringkasanBerandaKabid.kpi.pasarSelesaiHariIni} dari {ringkasanBerandaKabid.kpi.totalPasar} pasar sudah melaporkan harga hari ini.
+                    </p>
+                  </div>
+                  <span className="staf-progress-pill">{ringkasanBerandaKabid.kpi.persenKepatuhanPasar}%</span>
+                </div>
+
+                {ringkasanBerandaKabid.kepatuhanPerPasar.length === 0 ? (
+                  <div className="staf-empty-box">Belum ada data master pasar di database.</div>
+                ) : (
+                  <div className="staf-market-checklist">
+                    {ringkasanBerandaKabid.kepatuhanPerPasar.map((m) => (
+                      <div key={m.nama_pasar} className={`staf-market-row-card is-${m.kodeStatus}`}>
+                        <div className="staf-market-row-main">
+                          <div className="staf-market-name">{m.nama_pasar}</div>
+                          <div className="staf-market-meta">
+                            <span>{m.jumlahTerbit} komoditas terbit</span>
+                            {m.jumlahPengajuanMenunggu > 0 && <span>· {m.jumlahPengajuanMenunggu} paket menunggu verifikasi</span>}
+                          </div>
+                        </div>
+                        <span className={`staf-status-chip is-${m.kodeStatus}`}>{m.labelStatus}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {/* Bawah Full: Monitoring Pelaksanaan GPM Periode Aktif */}
+              <section className="staf-ops-card" style={{ gridColumn: '1 / -1' }}>
+                <div className="staf-ops-card-head">
+                  <div>
+                    <h3 className="staf-ops-card-title">🎟️ Pelaksanaan Gerakan Pangan Murah ({ringkasanBerandaKabid.labelPeriode})</h3>
+                    <p className="staf-ops-card-sub">
+                      Pantau realisasi kehadiran dan serapan kuota per titik lokasi GPM pada periode terpilih.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="staf-btn-link"
+                      onClick={() => setMenuAktif('kelola-gpm')}
+                    >
+                      Kelola GPM →
+                    </button>
+                    <button
+                      type="button"
+                      className="staf-btn-link"
+                      onClick={() => {
+                        setFilterLaporanGPMKabid((prev) => ({ ...prev, periode: periodeBerandaKabid }));
+                        setSubTabLaporanKabid('gpm');
+                        setMenuAktif('laporan');
+                      }}
+                    >
+                      Cetak / Excel GPM →
+                    </button>
+                  </div>
+                </div>
+
+                {ringkasanBerandaKabid.gpmPeriodeList.length === 0 ? (
+                  <div className="staf-empty-box">
+                    Belum ada kegiatan Gerakan Pangan Murah tercatat pada periode {ringkasanBerandaKabid.labelPeriode}.
+                  </div>
+                ) : (
+                  <div className="staf-gpm-mini-list">
+                    {ringkasanBerandaKabid.gpmPeriodeList.map((a) => (
+                      <div key={a.id} className="staf-gpm-mini-row">
+                        <div style={{ flex: 1, minWidth: '200px' }}>
+                          <div className="staf-gpm-mini-title">
+                            {a.nama_acara}
+                            <span
+                              className={`staf-batch-pill ${a.statusOperasional.sudahBerakhir ? 'is-ok' : 'is-pending'}`}
+                              style={{ marginLeft: '8px', fontSize: '0.7rem' }}
+                            >
+                              {a.statusOperasional.sudahBerakhir ? 'Selesai' : 'Aktif'}
+                            </span>
+                          </div>
+                          <div className="staf-gpm-mini-sub">
+                            📍 {a.lokasi} (Kec. {a.kecamatan || '-'}) · 📅 {a.tanggal} ({a.jam_mulai}–{a.jam_selesai} WITA)
+                          </div>
+                        </div>
+                        <div className="kabid-gpm-serapan-box">
+                          <div className="kabid-gpm-serapan-text">
+                            Hadir <strong>{a.hadirRiil}</strong> / {a.kuotaRiil} kuota ({a.persenSerapan}%) · Daftar: {a.terdaftarRiil}
+                          </div>
+                          <div className="kabid-gpm-mini-bar">
+                            <div className="kabid-gpm-mini-fill" style={{ width: `${a.persenSerapan}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+          </div>
+        )}
+
+        {menuAktif === 'dashboard' && peran !== 'Staf' && peran !== 'Kabid' && (
           <div className="dashboard-page-container">
             <div className="dashboard-hero-title-box">
               <h1 className="dashboard-main-heading">
@@ -1983,24 +2281,6 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                     <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('cek-gpm')}>
                       <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>🔍 Menu Cek GPM</h4>
                       <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Supervisi jadwal, titik peta lokasi, dan pendaftar Gerakan Pangan Murah.</p>
-                    </div>
-                  </>
-                )}
-
-                {/* Kabid Quick Cards */}
-                {peran === 'Kabid' && (
-                  <>
-                    <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('verif-harga')}>
-                      <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>✅ Menu Verifikasi Harga Pangan</h4>
-                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Tinjau dan setujui paket usulan harga pasar dari staf lapangan.</p>
-                    </div>
-                    <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('kelola-gpm')}>
-                      <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>🎟️ Menu Kelola GPM</h4>
-                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Atur titik koordinat peta lokasi dan penetapan kuota komoditas murah.</p>
-                    </div>
-                    <div className="stat-card-white" style={{ cursor: 'pointer' }} onClick={() => setMenuAktif('laporan')}>
-                      <h4 style={{ margin: '0 0 6px 0', color: '#8b1e1e' }}>📑 Laporan Bidang Pangan</h4>
-                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Cetak laporan resmi distribusi dan cadangan pangan Pemerintah Kota Manado.</p>
                     </div>
                   </>
                 )}
@@ -2970,61 +3250,156 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
               </div>
             )}
 
-            {/* BAGIAN C: RIWAYAT DATA TERVERIFIKASI */}
-            <div style={{ background: '#ffffff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-              <h3 style={{ margin: '0 0 16px 0', color: '#166534', fontSize: '1.05rem' }}>
-                ✅ Komoditas Resmi Terbit di Halaman Publik
-              </h3>
-              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', minWidth: '600px' }}>
-                  <thead>
-                    <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
-                      <th style={{ padding: '10px' }}>Komoditas</th>
-                      <th style={{ padding: '10px' }}>Kategori</th>
-                      <th style={{ padding: '10px' }}>Pasar</th>
-                      <th style={{ padding: '10px' }}>Harga</th>
-                      <th style={{ padding: '10px' }}>Status</th>
-                      <th style={{ padding: '10px', textAlign: 'right' }}>Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {daftarHarga.filter(h => (h.status || 'Terbit').toLowerCase() === 'terbit').map(h => (
-                      <tr key={h.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '10px', fontWeight: 700 }}>{h.nama_komoditas}</td>
-                        <td style={{ padding: '10px' }}>{h.kategori}</td>
-                        <td style={{ padding: '10px' }}>{h.nama_pasar}</td>
-                        <td style={{ padding: '10px', fontWeight: 800, color: '#8b1e1e' }}>{formatRupiah(h.harga)} / {formatSatuanTampil(h.satuan)}</td>
-                        <td style={{ padding: '10px' }}>
-                          <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700, background: '#dcfce7', color: '#166534' }}>
-                            Terbit
-                          </span>
-                        </td>
-                        <td style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          <button
-                            onClick={() => handleBukaEditKabid(h)}
-                            style={{ background: 'none', border: 'none', color: '#1d4ed8', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, marginRight: '8px' }}
-                          >
-                            ✏️ Edit
-                          </button>
-                          <button
-                            onClick={() => handleVerifikasiHarga(h, 'Draft')}
-                            style={{ background: 'none', border: 'none', color: '#d97706', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, marginRight: '8px' }}
-                          >
-                            Tarik ke Draft
-                          </button>
-                          <button
-                            onClick={() => handleHapusHarga(h.id, h.nama_komoditas)}
-                            style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}
-                          >
-                            Hapus
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            {/* BAGIAN C: RIWAYAT KEPUTUSAN VERIFIKASI BATCH (DISETUJUI / DITOLAK — TANPA DRAFT PRIBADI STAF) */}
+            {(() => {
+              const riwayatKeputusanKabid = (Array.isArray(daftarPengajuanHarga) ? daftarPengajuanHarga : [])
+                .filter((p) => p && (p.status === 'Diverifikasi' || p.status === 'Ditolak'));
+              const hargaTerbitSemua = daftarHarga.filter((h) => (h.status || 'Terbit').toLowerCase() === 'terbit');
+              const pasarTerbitUnik = Array.from(new Set(hargaTerbitSemua.map((h) => h.nama_pasar).filter(Boolean))).sort();
+              const kataCariVerif = cariVerifTerbitKabid.trim().toLowerCase();
+              const hargaTerbitTerfilter = hargaTerbitSemua.filter((h) => {
+                if (filterPasarVerifTerbitKabid !== 'Semua' && h.nama_pasar !== filterPasarVerifTerbitKabid) return false;
+                if (!kataCariVerif) return true;
+                return `${h.nama_komoditas || ''} ${h.kategori || ''} ${h.nama_pasar || ''} ${h.satuan || ''}`
+                  .toLowerCase()
+                  .includes(kataCariVerif);
+              });
+
+              return (
+                <>
+                  <div className="verif-section-card" style={{ marginBottom: '20px' }}>
+                    <div className="verif-section-head">
+                      <h3 style={{ margin: 0, color: '#334155', fontSize: '1.02rem' }}>
+                        🗂️ Riwayat Keputusan Verifikasi Paket ({riwayatKeputusanKabid.length})
+                      </h3>
+                    </div>
+                    {riwayatKeputusanKabid.length === 0 ? (
+                      <div className="staf-empty-box">
+                        Belum ada riwayat keputusan persetujuan atau penolakan paket pengajuan harga.
+                      </div>
+                    ) : (
+                      <div className="staf-batch-mini-list">
+                        {riwayatKeputusanKabid.slice(0, 8).map((p) => {
+                          const isOk = p.status === 'Diverifikasi';
+                          return (
+                            <div key={p.id} className="staf-batch-mini-row">
+                              <div>
+                                <div className="staf-batch-mini-title">
+                                  📍 {p.nama_pasar}
+                                  <span className={`staf-batch-pill ${isOk ? 'is-ok' : 'is-rej'}`} style={{ marginLeft: '8px' }}>
+                                    {isOk ? 'Disetujui' : 'Ditolak'}
+                                  </span>
+                                </div>
+                                <div className="staf-batch-mini-sub">
+                                  📅 {p.tanggal_tampil} · 👤 Staf: {p.nama_petugas} · {p.items?.length || 0} komoditas
+                                  {p.catatan_verifikasi ? ` · Catatan: "${p.catatan_verifikasi}"` : ''}
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                className="staf-market-btn"
+                                onClick={() => setDetailPengajuanBatch(p)}
+                              >
+                                👁️ Rincian
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* BAGIAN D: DATA HARGA RESMI TERBIT DI HALAMAN PUBLIK (DENGAN FILTER PASAR & CARI) */}
+                  <div style={{ background: '#ffffff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                    <div className="verif-filter-bar">
+                      <h3 style={{ margin: 0, color: '#166534', fontSize: '1.05rem' }}>
+                        ✅ Komoditas Resmi Terbit di Halaman Publik ({hargaTerbitTerfilter.length}/{hargaTerbitSemua.length})
+                      </h3>
+                      <div className="verif-filter-controls">
+                        <input
+                          type="text"
+                          value={cariVerifTerbitKabid}
+                          onChange={(e) => setCariVerifTerbitKabid(e.target.value)}
+                          placeholder="🔍 Cari komoditas / pasar..."
+                          className="verif-filter-input"
+                        />
+                        <select
+                          value={filterPasarVerifTerbitKabid}
+                          onChange={(e) => setFilterPasarVerifTerbitKabid(e.target.value)}
+                          className="verif-filter-select"
+                        >
+                          <option value="Semua">📍 Semua Pasar</option>
+                          {pasarTerbitUnik.map((p) => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {hargaTerbitTerfilter.length === 0 ? (
+                      <div className="staf-empty-box">
+                        Tidak ada data komoditas terbit yang sesuai dengan pencarian/filter saat ini.
+                      </div>
+                    ) : (
+                      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', minWidth: '640px' }}>
+                          <thead>
+                            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+                              <th style={{ padding: '10px' }}>Komoditas</th>
+                              <th style={{ padding: '10px' }}>Kategori</th>
+                              <th style={{ padding: '10px' }}>Pasar</th>
+                              <th style={{ padding: '10px' }}>Tanggal</th>
+                              <th style={{ padding: '10px' }}>Harga</th>
+                              <th style={{ padding: '10px' }}>Status</th>
+                              <th style={{ padding: '10px', textAlign: 'right' }}>Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {hargaTerbitTerfilter.map((h) => (
+                              <tr key={h.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '10px', fontWeight: 700 }}>{h.nama_komoditas}</td>
+                                <td style={{ padding: '10px' }}>{h.kategori}</td>
+                                <td style={{ padding: '10px' }}>{h.nama_pasar}</td>
+                                <td style={{ padding: '10px', fontSize: '0.82rem', color: '#475569' }}>{h.tanggal_penetapan || '-'}</td>
+                                <td style={{ padding: '10px', fontWeight: 800, color: '#8b1e1e' }}>{formatRupiah(h.harga)} / {formatSatuanTampil(h.satuan)}</td>
+                                <td style={{ padding: '10px' }}>
+                                  <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700, background: '#dcfce7', color: '#166534' }}>
+                                    Terbit
+                                  </span>
+                                </td>
+                                <td style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleBukaEditKabid(h)}
+                                    style={{ background: 'none', border: 'none', color: '#1d4ed8', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, marginRight: '8px' }}
+                                  >
+                                    ✏️ Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleVerifikasiHarga(h, 'Draft')}
+                                    style={{ background: 'none', border: 'none', color: '#d97706', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, marginRight: '8px' }}
+                                  >
+                                    Tarik ke Draft
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleHapusHarga(h.id, h.nama_komoditas)}
+                                    style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}
+                                  >
+                                    Hapus
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
 
@@ -3135,156 +3510,412 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         )}
 
         {/* ─────────────────────────────────────────────
-            14. VIEW 6: LAPORAN KHUSUS BIDANG (KABID & SUPERADMIN)
+            14. VIEW 6: LAPORAN KHUSUS BIDANG (KABID & SUPERADMIN — HARGA PANGAN & GPM, EXCEL .xlsx + PDF A4)
             ───────────────────────────────────────────── */}
         {menuAktif === 'laporan' && isKabid && (() => {
+          const kataCariLap = cariLaporanHarga.trim().toLowerCase();
           const daftarLaporanTerfilter = daftarHarga.filter((h) => {
             if (filterLaporanHarga.pasar !== 'Semua' && h.nama_pasar !== filterLaporanHarga.pasar) return false;
             if (filterLaporanHarga.kategori !== 'Semua' && h.kategori !== filterLaporanHarga.kategori) return false;
             if (filterLaporanHarga.status !== 'Semua' && (h.status || 'Terbit') !== filterLaporanHarga.status) return false;
+            if (kataCariLap && !`${h.nama_komoditas || ''} ${h.nama_pasar || ''} ${h.kategori || ''}`.toLowerCase().includes(kataCariLap)) {
+              return false;
+            }
             return true;
           });
+
+          const totalHargaTerbitLap = daftarLaporanTerfilter.filter((h) => String(h.status || '').toLowerCase() === 'terbit').length;
+          const totalHargaDraftLap = daftarLaporanTerfilter.length - totalHargaTerbitLap;
+          const nilaiHargaValid = daftarLaporanTerfilter.map((h) => Number(h.harga) || 0).filter((v) => v > 0);
+          const rataHargaLap = nilaiHargaValid.length > 0
+            ? Math.round(nilaiHargaValid.reduce((a, b) => a + b, 0) / nilaiHargaValid.length)
+            : 0;
+
+          const labelPeriodeGPM = berandaKabidService.labelPeriode(filterLaporanGPMKabid.periode);
+          const daftarGpmTerfilter = rekapitulasiGPMList.filter((g) => {
+            if (!berandaKabidService.apakahAcaraMasukPeriode(g, filterLaporanGPMKabid.periode)) return false;
+            if (filterLaporanGPMKabid.kecamatan !== 'Semua' && g.kecamatan !== filterLaporanGPMKabid.kecamatan) return false;
+            if (filterLaporanGPMKabid.status !== 'Semua' && String(g.status || '').toLowerCase() !== filterLaporanGPMKabid.status.toLowerCase()) return false;
+            return true;
+          });
+
+          const totalKuotaGpmLap = daftarGpmTerfilter.reduce((acc, g) => acc + (Number(g.target_kuota) || 0), 0);
+          const totalDaftarGpmLap = daftarGpmTerfilter.reduce((acc, g) => acc + (Number(g.terdaftar) || 0), 0);
+          const totalHadirGpmLap = daftarGpmTerfilter.reduce((acc, g) => acc + (Number(g.terlayani) || 0), 0);
+          const persenSerapanGpmLap = totalKuotaGpmLap > 0 ? ((totalHadirGpmLap / totalKuotaGpmLap) * 100).toFixed(1) : '0.0';
+          const namaPenandatanganKabid = ambilNamaPenandatangan('Kabid');
+
           return (
           <div className="dashboard-page-container" id="area-laporan-resmi">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
               <div>
-                <h1 className="dashboard-main-heading">📑 Laporan Resmi Bidang Cadangan & Distribusi Pangan</h1>
+                <h1 className="dashboard-main-heading">📑 Laporan Resmi Bidang Cadangan &amp; Distribusi Pangan</h1>
                 <p className="dashboard-main-subheading">
-                  Rekapitulasi penetapan harga komoditas acuan pasar Pemerintah Kota Manado.
+                  Unduh Microsoft Excel resmi (<code>.xlsx</code>) berformat kedinasan atau cetak PDF A4 langsung dari data riil basis data Supabase.
                 </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  onClick={() => laporanService.eksporLaporanHargaCSV(daftarLaporanTerfilter, { nama: ambilNamaPenandatangan('Kabid') })}
-                  style={{
-                    background: '#166534',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '10px 18px',
-                    borderRadius: '8px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    fontSize: '0.85rem'
-                  }}
-                >
-                  📥 Unduh CSV (Excel)
-                </button>
-                <button
-                  onClick={() => handleCetakDokumen({ jenis: 'kabid-harga', data: daftarLaporanTerfilter })}
-                  style={{
-                    background: '#8b1e1e',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '10px 18px',
-                    borderRadius: '8px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    fontSize: '0.85rem'
-                  }}
-                >
-                  🖨️ Cetak Dokumen PDF
-                </button>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                {subTabLaporanKabid === 'harga' ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={daftarLaporanTerfilter.length === 0}
+                      onClick={() =>
+                        laporanService.eksporLaporanHargaExcel(daftarLaporanTerfilter, {
+                          penandatangan: { nama: namaPenandatanganKabid },
+                          filter: { ...filterLaporanHarga, pencarian: cariLaporanHarga }
+                        })
+                      }
+                      className="kabid-btn-excel"
+                    >
+                      📊 Unduh Excel (.xlsx)
+                    </button>
+                    <button
+                      type="button"
+                      disabled={daftarLaporanTerfilter.length === 0}
+                      onClick={() =>
+                        handleCetakDokumen({
+                          jenis: 'kabid-harga',
+                          data: daftarLaporanTerfilter,
+                          filter: { ...filterLaporanHarga, pencarian: cariLaporanHarga }
+                        })
+                      }
+                      className="kabid-btn-pdf"
+                    >
+                      🖨️ Cetak Dokumen PDF
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      disabled={daftarGpmTerfilter.length === 0}
+                      onClick={() =>
+                        laporanService.eksporLaporanGPMExcel(daftarGpmTerfilter, {
+                          penandatangan: { nama: namaPenandatanganKabid },
+                          jabatanPenandatangan: 'Kepala Bidang Cadangan dan Distribusi Pangan',
+                          filter: { ...filterLaporanGPMKabid, labelPeriode: labelPeriodeGPM }
+                        })
+                      }
+                      className="kabid-btn-excel"
+                    >
+                      📊 Unduh Excel GPM (.xlsx)
+                    </button>
+                    <button
+                      type="button"
+                      disabled={daftarGpmTerfilter.length === 0}
+                      onClick={() =>
+                        handleCetakDokumen({
+                          jenis: 'kabid-gpm',
+                          data: daftarGpmTerfilter,
+                          filter: { ...filterLaporanGPMKabid, labelPeriode: labelPeriodeGPM }
+                        })
+                      }
+                      className="kabid-btn-pdf"
+                    >
+                      🖨️ Cetak PDF GPM
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
-            {/* Filter Laporan Harga */}
-            <div style={{ background: '#ffffff', padding: '14px 18px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <select
-                value={filterLaporanHarga.pasar}
-                onChange={(e) => setFilterLaporanHarga(p => ({ ...p, pasar: e.target.value }))}
-                style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.84rem', fontWeight: 600 }}
+            {/* Sub-Tab Pilihan Jenis Laporan Bidang */}
+            <div className="kabid-laporan-subtabs">
+              <button
+                type="button"
+                className={`kabid-subtab-btn ${subTabLaporanKabid === 'harga' ? 'active' : ''}`}
+                onClick={() => setSubTabLaporanKabid('harga')}
               >
-                <option value="Semua">📍 Semua Pasar</option>
-                {Array.from(new Set(daftarHarga.map(h => h.nama_pasar).filter(Boolean))).sort().map(p => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-              <select
-                value={filterLaporanHarga.kategori}
-                onChange={(e) => setFilterLaporanHarga(p => ({ ...p, kategori: e.target.value }))}
-                style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.84rem', fontWeight: 600 }}
+                🏷️ Laporan Harga Pangan ({daftarHarga.length})
+              </button>
+              <button
+                type="button"
+                className={`kabid-subtab-btn ${subTabLaporanKabid === 'gpm' ? 'active' : ''}`}
+                onClick={() => setSubTabLaporanKabid('gpm')}
               >
-                <option value="Semua">📦 Semua Kategori</option>
-                {Array.from(new Set(daftarHarga.map(h => h.kategori).filter(Boolean))).sort().map(k => (
-                  <option key={k} value={k}>{k}</option>
-                ))}
-              </select>
-              <select
-                value={filterLaporanHarga.status}
-                onChange={(e) => setFilterLaporanHarga(p => ({ ...p, status: e.target.value }))}
-                style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.84rem', fontWeight: 600 }}
-              >
-                <option value="Semua">🔖 Semua Status</option>
-                <option value="Terbit">Terbit</option>
-                <option value="Draft">Draf</option>
-              </select>
-              <span style={{ fontSize: '0.82rem', color: '#64748b', marginLeft: 'auto' }}>
-                Menampilkan <strong>{daftarLaporanTerfilter.length}</strong> dari {daftarHarga.length} data
-              </span>
+                🎟️ Laporan Pelaksanaan GPM ({rekapitulasiGPMList.length})
+              </button>
             </div>
 
-            <div style={{ background: '#ffffff', padding: '28px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-              <div style={{ borderBottom: '2px solid #8b1e1e', paddingBottom: '14px', marginBottom: '18px', textAlign: 'center' }}>
-                <h3 style={{ margin: 0, color: '#8b1e1e', letterSpacing: '0.5px' }}>PEMERINTAH KOTA MANADO — DINAS PANGAN</h3>
-                <h4 style={{ margin: '4px 0 0 0', fontWeight: 600, color: '#334155' }}>BIDANG CADANGAN DAN DISTRIBUSI PANGAN</h4>
-                <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: '#64748b' }}>
-                  Laporan Berkala Pemantauan Harga Bahan Pokok & Komoditas Pangan Pasar Tradisional
-                </p>
-              </div>
-
-              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '28px', fontSize: '0.88rem', minWidth: '640px' }}>
-                  <thead>
-                    <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
-                      <th style={{ padding: '10px' }}>No.</th>
-                      <th style={{ padding: '10px' }}>Nama Komoditas</th>
-                      <th style={{ padding: '10px' }}>Kategori</th>
-                      <th style={{ padding: '10px' }}>Nama Pasar</th>
-                      <th style={{ padding: '10px' }}>Tanggal</th>
-                      <th style={{ padding: '10px' }}>Harga Acuan</th>
-                      <th style={{ padding: '10px' }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {daftarLaporanTerfilter.map((h, idx) => (
-                      <tr key={h.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '10px' }}>{idx + 1}</td>
-                        <td style={{ padding: '10px', fontWeight: 700 }}>{h.nama_komoditas}</td>
-                        <td style={{ padding: '10px' }}>{h.kategori}</td>
-                        <td style={{ padding: '10px' }}>{h.nama_pasar}</td>
-                        <td style={{ padding: '10px', fontSize: '0.82rem', color: '#475569' }}>{h.tanggal_penetapan || '-'}</td>
-                        <td style={{ padding: '10px', fontWeight: 800, color: '#8b1e1e' }}>{formatRupiah(h.harga)} / {formatSatuanTampil(h.satuan)}</td>
-                        <td style={{ padding: '10px' }}>
-                          <span style={{
-                            padding: '3px 8px',
-                            borderRadius: '4px',
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            background: (h.status || '').toLowerCase() === 'draft' ? '#fef3c7' : '#dcfce7',
-                            color: (h.status || '').toLowerCase() === 'draft' ? '#92400e' : '#166534'
-                          }}>
-                            {(h.status || '').toLowerCase() === 'draft' ? 'Draf' : (h.status || 'Terbit')}
-                          </span>
-                        </td>
-                      </tr>
+            {subTabLaporanKabid === 'harga' ? (
+              <>
+                {/* Filter Laporan Harga */}
+                <div style={{ background: '#ffffff', padding: '14px 18px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '14px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={cariLaporanHarga}
+                    onChange={(e) => setCariLaporanHarga(e.target.value)}
+                    placeholder="🔍 Cari komoditas..."
+                    className="verif-filter-input"
+                  />
+                  <select
+                    value={filterLaporanHarga.pasar}
+                    onChange={(e) => setFilterLaporanHarga(p => ({ ...p, pasar: e.target.value }))}
+                    className="verif-filter-select"
+                  >
+                    <option value="Semua">📍 Semua Pasar</option>
+                    {Array.from(new Set(daftarHarga.map(h => h.nama_pasar).filter(Boolean))).sort().map(p => (
+                      <option key={p} value={p}>{p}</option>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'flex-end', textAlign: 'center' }}>
-                <div style={{ width: '280px' }}>
-                  <div>Manado, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-                  <div style={{ fontWeight: 800, marginTop: '4px' }}>Kepala Bidang Cadangan & Distribusi Pangan</div>
-                  <div style={{ height: '70px' }}></div>
-                  <div style={{ fontWeight: 800, textDecoration: 'underline' }}>
-                    {ambilNamaPenandatangan('Kabid') || '( ........................................ )'}
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>NIP. ........................................</div>
+                  </select>
+                  <select
+                    value={filterLaporanHarga.kategori}
+                    onChange={(e) => setFilterLaporanHarga(p => ({ ...p, kategori: e.target.value }))}
+                    className="verif-filter-select"
+                  >
+                    <option value="Semua">📦 Semua Kategori</option>
+                    {Array.from(new Set(daftarHarga.map(h => h.kategori).filter(Boolean))).sort().map(k => (
+                      <option key={k} value={k}>{k}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={filterLaporanHarga.status}
+                    onChange={(e) => setFilterLaporanHarga(p => ({ ...p, status: e.target.value }))}
+                    className="verif-filter-select"
+                  >
+                    <option value="Semua">🔖 Semua Status</option>
+                    <option value="Terbit">Terbit</option>
+                    <option value="Draft">Draf</option>
+                  </select>
+                  <span style={{ fontSize: '0.82rem', color: '#64748b', marginLeft: 'auto' }}>
+                    Menampilkan <strong>{daftarLaporanTerfilter.length}</strong> dari {daftarHarga.length} data
+                  </span>
                 </div>
-              </div>
-            </div>
+
+                {/* Strip Ringkasan Statistik Laporan Harga */}
+                <div className="kabid-summary-strip">
+                  <div className="kabid-summary-chip">
+                    <span>Total Data Terfilter</span>
+                    <strong>{daftarLaporanTerfilter.length} Komoditas</strong>
+                  </div>
+                  <div className="kabid-summary-chip">
+                    <span>Terbit (Publik)</span>
+                    <strong style={{ color: '#166534' }}>{totalHargaTerbitLap} Data</strong>
+                  </div>
+                  <div className="kabid-summary-chip">
+                    <span>Draf / Menunggu</span>
+                    <strong style={{ color: '#b45309' }}>{totalHargaDraftLap} Data</strong>
+                  </div>
+                  <div className="kabid-summary-chip">
+                    <span>Rata-Rata Harga</span>
+                    <strong style={{ color: '#8b1e1e' }}>{formatRupiah(rataHargaLap)}</strong>
+                  </div>
+                </div>
+
+                {/* Pratinjau Dokumen Resmi Harga Pangan */}
+                <div style={{ background: '#ffffff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                  <div style={{ borderBottom: '2px solid #8b1e1e', paddingBottom: '14px', marginBottom: '18px', textAlign: 'center' }}>
+                    <h3 style={{ margin: 0, color: '#8b1e1e', letterSpacing: '0.5px' }}>PEMERINTAH KOTA MANADO — DINAS PANGAN</h3>
+                    <h4 style={{ margin: '4px 0 0 0', fontWeight: 600, color: '#334155' }}>BIDANG CADANGAN DAN DISTRIBUSI PANGAN</h4>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: '#64748b' }}>
+                      Laporan Berkala Pemantauan Harga Bahan Pokok &amp; Komoditas Pangan Pasar Tradisional (2 Sheet Excel: Rincian + Ringkasan per Pasar)
+                    </p>
+                  </div>
+
+                  {daftarLaporanTerfilter.length === 0 ? (
+                    <div className="staf-empty-box">
+                      Tidak ada data harga pangan sesuai filter yang dipilih. Ubah filter di atas untuk menampilkan data.
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px', fontSize: '0.87rem', minWidth: '640px' }}>
+                        <thead>
+                          <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+                            <th style={{ padding: '10px' }}>No.</th>
+                            <th style={{ padding: '10px' }}>Nama Komoditas</th>
+                            <th style={{ padding: '10px' }}>Kategori</th>
+                            <th style={{ padding: '10px' }}>Nama Pasar</th>
+                            <th style={{ padding: '10px' }}>Tanggal</th>
+                            <th style={{ padding: '10px' }}>Harga Acuan</th>
+                            <th style={{ padding: '10px' }}>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {daftarLaporanTerfilter.map((h, idx) => (
+                            <tr key={h.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                              <td style={{ padding: '10px' }}>{idx + 1}</td>
+                              <td style={{ padding: '10px', fontWeight: 700 }}>{h.nama_komoditas}</td>
+                              <td style={{ padding: '10px' }}>{h.kategori}</td>
+                              <td style={{ padding: '10px' }}>{h.nama_pasar}</td>
+                              <td style={{ padding: '10px', fontSize: '0.82rem', color: '#475569' }}>{h.tanggal_penetapan || '-'}</td>
+                              <td style={{ padding: '10px', fontWeight: 800, color: '#8b1e1e' }}>{formatRupiah(h.harga)} / {formatSatuanTampil(h.satuan)}</td>
+                              <td style={{ padding: '10px' }}>
+                                <span style={{
+                                  padding: '3px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  background: (h.status || '').toLowerCase() === 'draft' ? '#fef3c7' : '#dcfce7',
+                                  color: (h.status || '').toLowerCase() === 'draft' ? '#92400e' : '#166534'
+                                }}>
+                                  {(h.status || '').toLowerCase() === 'draft' ? 'Draf' : (h.status || 'Terbit')}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end', textAlign: 'center' }}>
+                    <div style={{ width: '280px' }}>
+                      <div>Manado, {new Date().toLocaleDateString('id-ID', { timeZone: 'Asia/Makassar', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                      <div style={{ fontWeight: 800, marginTop: '4px' }}>Kepala Bidang Cadangan &amp; Distribusi Pangan</div>
+                      <div style={{ height: '64px' }}></div>
+                      <div style={{ fontWeight: 800, textDecoration: 'underline' }}>
+                        {namaPenandatanganKabid || '( ........................................ )'}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>NIP. ........................................</div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Filter Laporan Pelaksanaan GPM */}
+                <div style={{ background: '#ffffff', padding: '14px 18px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '14px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <select
+                    value={filterLaporanGPMKabid.periode}
+                    onChange={(e) => setFilterLaporanGPMKabid((p) => ({ ...p, periode: e.target.value }))}
+                    className="verif-filter-select"
+                  >
+                    <option value="bulan_ini">📅 Bulan Ini</option>
+                    <option value="tahun_ini">📆 Tahun {ringkasanBerandaKabid.tahunBerjalan}</option>
+                    <option value="semua">🗂️ Semua Periode</option>
+                  </select>
+                  <select
+                    value={filterLaporanGPMKabid.kecamatan}
+                    onChange={(e) => setFilterLaporanGPMKabid((p) => ({ ...p, kecamatan: e.target.value }))}
+                    className="verif-filter-select"
+                  >
+                    <option value="Semua">📍 Semua Kecamatan</option>
+                    {Array.from(new Set(rekapitulasiGPMList.map((g) => g.kecamatan).filter(Boolean))).sort().map((k) => (
+                      <option key={k} value={k}>{k}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={filterLaporanGPMKabid.status}
+                    onChange={(e) => setFilterLaporanGPMKabid((p) => ({ ...p, status: e.target.value }))}
+                    className="verif-filter-select"
+                  >
+                    <option value="Semua">🔖 Semua Status</option>
+                    <option value="Aktif">Aktif</option>
+                    <option value="Selesai">Selesai</option>
+                  </select>
+                  <span style={{ fontSize: '0.82rem', color: '#64748b', marginLeft: 'auto' }}>
+                    Menampilkan <strong>{daftarGpmTerfilter.length}</strong> dari {rekapitulasiGPMList.length} kegiatan GPM
+                  </span>
+                </div>
+
+                {/* Strip Ringkasan Statistik Laporan GPM */}
+                <div className="kabid-summary-strip">
+                  <div className="kabid-summary-chip">
+                    <span>Titik GPM ({labelPeriodeGPM})</span>
+                    <strong>{daftarGpmTerfilter.length} Kegiatan</strong>
+                  </div>
+                  <div className="kabid-summary-chip">
+                    <span>Total Alokasi Kuota</span>
+                    <strong>{totalKuotaGpmLap.toLocaleString('id-ID')} Kuota</strong>
+                  </div>
+                  <div className="kabid-summary-chip">
+                    <span>Warga Terdaftar</span>
+                    <strong style={{ color: '#1d4ed8' }}>{totalDaftarGpmLap.toLocaleString('id-ID')} Warga</strong>
+                  </div>
+                  <div className="kabid-summary-chip">
+                    <span>Hadir &amp; Serapan</span>
+                    <strong style={{ color: '#166534' }}>{totalHadirGpmLap.toLocaleString('id-ID')} ({persenSerapanGpmLap}%)</strong>
+                  </div>
+                </div>
+
+                {/* Pratinjau Dokumen Resmi GPM */}
+                <div style={{ background: '#ffffff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                  <div style={{ borderBottom: '2px solid #8b1e1e', paddingBottom: '14px', marginBottom: '18px', textAlign: 'center' }}>
+                    <h3 style={{ margin: 0, color: '#8b1e1e', letterSpacing: '0.5px' }}>PEMERINTAH KOTA MANADO — DINAS PANGAN</h3>
+                    <h4 style={{ margin: '4px 0 0 0', fontWeight: 600, color: '#334155' }}>BIDANG CADANGAN DAN DISTRIBUSI PANGAN</h4>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: '#64748b' }}>
+                      Rekapitulasi Pelaksanaan Gerakan Pangan Murah (GPM) — Periode: {labelPeriodeGPM} (2 Sheet Excel: Rincian + Ringkasan per Kecamatan)
+                    </p>
+                  </div>
+
+                  {daftarGpmTerfilter.length === 0 ? (
+                    <div className="staf-empty-box">
+                      Tidak ada kegiatan GPM sesuai periode/filter yang dipilih.
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px', fontSize: '0.86rem', minWidth: '720px' }}>
+                        <thead>
+                          <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+                            <th style={{ padding: '10px' }}>No.</th>
+                            <th style={{ padding: '10px' }}>Nama Kegiatan GPM</th>
+                            <th style={{ padding: '10px' }}>Lokasi &amp; Kecamatan</th>
+                            <th style={{ padding: '10px' }}>Tanggal</th>
+                            <th style={{ padding: '10px', textAlign: 'right' }}>Kuota</th>
+                            <th style={{ padding: '10px', textAlign: 'right' }}>Terdaftar</th>
+                            <th style={{ padding: '10px', textAlign: 'right' }}>Hadir</th>
+                            <th style={{ padding: '10px', textAlign: 'center' }}>Serapan</th>
+                            <th style={{ padding: '10px', textAlign: 'center' }}>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {daftarGpmTerfilter.map((g, idx) => {
+                            const serapan = g.target_kuota > 0 ? ((g.terlayani / g.target_kuota) * 100).toFixed(1) : '0.0';
+                            const isSelesai = String(g.status || '').toLowerCase() === 'selesai';
+                            return (
+                              <tr key={g.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                <td style={{ padding: '10px' }}>{idx + 1}</td>
+                                <td style={{ padding: '10px', fontWeight: 700 }}>{g.nama_acara}</td>
+                                <td style={{ padding: '10px' }}>{g.lokasi} <span style={{ color: '#64748b' }}>({g.kecamatan})</span></td>
+                                <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>{g.tanggal}</td>
+                                <td style={{ padding: '10px', textAlign: 'right' }}>{(Number(g.target_kuota) || 0).toLocaleString('id-ID')}</td>
+                                <td style={{ padding: '10px', textAlign: 'right' }}>{(Number(g.terdaftar) || 0).toLocaleString('id-ID')}</td>
+                                <td style={{ padding: '10px', textAlign: 'right', fontWeight: 800, color: '#166534' }}>{(Number(g.terlayani) || 0).toLocaleString('id-ID')}</td>
+                                <td style={{ padding: '10px', textAlign: 'center', fontWeight: 700 }}>{serapan}%</td>
+                                <td style={{ padding: '10px', textAlign: 'center' }}>
+                                  <span style={{
+                                    padding: '3px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    background: isSelesai ? '#dcfce7' : '#fef3c7',
+                                    color: isSelesai ? '#166534' : '#92400e'
+                                  }}>
+                                    {g.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          <tr style={{ background: '#fef2f2', fontWeight: 800, color: '#8b1e1e', borderTop: '2px solid #8b1e1e' }}>
+                            <td colSpan={4} style={{ padding: '10px' }}>TOTAL ({daftarGpmTerfilter.length} KEGIATAN GPM)</td>
+                            <td style={{ padding: '10px', textAlign: 'right' }}>{totalKuotaGpmLap.toLocaleString('id-ID')}</td>
+                            <td style={{ padding: '10px', textAlign: 'right' }}>{totalDaftarGpmLap.toLocaleString('id-ID')}</td>
+                            <td style={{ padding: '10px', textAlign: 'right' }}>{totalHadirGpmLap.toLocaleString('id-ID')}</td>
+                            <td style={{ padding: '10px', textAlign: 'center' }}>{persenSerapanGpmLap}%</td>
+                            <td style={{ padding: '10px', textAlign: 'center' }}>—</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end', textAlign: 'center' }}>
+                    <div style={{ width: '280px' }}>
+                      <div>Manado, {new Date().toLocaleDateString('id-ID', { timeZone: 'Asia/Makassar', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                      <div style={{ fontWeight: 800, marginTop: '4px' }}>Kepala Bidang Cadangan &amp; Distribusi Pangan</div>
+                      <div style={{ height: '64px' }}></div>
+                      <div style={{ fontWeight: 800, textDecoration: 'underline' }}>
+                        {namaPenandatanganKabid || '( ........................................ )'}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>NIP. ........................................</div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           );
         })()}
@@ -4834,7 +5465,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
                         type="button"
-                        onClick={() => gpmService.eksporKeCSV(modalDetailWarga.acara, pendaftarAcara)}
+                        onClick={() => gpmService.eksporKeExcel(modalDetailWarga.acara, pendaftarAcara, { nama: ambilNamaPenandatangan(peran === 'Kabid' ? 'Kabid' : 'Kadis') })}
                         style={{
                           background: '#166534',
                           color: '#ffffff',
@@ -4849,7 +5480,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                           gap: '5px'
                         }}
                       >
-                        📥 Unduh CSV (Excel)
+                        📊 Unduh Excel (.xlsx)
                       </button>
                       <button
                         type="button"
@@ -5216,198 +5847,6 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           </div>
         </div>
       )}
-
-      {/* ─────────────────────────────────────────────
-          24. DOKUMEN CETAK RESMI PDF (KOP SURAT PEMKOT MANADO & FORMAT STANDAR)
-          ───────────────────────────────────────────── */}
-      <div id="area-cetak-dokumen">
-        {/* KOP SURAT RESMI */}
-        <div style={{ borderBottom: '3px double #000000', paddingBottom: '12px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px' }}>
-          <img src="/logodinaspangan.png" alt="Logo Pemkot Manado" style={{ width: '80px', height: '80px', objectFit: 'contain' }} />
-          <div style={{ textAlign: 'center' }}>
-            <h3 style={{ margin: 0, fontSize: '15pt', fontWeight: 800, letterSpacing: '1px', color: '#000000' }}>
-              PEMERINTAH KOTA MANADO
-            </h3>
-            <h2 style={{ margin: '2px 0 0 0', fontSize: '18pt', fontWeight: 900, color: '#000000' }}>
-              DINAS PANGAN
-            </h2>
-            <p style={{ margin: '2px 0 0 0', fontSize: '10pt', fontWeight: 700, color: '#222222' }}>
-              BIDANG CADANGAN DAN DISTRIBUSI PANGAN
-            </p>
-            <p style={{ margin: '2px 0 0 0', fontSize: '8.5pt', color: '#444444' }}>
-              Jl. Balai Kota No. 1, Tikala Ares, Kec. Tikala, Kota Manado, Sulawesi Utara 95124
-            </p>
-          </div>
-        </div>
-
-        {/* KONTEN SESUAI JENIS CETAK */}
-        {dataCetakResmi?.jenis === 'kabid-harga' && (
-          <div>
-            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-              <h4 style={{ margin: 0, fontSize: '12pt', fontWeight: 800, textDecoration: 'underline' }}>
-                LAPORAN RESMI REKAPITULASI DAN PENETAPAN HARGA PANGAN POKOK
-              </h4>
-              <p style={{ margin: '4px 0 0 0', fontSize: '9pt', color: '#333333' }}>
-                Nomor: 520 / DP-CDP / {new Date().getFullYear()} · Waktu Cetak: {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-              </p>
-            </div>
-
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt', marginBottom: '20px' }}>
-              <thead>
-                <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #000000', textAlign: 'left' }}>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>No.</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Nama Komoditas</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Kategori</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Satuan</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Harga Acuan</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Pasar Pantauan</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Tanggal</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(Array.isArray(dataCetakResmi.data) ? dataCetakResmi.data : daftarHarga).map((h, idx) => (
-                  <tr key={h.id}>
-                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{idx + 1}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333', fontWeight: 700 }}>{h.nama_komoditas}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333' }}>{h.kategori || 'Bahan Pokok'}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333' }}>{formatSatuanTampil(h.satuan)}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333', fontWeight: 700 }}>{formatRupiah(h.harga)}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333' }}>{h.nama_pasar}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333' }}>{h.tanggal_penetapan || '-'}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{h.status || 'Terbit'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'flex-end', textAlign: 'center' }}>
-              <div style={{ width: '280px' }}>
-                <div style={{ fontSize: '9.5pt' }}>Manado, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-                <div style={{ fontWeight: 800, fontSize: '9.5pt', marginTop: '2px' }}>Kepala Bidang Cadangan & Distribusi Pangan</div>
-                <div style={{ height: '65px' }}></div>
-                <div style={{ fontWeight: 800, fontSize: '10pt', textDecoration: 'underline' }}>
-                  {ambilNamaPenandatangan('Kabid') || '( ........................................ )'}
-                </div>
-                <div style={{ fontSize: '8.5pt', color: '#444' }}>NIP. ........................................</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {dataCetakResmi?.jenis === 'kadis-gpm-semua' && (
-          <div>
-            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-              <h4 style={{ margin: 0, fontSize: '12pt', fontWeight: 800, textDecoration: 'underline' }}>
-                LAPORAN EKSEKUTIF REKAPITULASI PELAKSANAAN GERAKAN PANGAN MURAH (GPM)
-              </h4>
-              <p style={{ margin: '4px 0 0 0', fontSize: '9pt', color: '#333333' }}>
-                Rekapitulasi Serapan Kuota Pangan Pokok & Pemerataan Distribusi Kota Manado
-              </p>
-            </div>
-
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt', marginBottom: '20px' }}>
-              <thead>
-                <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #000000', textAlign: 'left' }}>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>No.</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Nama Kegiatan GPM</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Lokasi / Titik Acara</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Kecamatan</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Tanggal Pelaksanaan</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Target Kuota</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Terdaftar</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Terlayani</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rekapitulasiGPMList.map((g, idx) => (
-                  <tr key={g.id}>
-                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{idx + 1}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333', fontWeight: 700 }}>{g.nama_acara}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333' }}>{g.lokasi}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333' }}>{g.kecamatan}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333' }}>{g.tanggal}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{g.target_kuota} KK</td>
-                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{g.terdaftar} Warga</td>
-                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center', fontWeight: 700 }}>{g.terlayani} KK</td>
-                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{g.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'flex-end', textAlign: 'center' }}>
-              <div style={{ width: '280px' }}>
-                <div style={{ fontSize: '9.5pt' }}>Manado, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-                <div style={{ fontWeight: 800, fontSize: '9.5pt', marginTop: '2px' }}>Kepala Dinas Pangan Kota Manado</div>
-                <div style={{ height: '65px' }}></div>
-                <div style={{ fontWeight: 800, fontSize: '10pt', textDecoration: 'underline' }}>
-                  {ambilNamaPenandatangan('Kadis') || '( ........................................ )'}
-                </div>
-                <div style={{ fontSize: '8.5pt', color: '#444' }}>NIP. ........................................</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {dataCetakResmi?.jenis === 'kadis-gpm-acara' && dataCetakResmi.acara && (
-          <div>
-            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-              <h4 style={{ margin: 0, fontSize: '12pt', fontWeight: 800, textDecoration: 'underline' }}>
-                LAPORAN PELAKSANAAN & DAFTAR PENDAFTAR WARGA GPM
-              </h4>
-              <p style={{ margin: '4px 0 0 0', fontSize: '9pt', color: '#333333' }}>
-                {dataCetakResmi.acara.nama_acara} — {dataCetakResmi.acara.lokasi} (Kec. {dataCetakResmi.acara.kecamatan})
-              </p>
-              <p style={{ margin: '2px 0 0 0', fontSize: '8.5pt', color: '#555555' }}>
-                Jadwal: {dataCetakResmi.acara.tanggal} ({dataCetakResmi.acara.jam_mulai || '08:00'} - {dataCetakResmi.acara.jam_selesai || '13:00'} WITA) · Komoditas: {dataCetakResmi.acara.komoditas_tersedia}
-              </p>
-            </div>
-
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt', marginBottom: '20px' }}>
-              <thead>
-                <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #000000', textAlign: 'left' }}>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>No.</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Antrean</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>NIK Warga (16 Digit)</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Nama Lengkap</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Jalur</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>No. HP / WA</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Status Kehadiran</th>
-                  <th style={{ padding: '6px', border: '1px solid #333' }}>Waktu Hadir</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(dataCetakResmi.pendaftar || []).map((w, idx) => (
-                  <tr key={w.id || idx}>
-                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{idx + 1}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center', fontWeight: 700 }}>#{String(w.nomor_antrean || idx + 1).padStart(3, '0')}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333', fontFamily: 'monospace' }}>{w.nik || '-'}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333', fontWeight: 700 }}>{w.nama_pendaftar || w.nama_lengkap || w.nama_bersih || w.nama || '-'}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center' }}>{w.jalur_pendaftaran || 'Daring'}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333' }}>{w.nomor_telepon || '-'}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333', textAlign: 'center', fontWeight: 700 }}>{w.status_kehadiran || 'Menunggu'}</td>
-                    <td style={{ padding: '5px', border: '1px solid #333', fontSize: '8pt' }}>{w.waktu_kehadiran ? new Date(w.waktu_kehadiran).toLocaleString('id-ID') : (w.status_kehadiran === 'Hadir' ? 'Hadir di Lokasi' : '-')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'flex-end', textAlign: 'center' }}>
-              <div style={{ width: '280px' }}>
-                <div style={{ fontSize: '9.5pt' }}>Manado, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-                <div style={{ fontWeight: 800, fontSize: '9.5pt', marginTop: '2px' }}>Kepala Dinas Pangan Kota Manado</div>
-                <div style={{ height: '65px' }}></div>
-                <div style={{ fontWeight: 800, fontSize: '10pt', textDecoration: 'underline' }}>
-                  {ambilNamaPenandatangan('Kadis') || '( ........................................ )'}
-                </div>
-                <div style={{ fontSize: '8.5pt', color: '#444' }}>NIP. ........................................</div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
 
     </div>
   );

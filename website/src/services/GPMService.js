@@ -8,6 +8,7 @@
 
 import { supabaseClient } from './SupabaseClient.js';
 import { jadwalGPMService } from './JadwalGPMService.js';
+import { excelResmiService } from './ExcelResmiService.js';
 
 class GPMApiService {
     constructor() {
@@ -473,7 +474,203 @@ class GPMApiService {
         return jadwalGPMService.urutkanRiwayatSelesai(semua);
     }
 
-    // 13. Ekspor Rekapitulasi Data Pendaftar Acara ke File CSV (Kompatibel Excel)
+    // 13A. Ekspor Rekapitulasi Pendaftar Acara GPM ke File Excel Resmi (.xlsx) — Anti-Scientific-Notation NIK/KK
+    eksporKeExcel(acara, daftarPendaftar, penandatangan = {}) {
+        if (!acara) return false;
+        const pendaftar = (Array.isArray(daftarPendaftar) ? daftarPendaftar : []).map((p) => this.parseDataPendaftar(p));
+        const totalPendaftar = pendaftar.length;
+        const totalHadir = pendaftar.filter((p) => String(p.status_kehadiran || '').toLowerCase() === 'hadir').length;
+        const totalMenunggu = totalPendaftar - totalHadir;
+        const totalSudahAmbil = pendaftar.filter((p) => String(p.status_pengambilan || '').toLowerCase() === 'sudah diambil').length;
+        const kuotaMaks = Number(acara.kuota_maksimal || acara.target_kuota || 0) || 0;
+        const serapan = kuotaMaks > 0 ? `${((totalHadir / kuotaMaks) * 100).toFixed(1)}%` : '0.0%';
+
+        const skrg = new Date();
+        const waktuUnduh = `${skrg.toLocaleString('id-ID', {
+            timeZone: 'Asia/Makassar',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        })} WITA`;
+        const tanggalTtd = skrg.toLocaleDateString('id-ID', {
+            timeZone: 'Asia/Makassar',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        });
+
+        const namaPejabat = String(penandatangan?.nama || '').trim();
+        const nipPejabat = String(penandatangan?.nip || '').trim();
+        const barisNama = namaPejabat ? `( ${namaPejabat} )` : '( ........................................ )';
+        const barisNip = nipPejabat ? `NIP. ${nipPejabat}` : 'NIP. ........................................';
+        const modePenerimaLabel = String(acara.mode_penerima || 'individu').toLowerCase() === 'keluarga'
+            ? 'Berbasis Keluarga (1 KK = 1 Antrean)'
+            : 'Berbasis Individu (1 NIK = 1 Antrean)';
+
+        const baris = [
+            { tinggi: 24, sel: [{ v: 'PEMERINTAH KOTA MANADO', s: 1 }] },
+            { tinggi: 20, sel: [{ v: 'DINAS PANGAN KOTA MANADO', s: 2 }] },
+            { tinggi: 19, sel: [{ v: 'BIDANG CADANGAN DAN DISTRIBUSI PANGAN', s: 2 }] },
+            { tinggi: 17, sel: [{ v: 'Jl. Balai Kota No. 1, Tikala, Kota Manado, Sulawesi Utara — Portal Resmi SIPATOKAAN', s: 3 }] },
+            { tinggi: 8, sel: [] },
+            { tinggi: 22, sel: [{ v: 'REKAPITULASI DAFTAR HADIR & ANTREAN GERAKAN PANGAN MURAH (GPM)', s: 4 }] },
+            {
+                tinggi: 20,
+                sel: [
+                    { v: 'Nama Kegiatan GPM', s: 5 }, null,
+                    { v: acara.nama_acara || '-', s: 6 }, null, null, null,
+                    { v: 'Jadwal & Jam (WITA)', s: 5 }, null,
+                    { v: `${String(acara.tanggal || '-').split('T')[0]} (${acara.jam_mulai || '08:00'} - ${acara.jam_selesai || '14:00'} WITA)`, s: 6 }, null, null, null
+                ]
+            },
+            {
+                tinggi: 20,
+                sel: [
+                    { v: 'Lokasi & Kecamatan', s: 5 }, null,
+                    { v: `${acara.lokasi || '-'} (Kec. ${acara.kecamatan || '-'})`, s: 6 }, null, null, null,
+                    { v: 'Status & Mode Penerima', s: 5 }, null,
+                    { v: `${acara.status || 'Aktif'} • ${modePenerimaLabel}`, s: 6 }, null, null, null
+                ]
+            },
+            {
+                tinggi: 20,
+                sel: [
+                    { v: 'Komoditas Tersedia', s: 5 }, null,
+                    { v: acara.komoditas_tersedia || '-', s: 6 }, null, null, null,
+                    { v: 'Ringkasan Kehadiran', s: 5 }, null,
+                    { v: `Kuota ${kuotaMaks} • Daftar ${totalPendaftar} • Hadir ${totalHadir} (${serapan}) • Ambil Pangan ${totalSudahAmbil}`, s: 6 }, null, null, null
+                ]
+            },
+            {
+                tinggi: 19,
+                sel: [
+                    { v: 'Waktu Unduh Rekap', s: 5 }, null,
+                    { v: waktuUnduh, s: 6 }, null, null, null,
+                    { v: 'Belum Hadir / Menunggu', s: 5 }, null,
+                    { v: `${totalMenunggu} Warga`, s: 6 }, null, null, null
+                ]
+            },
+            { tinggi: 10, sel: [] },
+            {
+                tinggi: 28,
+                sel: [
+                    { v: 'No', s: 7 },
+                    { v: 'No. Antrean', s: 7 },
+                    { v: 'Nama Lengkap', s: 7 },
+                    { v: 'NIK (16 Digit)', s: 7 },
+                    { v: 'No. KK (16 Digit)', s: 7 },
+                    { v: 'Jalur', s: 7 },
+                    { v: 'No. Telepon / WA', s: 7 },
+                    { v: 'Kode Tiket QR', s: 7 },
+                    { v: 'Status Kehadiran', s: 7 },
+                    { v: 'Pengambilan Pangan', s: 7 },
+                    { v: 'Waktu Daftar', s: 7 },
+                    { v: 'Waktu Hadir', s: 7 }
+                ]
+            }
+        ];
+
+        const merges = [
+            'A1:L1', 'A2:L2', 'A3:L3', 'A4:L4', 'A6:L6',
+            'A7:B7', 'C7:F7', 'G7:H7', 'I7:L7',
+            'A8:B8', 'C8:F8', 'G8:H8', 'I8:L8',
+            'A9:B9', 'C9:F9', 'G9:H9', 'I9:L9',
+            'A10:B10', 'C10:F10', 'G10:H10', 'I10:L10'
+        ];
+
+        if (pendaftar.length === 0) {
+            const emptyRow = baris.length + 1;
+            baris.push({
+                tinggi: 24,
+                sel: [{ v: 'Belum ada warga yang terdaftar pada kegiatan GPM ini.', s: 9 }]
+            });
+            merges.push(`A${emptyRow}:L${emptyRow}`);
+        } else {
+            pendaftar.forEach((p, idx) => {
+                const zebra = idx % 2 === 1;
+                const sTeks = zebra ? 12 : 8;
+                const sTengah = zebra ? 13 : 9;
+                const isHadir = String(p.status_kehadiran || '').toLowerCase() === 'hadir';
+                const isDiambil = String(p.status_pengambilan || '').toLowerCase() === 'sudah diambil';
+                const rawTelp = String(p.nomor_telepon || '').trim() || '-';
+                const waktuDaftar = p.waktu_mendaftar
+                    ? new Date(p.waktu_mendaftar).toLocaleString('id-ID', { timeZone: 'Asia/Makassar' })
+                    : '-';
+                const waktuHadir = p.waktu_kehadiran
+                    ? new Date(p.waktu_kehadiran).toLocaleString('id-ID', { timeZone: 'Asia/Makassar' })
+                    : (isHadir ? 'Hadir di Lokasi' : '-');
+
+                baris.push({
+                    tinggi: 21,
+                    sel: [
+                        { v: idx + 1, t: 'n', s: sTengah },
+                        { v: `#${String(p.nomor_antrean || idx + 1).padStart(3, '0')}`, t: 's', s: sTengah },
+                        { v: p.nama_bersih || p.nama_pendaftar || '-', t: 's', s: sTeks },
+                        { v: p.nik && p.nik !== '-' ? String(p.nik) : '-', t: 's', s: sTengah },
+                        { v: p.no_kk ? String(p.no_kk) : '-', t: 's', s: sTengah },
+                        { v: p.jalur_pendaftaran || 'Daring', t: 's', s: sTengah },
+                        { v: rawTelp, t: 's', s: sTengah },
+                        { v: p.kode_barcode || '-', t: 's', s: sTengah },
+                        { v: p.status_kehadiran || 'Menunggu', t: 's', s: isHadir ? 21 : 22 },
+                        { v: p.status_pengambilan || 'Belum Diambil', t: 's', s: isDiambil ? 21 : sTengah },
+                        { v: waktuDaftar, t: 's', s: sTengah },
+                        { v: waktuHadir, t: 's', s: sTengah }
+                    ]
+                });
+            });
+        }
+
+        const rowTotal = baris.length + 1;
+        baris.push({
+            tinggi: 24,
+            sel: [
+                { v: `RINGKASAN: ${totalPendaftar} TERDAFTAR  |  ${totalHadir} HADIR (${serapan})  |  ${totalSudahAmbil} SUDAH AMBIL PANGAN  |  ${totalMenunggu} MENUNGGU`, s: 16 }
+            ]
+        });
+        merges.push(`A${rowTotal}:L${rowTotal}`);
+
+        const ttdStart = baris.length + 2;
+        baris.push(
+            { tinggi: 14, sel: [] },
+            { tinggi: 19, sel: [null, null, null, null, null, null, null, null, { v: `Manado, ${tanggalTtd}`, s: 18 }] },
+            { tinggi: 19, sel: [null, null, null, null, null, null, null, null, { v: 'Mengetahui dan Mengesahkan,', s: 18 }] },
+            { tinggi: 19, sel: [null, null, null, null, null, null, null, null, { v: 'Kepala Bidang Cadangan dan Distribusi Pangan', s: 19 }] },
+            { tinggi: 19, sel: [null, null, null, null, null, null, null, null, { v: 'Dinas Pangan Kota Manado', s: 18 }] },
+            { tinggi: 18, sel: [] },
+            { tinggi: 18, sel: [] },
+            { tinggi: 18, sel: [] },
+            { tinggi: 20, sel: [null, null, null, null, null, null, null, null, { v: barisNama, s: 19 }] },
+            { tinggi: 19, sel: [null, null, null, null, null, null, null, null, { v: barisNip, s: 18 }] }
+        );
+
+        merges.push(
+            `I${ttdStart}:L${ttdStart}`,
+            `I${ttdStart + 1}:L${ttdStart + 1}`,
+            `I${ttdStart + 2}:L${ttdStart + 2}`,
+            `I${ttdStart + 3}:L${ttdStart + 3}`,
+            `I${ttdStart + 7}:L${ttdStart + 7}`,
+            `I${ttdStart + 8}:L${ttdStart + 8}`
+        );
+
+        const namaFileBersih = (acara.nama_acara || 'GPM').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const tglBersih = String(acara.tanggal || 'arsip').split('T')[0];
+
+        return excelResmiService.unduhWorkbookXlsx(
+            `Rekap_GPM_${namaFileBersih}_${tglBersih}.xlsx`,
+            [
+                {
+                    namaSheet: 'Daftar Hadir GPM',
+                    lebarKolom: [6, 13, 25, 20, 20, 12, 17, 22, 16, 18, 20, 20],
+                    merges,
+                    baris
+                }
+            ]
+        );
+    }
+
+    // 13B. Ekspor Rekapitulasi Data Pendaftar Acara ke File CSV (Cadangan — Delimiter Titik Koma Excel ID)
     eksporKeCSV(acara, daftarPendaftar) {
         if (!acara) return false;
         const pendaftar = Array.isArray(daftarPendaftar) ? daftarPendaftar : [];
@@ -481,41 +678,43 @@ class GPMApiService {
         const totalHadir = pendaftar.filter((p) => p.status_kehadiran === 'Hadir').length;
         const totalMenunggu = totalPendaftar - totalHadir;
 
-        let csv = '\uFEFF';
+        let csv = '\uFEFFsep=;\n';
         csv += 'LAPORAN REKAPITULASI RESMI GERAKAN PANGAN MURAH (GPM)\n';
         csv += 'DINAS PANGAN PEMERINTAH KOTA MANADO\n\n';
 
         csv += 'RINGKASAN KEGIATAN\n';
-        csv += `Nama Kegiatan,"${(acara.nama_acara || '').replace(/"/g, '""')}"\n`;
-        csv += `Lokasi Pelaksanaan,"${(acara.lokasi || '').replace(/"/g, '""')} (Kec. ${(acara.kecamatan || '').replace(/"/g, '""')})"\n`;
-        csv += `Jadwal Pelaksanaan,"${acara.tanggal || '-'} (${acara.jam_mulai || '08:00'} - ${acara.jam_selesai || '13:00'} WITA)"\n`;
-        csv += `Komoditas Disediakan,"${(acara.komoditas_tersedia || '').replace(/"/g, '""')}"\n`;
-        csv += `Status Kegiatan,"${acara.status || 'Selesai'}"\n\n`;
+        csv += `Nama Kegiatan;"${(acara.nama_acara || '').replace(/"/g, '""')}"\n`;
+        csv += `Lokasi Pelaksanaan;"${(acara.lokasi || '').replace(/"/g, '""')} (Kec. ${(acara.kecamatan || '').replace(/"/g, '""')})"\n`;
+        csv += `Jadwal Pelaksanaan;"${acara.tanggal || '-'} (${acara.jam_mulai || '08:00'} - ${acara.jam_selesai || '13:00'} WITA)"\n`;
+        csv += `Komoditas Disediakan;"${(acara.komoditas_tersedia || '').replace(/"/g, '""')}"\n`;
+        csv += `Status Kegiatan;"${acara.status || 'Selesai'}"\n\n`;
 
         csv += 'DATA KUOTA & KEHADIRAN WARGA\n';
-        csv += `Total Kuota Maksimal,${acara.kuota_maksimal || 0}\n`;
-        csv += `Total Warga Mendaftar,${totalPendaftar}\n`;
-        csv += `Total Warga Hadir (Terverifikasi),${totalHadir}\n`;
-        csv += `Total Belum Hadir / Menunggu,${totalMenunggu}\n`;
-        csv += `Waktu Unduh Rekapitulasi,"${new Date().toLocaleString('id-ID')}"\n\n`;
+        csv += `Total Kuota Maksimal;${acara.kuota_maksimal || 0}\n`;
+        csv += `Total Warga Mendaftar;${totalPendaftar}\n`;
+        csv += `Total Warga Hadir (Terverifikasi);${totalHadir}\n`;
+        csv += `Total Belum Hadir / Menunggu;${totalMenunggu}\n`;
+        csv += `Waktu Unduh Rekapitulasi;"${new Date().toLocaleString('id-ID')}"\n\n`;
 
         csv += 'DATA DETAIL PENDAFTAR & ANTREAN\n';
-        csv += 'No Urut,Nomor Antrean,Nama Lengkap,NIK (16 Digit),Jalur Pendaftaran,Nomor Telepon / WhatsApp,Kode Tiket QR,Status Kehadiran,Waktu Pendaftaran,Waktu Hadir\n';
+        csv += 'No Urut;Nomor Antrean;Nama Lengkap;NIK (16 Digit);No. KK (16 Digit);Jalur Pendaftaran;Nomor Telepon / WhatsApp;Kode Tiket QR;Status Kehadiran;Pengambilan Pangan;Waktu Pendaftaran;Waktu Hadir\n';
 
         pendaftar.forEach((p, index) => {
             const parsed = this.parseDataPendaftar(p);
             const noUrut = index + 1;
             const noAntrean = `="#${String(parsed.nomor_antrean || index + 1).padStart(3, '0')}"`;
             const nama = `"${(parsed.nama_bersih || '').replace(/"/g, '""')}"`;
-            const nik = parsed.nik && parsed.nik !== '-' ? `="${parsed.nik}"` : `"-"`;
+            const nik = parsed.nik && parsed.nik !== '-' ? `="${parsed.nik}"` : '"-"';
+            const kk = parsed.no_kk ? `="${parsed.no_kk}"` : '"-"';
             const jalur = `"${parsed.jalur_pendaftaran || 'Daring'}"`;
             const rawTelp = String(parsed.nomor_telepon || '').replace(/[^0-9]/g, '');
-            const telp = rawTelp ? `="${rawTelp}"` : `"-"`;
+            const telp = rawTelp ? `="${rawTelp}"` : '"-"';
             const kode = `"${(parsed.kode_barcode || '').replace(/"/g, '""')}"`;
             const status = `"${parsed.status_kehadiran || 'Menunggu'}"`;
+            const pengambilan = `"${parsed.status_pengambilan || 'Belum Diambil'}"`;
             const waktuDaftar = `"${parsed.waktu_mendaftar ? new Date(parsed.waktu_mendaftar).toLocaleString('id-ID') : '-'}"`;
             const waktuHadir = `"${parsed.waktu_kehadiran ? new Date(parsed.waktu_kehadiran).toLocaleString('id-ID') : (parsed.status_kehadiran === 'Hadir' ? 'Hadir di Lokasi' : '-')}"`;
-            csv += `${noUrut},${noAntrean},${nama},${nik},${jalur},${telp},${kode},${status},${waktuDaftar},${waktuHadir}\n`;
+            csv += `${noUrut};${noAntrean};${nama};${nik};${kk};${jalur};${telp};${kode};${status};${pengambilan};${waktuDaftar};${waktuHadir}\n`;
         });
 
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -527,7 +726,7 @@ class GPMApiService {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
         return true;
     }
 

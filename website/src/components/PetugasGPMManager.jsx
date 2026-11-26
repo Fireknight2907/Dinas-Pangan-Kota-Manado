@@ -355,13 +355,13 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan'
     }
   };
 
-  // Ekspor Rekapitulasi Data Pendaftar ke CSV
+  // Ekspor Rekapitulasi Data Pendaftar ke Excel Resmi (.xlsx)
   const handleEksporLangsungRiwayat = async (acara) => {
     try {
       const res = await gpmService.ambilPendaftarAcara(acara.id);
-      gpmService.eksporKeCSV(acara, res.data || []);
+      gpmService.eksporKeExcel(acara, res.data || [], { nama: pengguna?.nama || '' });
     } catch (err) {
-      alert('Gagal mengunduh file rekap CSV: ' + err.message);
+      alert('Gagal mengunduh file rekap Excel: ' + err.message);
     }
   };
 
@@ -1049,11 +1049,11 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan'
                   {acaraAktifDipilih && (
                     <button
                       type="button"
-                      onClick={() => gpmService.eksporKeCSV(acaraAktifDipilih, daftarPendaftar)}
+                      onClick={() => gpmService.eksporKeExcel(acaraAktifDipilih, daftarPendaftar, { nama: pengguna?.nama || '' })}
                       className="btn-export-csv"
-                      title="Unduh rekapitulasi data pendaftar & nomor antrean dalam format Excel/CSV"
+                      title="Unduh rekapitulasi data pendaftar & nomor antrean dalam format Microsoft Excel (.xlsx)"
                     >
-                      📥 Export Data (CSV)
+                      📊 Export Excel (.xlsx)
                     </button>
                   )}
 
@@ -1687,7 +1687,7 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan'
                       className="btn-action-download"
                       onClick={() => handleEksporLangsungRiwayat(acara)}
                     >
-                      📥 Unduh Rekap (CSV)
+                      📊 Unduh Excel (.xlsx)
                     </button>
                     {isKabid && (
                       <button
@@ -1738,9 +1738,9 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan'
                 <button
                   type="button"
                   className="btn-export-csv"
-                  onClick={() => gpmService.eksporKeCSV(modalRiwayatDetail.acara, modalRiwayatDetail.pendaftar)}
+                  onClick={() => gpmService.eksporKeExcel(modalRiwayatDetail.acara, modalRiwayatDetail.pendaftar, { nama: pengguna?.nama || '' })}
                 >
-                  📥 Unduh File CSV / Excel
+                  📊 Unduh Excel (.xlsx)
                 </button>
               </div>
 

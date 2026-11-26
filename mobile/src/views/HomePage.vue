@@ -925,7 +925,163 @@
             </div>
           </template>
 
-          <!-- BERANDA PERAN LAINNYA (ADMIN, KABID, KADIS, SUPERADMIN) -->
+          <!-- BERANDA OPERASIONAL KEPALA BIDANG (100% DATA RIIL + FILTER PERIODE) -->
+          <template v-else-if="peranAktif === 'Kabid'">
+            <div class="m-staf-hero-box">
+              <span class="m-staf-date-chip">🏛️ {{ ringkasanBerandaKabidMobile.hariIniID }} · {{ ringkasanBerandaKabidMobile.labelPeriode }}</span>
+              <h2 class="m-staf-hero-title">Halo, {{ userAktif?.nama || 'Kepala Bidang' }}</h2>
+              <p class="m-staf-hero-desc">
+                Ringkasan verifikasi harga pasar, kepatuhan survey harian staf, dan capaian Gerakan Pangan Murah ({{ ringkasanBerandaKabidMobile.labelPeriode }}).
+              </p>
+
+              <div class="m-kabid-period-bar">
+                <button
+                  type="button"
+                  :class="['m-kabid-period-btn', periodeBerandaKabidMobile === 'bulan_ini' ? 'active' : '']"
+                  @click="periodeBerandaKabidMobile = 'bulan_ini'"
+                >
+                  Bulan Ini
+                </button>
+                <button
+                  type="button"
+                  :class="['m-kabid-period-btn', periodeBerandaKabidMobile === 'tahun_ini' ? 'active' : '']"
+                  @click="periodeBerandaKabidMobile = 'tahun_ini'"
+                >
+                  Tahun {{ ringkasanBerandaKabidMobile.tahunBerjalan }}
+                </button>
+                <button
+                  type="button"
+                  :class="['m-kabid-period-btn', periodeBerandaKabidMobile === 'semua' ? 'active' : '']"
+                  @click="periodeBerandaKabidMobile = 'semua'"
+                >
+                  Semua
+                </button>
+              </div>
+
+              <div class="m-staf-hero-btns">
+                <button type="button" class="m-staf-hero-btn primary" @click="menuPetugas = 'verif-harga'">
+                  ✅ Verifikasi ({{ ringkasanBerandaKabidMobile.kpi.totalMenungguVerifikasi }})
+                </button>
+                <button type="button" class="m-staf-hero-btn secondary" @click="menuPetugas = 'laporan'">
+                  📑 Laporan &amp; Excel
+                </button>
+              </div>
+            </div>
+
+            <div class="staff-stats-grid">
+              <div class="stat-box-card" @click="menuPetugas = 'verif-harga'" style="cursor: pointer;">
+                <div class="stat-val" style="color: #b45309;">{{ ringkasanBerandaKabidMobile.kpi.totalMenungguVerifikasi }}</div>
+                <div class="stat-lbl">Menunggu Verif</div>
+                <div class="stat-sub">{{ ringkasanBerandaKabidMobile.kpi.menungguVerifikasiPaket }} paket · {{ ringkasanBerandaKabidMobile.kpi.menungguVerifikasiSatuan }} draf</div>
+              </div>
+              <div class="stat-box-card" @click="menuPetugas = 'verif-harga'" style="cursor: pointer;">
+                <div class="stat-val">{{ ringkasanBerandaKabidMobile.kpi.pasarSelesaiHariIni }}/{{ ringkasanBerandaKabidMobile.kpi.totalPasar }}</div>
+                <div class="stat-lbl">Pasar Hari Ini</div>
+                <div class="stat-sub">{{ ringkasanBerandaKabidMobile.kpi.persenKepatuhanPasar }}% · {{ ringkasanBerandaKabidMobile.kpi.totalHargaTerbit }} terbit</div>
+              </div>
+              <div class="stat-box-card" @click="menuPetugas = 'kelola-gpm'; subMenuPetugasGPM = 'riwayat'" style="cursor: pointer;">
+                <div class="stat-val" style="color: #166534;">{{ ringkasanBerandaKabidMobile.kpi.gpmTerlaksanaPeriode }}</div>
+                <div class="stat-lbl">GPM Terlaksana</div>
+                <div class="stat-sub">Aktif: {{ ringkasanBerandaKabidMobile.kpi.gpmAktifSekarang }} · Arsip: {{ ringkasanBerandaKabidMobile.kpi.gpmTerlaksanaTotalArsip }}</div>
+              </div>
+              <div class="stat-box-card" @click="subTabLaporanKabidMobile = 'gpm'; menuPetugas = 'laporan'" style="cursor: pointer;">
+                <div class="stat-val" style="color: #1d4ed8;">{{ ringkasanBerandaKabidMobile.kpi.persenSerapanPeriode }}%</div>
+                <div class="stat-lbl">Serapan GPM</div>
+                <div class="stat-sub">{{ ringkasanBerandaKabidMobile.kpi.totalHadirPeriode }}/{{ ringkasanBerandaKabidMobile.kpi.totalKuotaPeriode }} hadir</div>
+              </div>
+            </div>
+
+            <!-- Antrean Verifikasi Paket Harga -->
+            <div class="m-staf-ops-section">
+              <div class="m-staf-sec-head">
+                <div>
+                  <h3>📦 Antrean Verifikasi Paket Harga</h3>
+                  <small>Pengajuan resmi Staf siap disetujui / ditolak</small>
+                </div>
+                <button type="button" class="m-btn-link-inline" @click="menuPetugas = 'verif-harga'">Buka →</button>
+              </div>
+              <div v-if="ringkasanBerandaKabidMobile.antreanPengajuanTerbaru.length === 0" class="m-empty-box">
+                Tidak ada antrean paket pengajuan yang tertunda saat ini.
+              </div>
+              <div v-else class="m-staf-market-list">
+                <div v-for="p in ringkasanBerandaKabidMobile.antreanPengajuanTerbaru" :key="p.id" class="m-staf-sub-card">
+                  <div class="m-staf-sub-top">
+                    <strong>📍 {{ p.nama_pasar }}</strong>
+                    <span class="m-staf-batch-pill st-diajukan">{{ p.items?.length || 0 }} komoditas</span>
+                  </div>
+                  <div class="m-staf-sub-meta">📅 {{ p.tanggal_tampil }} · 👤 {{ p.nama_petugas }}</div>
+                  <div class="m-verif-actions" style="margin-top: 8px;">
+                    <button type="button" class="btn-m-edit" @click="detailPengajuanBatchMobile = p">👁️ Tinjau</button>
+                    <button type="button" class="btn-m-approve" @click="menuPetugas = 'verif-harga'">Verifikasi</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Kepatuhan Survey Pasar Hari Ini -->
+            <div class="m-staf-ops-section">
+              <div class="m-staf-sec-head">
+                <div>
+                  <h3>🏪 Kepatuhan Survey Pasar Hari Ini</h3>
+                  <small>{{ ringkasanBerandaKabidMobile.kpi.pasarSelesaiHariIni }} dari {{ ringkasanBerandaKabidMobile.kpi.totalPasar }} pasar melapor</small>
+                </div>
+                <span class="m-staf-batch-pill st-diverifikasi">{{ ringkasanBerandaKabidMobile.kpi.persenKepatuhanPasar }}%</span>
+              </div>
+              <div v-if="ringkasanBerandaKabidMobile.kepatuhanPerPasar.length === 0" class="m-empty-box">
+                Belum ada data master pasar.
+              </div>
+              <div v-else class="m-staf-market-list">
+                <div v-for="m in ringkasanBerandaKabidMobile.kepatuhanPerPasar" :key="m.nama_pasar" class="m-staf-market-card" :class="'st-' + m.kodeStatus">
+                  <div class="m-staf-mc-top">
+                    <strong>{{ m.nama_pasar }}</strong>
+                    <span class="m-staf-status-tag" :class="'st-' + m.kodeStatus">{{ m.labelStatus }}</span>
+                  </div>
+                  <div class="m-staf-sub-meta">
+                    {{ m.jumlahTerbit }} komoditas terbit<span v-if="m.jumlahPengajuanMenunggu > 0"> · {{ m.jumlahPengajuanMenunggu }} paket menunggu verif</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pelaksanaan GPM Periode Aktif -->
+            <div class="m-staf-ops-section">
+              <div class="m-staf-sec-head">
+                <div>
+                  <h3>🎟️ Pelaksanaan GPM ({{ ringkasanBerandaKabidMobile.labelPeriode }})</h3>
+                  <small>Realisasi kuota &amp; kehadiran warga</small>
+                </div>
+                <button
+                  type="button"
+                  class="m-btn-link-inline"
+                  @click="filterLaporanGPMKabidMobile.periode = periodeBerandaKabidMobile; subTabLaporanKabidMobile = 'gpm'; menuPetugas = 'laporan'"
+                >
+                  Laporan →
+                </button>
+              </div>
+              <div v-if="ringkasanBerandaKabidMobile.gpmPeriodeList.length === 0" class="m-empty-box">
+                Belum ada kegiatan GPM pada periode {{ ringkasanBerandaKabidMobile.labelPeriode }}.
+              </div>
+              <div v-else class="m-staf-market-list">
+                <div v-for="a in ringkasanBerandaKabidMobile.gpmPeriodeList" :key="a.id" class="m-staf-sub-card">
+                  <div class="m-staf-sub-top">
+                    <strong>{{ a.nama_acara }}</strong>
+                    <span :class="['m-staf-batch-pill', a.statusOperasional.sudahBerakhir ? 'st-diverifikasi' : 'st-diajukan']">
+                      {{ a.statusOperasional.sudahBerakhir ? 'Selesai' : 'Aktif' }}
+                    </span>
+                  </div>
+                  <div class="m-staf-sub-meta">📍 {{ a.lokasi }} ({{ a.kecamatan || '-' }}) · 📅 {{ a.tanggal }}</div>
+                  <div class="m-staf-sub-meta">
+                    Hadir <strong>{{ a.hadirRiil }}</strong> / {{ a.kuotaRiil }} kuota ({{ a.persenSerapan }}%) · Daftar: {{ a.terdaftarRiil }}
+                  </div>
+                  <div class="m-kabid-serapan-bar">
+                    <div class="m-kabid-serapan-fill" :style="{ width: a.persenSerapan + '%' }"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- BERANDA PERAN LAINNYA (ADMIN, KADIS, SUPERADMIN) -->
           <template v-else>
           <!-- Role Welcome Hero Banner -->
           <div class="m-role-banner" :class="'banner-' + peranAktif.toLowerCase()">
@@ -1328,7 +1484,7 @@
                 :disabled="!acaraGPMDipilih"
                 @click="unduhRekapAktifMobile"
               >
-                📥 Unduh Rekap (CSV)
+                📊 Unduh Excel (.xlsx)
               </button>
               <button 
                 type="button" 
@@ -1650,7 +1806,7 @@
                     class="btn-m-hist-csv"
                     @click="unduhRekapRiwayatMobile(acara)"
                   >
-                    📥 Unduh CSV
+                    📊 Excel (.xlsx)
                   </button>
                   <button 
                     type="button" 
@@ -1731,7 +1887,18 @@
                 <div class="m-staf-sub-meta">📅 {{ p.tanggal_tampil }} · 👤 {{ p.nama_petugas }}</div>
                 <div class="m-verif-batch-preview">
                   <div v-for="it in (p.items || []).slice(0, 4)" :key="it.id" class="m-vbp-row">
-                    <span>{{ it.nama_komoditas }} ({{ it.satuan }})</span>
+                    <div>
+                      <span>{{ it.nama_komoditas }} ({{ it.satuan }})</span>
+                      <div class="m-vbp-sub">
+                        <template v-if="it.harga_lama !== null && it.harga_lama !== undefined">
+                          Lama: {{ formatRupiah(it.harga_lama) }}
+                          <span v-if="Number(it.harga) > Number(it.harga_lama)" class="m-vbp-diff up">▲ +{{ formatRupiah(Number(it.harga) - Number(it.harga_lama)) }}</span>
+                          <span v-else-if="Number(it.harga) < Number(it.harga_lama)" class="m-vbp-diff down">▼ -{{ formatRupiah(Number(it.harga_lama) - Number(it.harga)) }}</span>
+                          <span v-else class="m-vbp-diff same">Tetap</span>
+                        </template>
+                        <span v-else class="m-vbp-diff new">✨ Harga Baru</span>
+                      </div>
+                    </div>
                     <strong>{{ formatRupiah(it.harga) }}</strong>
                   </div>
                   <div v-if="(p.items?.length || 0) > 4" style="font-size: 0.72rem; color: #64748b; margin-top: 4px;">
@@ -1758,7 +1925,41 @@
             </div>
           </div>
 
-          <!-- Filter Status Tab -->
+          <!-- RIWAYAT KEPUTUSAN VERIFIKASI BATCH (DISETUJUI / DITOLAK — TANPA DRAFT PRIBADI STAF) -->
+          <div class="m-staf-ops-section" style="margin-bottom: 14px;">
+            <div class="m-staf-sec-head">
+              <div>
+                <h3>🗂️ Riwayat Keputusan Verifikasi ({{ daftarKeputusanVerifMobile.length }})</h3>
+                <small>Paket harga yang sudah disetujui atau ditolak</small>
+              </div>
+            </div>
+            <div v-if="daftarKeputusanVerifMobile.length === 0" class="m-empty-box">
+              Belum ada riwayat keputusan verifikasi paket.
+            </div>
+            <div v-else class="m-staf-market-list">
+              <div v-for="p in daftarKeputusanVerifMobile.slice(0, 6)" :key="p.id" class="m-staf-sub-card">
+                <div class="m-staf-sub-top">
+                  <strong>📍 {{ p.nama_pasar }}</strong>
+                  <span :class="['m-staf-batch-pill', p.status === 'Diverifikasi' ? 'st-diverifikasi' : 'st-ditolak']">
+                    {{ p.status === 'Diverifikasi' ? 'Disetujui' : 'Ditolak' }}
+                  </span>
+                </div>
+                <div class="m-staf-sub-meta">
+                  📅 {{ p.tanggal_tampil }} · 👤 {{ p.nama_petugas }} · {{ p.items?.length || 0 }} komoditas
+                </div>
+                <div v-if="p.catatan_verifikasi" class="m-staf-sub-meta" style="color: #b91c1c;">
+                  Catatan: "{{ p.catatan_verifikasi }}"
+                </div>
+                <div style="margin-top: 6px;">
+                  <button type="button" class="btn-m-edit" style="width: 100%;" @click="detailPengajuanBatchMobile = p">
+                    👁️ Lihat Rincian Paket
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter Status Tab + Pencarian & Pasar -->
           <div class="m-verif-tabs">
             <button :class="['m-verif-tab', filterStatusVerif === 'Draft' ? 'active' : '']" @click="filterStatusVerif = 'Draft'">
               ⏳ Menunggu ({{ komoditasDraft.length }})
@@ -1769,6 +1970,19 @@
             <button :class="['m-verif-tab', filterStatusVerif === 'Semua' ? 'active' : '']" @click="filterStatusVerif = 'Semua'">
               Semua ({{ semuaKomoditas.length }})
             </button>
+          </div>
+
+          <div class="m-kabid-filter-box">
+            <input
+              v-model="cariVerifMobile"
+              type="text"
+              class="m-kabid-filter-input"
+              placeholder="🔍 Cari komoditas / pasar..."
+            />
+            <select v-model="filterPasarVerifMobile" class="m-kabid-filter-select">
+              <option value="Semua">📍 Semua Pasar</option>
+              <option v-for="p in daftarPasarLaporanHargaMobile" :key="p" :value="p">{{ p }}</option>
+            </select>
           </div>
 
           <!-- Daftar Kartu Komoditas Verifikasi -->
@@ -1828,53 +2042,199 @@
           </div>
         </div>
 
-        <!-- SUB-VIEW E: LAPORAN RESMI BIDANG PANGAN (KHUSUS KABID) -->
+        <!-- SUB-VIEW E: LAPORAN RESMI BIDANG PANGAN (KHUSUS KABID — HARGA & GPM, EXCEL .xlsx + PDF) -->
         <div v-if="menuPetugas === 'laporan'" class="staff-view-container">
           <div class="staff-heading-area">
             <h1 class="staff-view-title">Laporan Bidang Pangan</h1>
-            <p class="staff-view-desc">Rekapitulasi penetapan komoditas dan stabilitas harga pasar Kota Manado</p>
+            <p class="staff-view-desc">Unduh Microsoft Excel resmi (.xlsx) multi-sheet atau cetak dokumen PDF A4 dari data riil Supabase</p>
           </div>
 
-          <!-- Summary Metrics -->
-          <div class="staff-stats-grid">
-            <div class="stat-box-card">
-              <div class="stat-val">{{ semuaKomoditas.length }}</div>
-              <div class="stat-lbl">Komoditas Terdata</div>
-              <div class="stat-sub">seluruh pasar</div>
-            </div>
-            <div class="stat-box-card">
-              <div class="stat-val">{{ daftarPasar.length }}</div>
-              <div class="stat-lbl">Pasar Tradisional</div>
-              <div class="stat-sub">lokasi verifikasi</div>
-            </div>
-          </div>
-
-          <!-- Tombol Unduh Laporan CSV -->
-          <div class="m-export-box">
-            <button class="btn-m-export-csv" @click="unduhLaporanPanganKabid">
-              📥 Unduh Laporan Resmi (CSV / Excel)
+          <!-- Sub-tab Harga Pangan vs Pelaksanaan GPM -->
+          <div class="m-verif-tabs" style="margin-bottom: 12px;">
+            <button
+              type="button"
+              :class="['m-verif-tab', subTabLaporanKabidMobile === 'harga' ? 'active' : '']"
+              @click="subTabLaporanKabidMobile = 'harga'"
+            >
+              🏷️ Harga Pangan ({{ semuaKomoditas.length }})
             </button>
-            <p class="export-hint">File CSV terformat rapi sesuai standar dinas, kompatibel langsung dengan Microsoft Excel.</p>
+            <button
+              type="button"
+              :class="['m-verif-tab', subTabLaporanKabidMobile === 'gpm' ? 'active' : '']"
+              @click="subTabLaporanKabidMobile = 'gpm'"
+            >
+              🎟️ Pelaksanaan GPM ({{ semuaAcaraGPM.length }})
+            </button>
           </div>
 
-          <!-- Tabel Rekap Data Komoditas -->
-          <div class="m-report-table-card">
-            <h3 style="font-size: 0.92rem; margin: 0 0 10px 0; color: #1e293b;">Daftar Rekapitulasi Komoditas:</h3>
-            <div class="m-report-rows">
-              <div v-for="(item, idx) in semuaKomoditas" :key="item.id || idx" class="m-report-row">
-                <div class="m-rep-num">{{ idx + 1 }}</div>
-                <div class="m-rep-info">
-                  <strong>{{ item.nama_komoditas }}</strong>
-                  <span>{{ item.nama_pasar }} · {{ item.kategori }}</span>
-                  <span class="m-rep-badge" :class="(item.status || '').toLowerCase() === 'draft' ? 'draft' : 'terbit'">{{ item.status || 'Terbit' }}</span>
-                </div>
-                <div class="m-rep-price">
-                  <strong>{{ formatRupiah(item.harga) }}</strong>
-                  <span>/ {{ formatSatuanTampil(item.satuan) }}</span>
+          <!-- TAB 1: LAPORAN HARGA PANGAN -->
+          <template v-if="subTabLaporanKabidMobile === 'harga'">
+            <div class="m-kabid-filter-box">
+              <input
+                v-model="filterLaporanHargaMobile.pencarian"
+                type="text"
+                class="m-kabid-filter-input"
+                placeholder="🔍 Cari komoditas..."
+              />
+              <div class="m-kabid-filter-row">
+                <select v-model="filterLaporanHargaMobile.pasar" class="m-kabid-filter-select">
+                  <option value="Semua">📍 Semua Pasar</option>
+                  <option v-for="p in daftarPasarLaporanHargaMobile" :key="p" :value="p">{{ p }}</option>
+                </select>
+                <select v-model="filterLaporanHargaMobile.kategori" class="m-kabid-filter-select">
+                  <option value="Semua">📦 Semua Kategori</option>
+                  <option v-for="k in daftarKategoriLaporanHargaMobile" :key="k" :value="k">{{ k }}</option>
+                </select>
+                <select v-model="filterLaporanHargaMobile.status" class="m-kabid-filter-select">
+                  <option value="Semua">🔖 Semua Status</option>
+                  <option value="Terbit">Terbit</option>
+                  <option value="Draft">Draf</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="staff-stats-grid">
+              <div class="stat-box-card">
+                <div class="stat-val">{{ daftarLaporanHargaTerfilterMobile.length }}</div>
+                <div class="stat-lbl">Data Terfilter</div>
+                <div class="stat-sub">dari {{ semuaKomoditas.length }} total</div>
+              </div>
+              <div class="stat-box-card">
+                <div class="stat-val" style="color: #8b1e1e; font-size: 1.05rem;">{{ formatRupiah(rataHargaLaporanMobile) }}</div>
+                <div class="stat-lbl">Rata-Rata Harga</div>
+                <div class="stat-sub">komoditas terpilih</div>
+              </div>
+            </div>
+
+            <div class="m-export-box">
+              <div class="m-kabid-export-btns">
+                <button
+                  type="button"
+                  class="btn-m-export-csv"
+                  :disabled="daftarLaporanHargaTerfilterMobile.length === 0"
+                  @click="unduhLaporanPanganKabid"
+                >
+                  📊 Unduh Excel (.xlsx)
+                </button>
+                <button
+                  type="button"
+                  class="btn-m-export-pdf"
+                  :disabled="daftarLaporanHargaTerfilterMobile.length === 0"
+                  @click="cetakLaporanPanganKabidMobile"
+                >
+                  🖨️ Cetak / PDF
+                </button>
+              </div>
+              <p class="export-hint">Excel (.xlsx) berisi 2 sheet: Laporan Harga Pangan + Ringkasan per Pasar dengan format Rupiah asli.</p>
+            </div>
+
+            <div class="m-report-table-card">
+              <h3 style="font-size: 0.9rem; margin: 0 0 10px 0; color: #1e293b;">
+                Pratinjau Data Laporan ({{ daftarLaporanHargaTerfilterMobile.length }}):
+              </h3>
+              <div v-if="daftarLaporanHargaTerfilterMobile.length === 0" class="m-empty-box">
+                Tidak ada data harga pangan sesuai filter yang dipilih.
+              </div>
+              <div v-else class="m-report-rows">
+                <div v-for="(item, idx) in daftarLaporanHargaTerfilterMobile" :key="item.id || idx" class="m-report-row">
+                  <div class="m-rep-num">{{ idx + 1 }}</div>
+                  <div class="m-rep-info">
+                    <strong>{{ item.nama_komoditas }}</strong>
+                    <span>{{ item.nama_pasar }} · {{ item.kategori }} · {{ item.tanggal_penetapan || '-' }}</span>
+                    <span class="m-rep-badge" :class="(item.status || '').toLowerCase() === 'draft' ? 'draft' : 'terbit'">
+                      {{ (item.status || '').toLowerCase() === 'draft' ? 'Draf' : (item.status || 'Terbit') }}
+                    </span>
+                  </div>
+                  <div class="m-rep-price">
+                    <strong>{{ formatRupiah(item.harga) }}</strong>
+                    <span>/ {{ formatSatuanTampil(item.satuan) }}</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </template>
+
+          <!-- TAB 2: LAPORAN PELAKSANAAN GPM -->
+          <template v-else>
+            <div class="m-kabid-filter-box">
+              <div class="m-kabid-filter-row">
+                <select v-model="filterLaporanGPMKabidMobile.periode" class="m-kabid-filter-select">
+                  <option value="bulan_ini">📅 Bulan Ini</option>
+                  <option value="tahun_ini">📆 Tahun {{ ringkasanBerandaKabidMobile.tahunBerjalan }}</option>
+                  <option value="semua">🗂️ Semua Periode</option>
+                </select>
+                <select v-model="filterLaporanGPMKabidMobile.kecamatan" class="m-kabid-filter-select">
+                  <option value="Semua">📍 Semua Kecamatan</option>
+                  <option v-for="k in daftarKecamatanLaporanGPMMobile" :key="k" :value="k">{{ k }}</option>
+                </select>
+                <select v-model="filterLaporanGPMKabidMobile.status" class="m-kabid-filter-select">
+                  <option value="Semua">🔖 Semua Status</option>
+                  <option value="Aktif">Aktif</option>
+                  <option value="Selesai">Selesai</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="staff-stats-grid">
+              <div class="stat-box-card">
+                <div class="stat-val">{{ ringkasanLaporanGPMMobile.totalTitik }}</div>
+                <div class="stat-lbl">Titik GPM</div>
+                <div class="stat-sub">{{ berandaKabidMobileService.labelPeriode(filterLaporanGPMKabidMobile.periode) }}</div>
+              </div>
+              <div class="stat-box-card">
+                <div class="stat-val" style="color: #166534;">{{ ringkasanLaporanGPMMobile.persenSerapan }}%</div>
+                <div class="stat-lbl">Serapan Kuota</div>
+                <div class="stat-sub">{{ ringkasanLaporanGPMMobile.totalHadir }}/{{ ringkasanLaporanGPMMobile.totalKuota }} hadir</div>
+              </div>
+            </div>
+
+            <div class="m-export-box">
+              <div class="m-kabid-export-btns">
+                <button
+                  type="button"
+                  class="btn-m-export-csv"
+                  :disabled="daftarLaporanGPMTerfilterMobile.length === 0"
+                  @click="unduhLaporanGPMKabidMobile"
+                >
+                  📊 Excel GPM (.xlsx)
+                </button>
+                <button
+                  type="button"
+                  class="btn-m-export-pdf"
+                  :disabled="daftarLaporanGPMTerfilterMobile.length === 0"
+                  @click="cetakLaporanGPMKabidMobile"
+                >
+                  🖨️ Cetak PDF GPM
+                </button>
+              </div>
+              <p class="export-hint">Excel (.xlsx) berisi 2 sheet: Rekap Pelaksanaan GPM + Ringkasan per Kecamatan.</p>
+            </div>
+
+            <div class="m-report-table-card">
+              <h3 style="font-size: 0.9rem; margin: 0 0 10px 0; color: #1e293b;">
+                Pratinjau Pelaksanaan GPM ({{ daftarLaporanGPMTerfilterMobile.length }}):
+              </h3>
+              <div v-if="daftarLaporanGPMTerfilterMobile.length === 0" class="m-empty-box">
+                Tidak ada kegiatan GPM sesuai periode/filter yang dipilih.
+              </div>
+              <div v-else class="m-report-rows">
+                <div v-for="(g, idx) in daftarLaporanGPMTerfilterMobile" :key="g.id || idx" class="m-report-row">
+                  <div class="m-rep-num">{{ idx + 1 }}</div>
+                  <div class="m-rep-info">
+                    <strong>{{ g.nama_acara }}</strong>
+                    <span>📍 {{ g.lokasi }} ({{ g.kecamatan }}) · 📅 {{ g.tanggal }}</span>
+                    <span class="m-rep-badge" :class="String(g.status || '').toLowerCase() === 'selesai' ? 'terbit' : 'draft'">
+                      {{ g.status }}
+                    </span>
+                  </div>
+                  <div class="m-rep-price">
+                    <strong>{{ g.terlayani }}/{{ g.target_kuota }}</strong>
+                    <span>Hadir ({{ g.target_kuota > 0 ? Math.round((g.terlayani / g.target_kuota) * 100) : 0 }}%)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
 
         <!-- SUB-VIEW F: SUPERVISI MENU CEK GPM (KHUSUS ADMIN) -->
@@ -3736,12 +4096,18 @@
           </div>
           <div class="s-field" style="margin-bottom: 8px;">
             <label>Harga Acuan (Rp)</label>
-            <input type="text" v-model="formEditKabid.harga" @keypress="hanyaBolehAngka" />
+            <input
+              type="text"
+              inputmode="numeric"
+              :value="formEditKabid.harga"
+              @keydown="hanyaBolehAngka"
+              @input="formEditKabid.harga = ($event.target as HTMLInputElement).value.replace(/[^0-9]/g, '')"
+            />
           </div>
           <div class="s-field" style="margin-bottom: 8px;">
             <label>Pasar Tradisional</label>
             <select v-model="formEditKabid.nama_pasar" class="m-role-select" style="width: 100%;">
-              <option v-for="p in daftarPasar" :key="p" :value="p">{{ p }}</option>
+              <option v-for="p in Array.from(new Set([...daftarPasar, formEditKabid.nama_pasar].filter(Boolean)))" :key="p" :value="p">{{ p }}</option>
             </select>
           </div>
           <div class="s-field">
@@ -4286,6 +4652,10 @@ import {
   type DokumenPengajuanHarga
 } from '../services/PengajuanHargaService';
 import { berandaStafMobileService } from '../services/BerandaStafService';
+import {
+  berandaKabidMobileService,
+  type PeriodeLaporanKabid
+} from '../services/BerandaKabidService';
 
 
 // ─── LEAFLET MAP MOBILE GPM (100% DATA RIIL DB, TANPA PIN DUMMY) ──
@@ -5426,13 +5796,15 @@ const hapusRiwayatMobile = async (acara: ItemAcaraGPM) => {
   }
 };
 
-// Unduh Rekap Data Kegiatan Aktif ke CSV
+// Unduh Rekap Data Kegiatan Aktif ke Excel Resmi (.xlsx)
 const unduhRekapAktifMobile = () => {
   if (!acaraGPMDipilih.value) return;
-  gpmMobileService.eksporKeCSV(acaraGPMDipilih.value, pendaftarGPMList.value);
+  gpmMobileService.eksporKeExcel(acaraGPMDipilih.value, pendaftarGPMList.value, {
+    nama: ambilNamaPenandatanganMobile('Kabid')
+  });
 };
 
-// Unduh Rekap Data Kegiatan Riwayat ke CSV
+// Unduh Rekap Data Kegiatan Riwayat ke Excel Resmi (.xlsx)
 const unduhRekapRiwayatMobile = async (acara: ItemAcaraGPM) => {
   try {
     let pendaftar = detailRiwayatPendaftar.value[acara.id];
@@ -5441,9 +5813,11 @@ const unduhRekapRiwayatMobile = async (acara: ItemAcaraGPM) => {
       pendaftar = res.data || [];
       detailRiwayatPendaftar.value[acara.id] = pendaftar;
     }
-    gpmMobileService.eksporKeCSV(acara, pendaftar);
+    gpmMobileService.eksporKeExcel(acara, pendaftar, {
+      nama: ambilNamaPenandatanganMobile('Kabid')
+    });
   } catch (err: any) {
-    alert('Gagal mengunduh file CSV: ' + err.message);
+    alert('Gagal mengunduh file Excel: ' + err.message);
   }
 };
 
@@ -6302,6 +6676,115 @@ const batalkanPengajuanBatchMobile = async (pengajuan: DokumenPengajuanHarga) =>
   }
 };
 
+const periodeBerandaKabidMobile = ref<PeriodeLaporanKabid>('tahun_ini');
+const subTabLaporanKabidMobile = ref<'harga' | 'gpm'>('harga');
+const cariVerifMobile = ref('');
+const filterPasarVerifMobile = ref('Semua');
+const filterLaporanHargaMobile = ref({
+  pasar: 'Semua',
+  kategori: 'Semua',
+  status: 'Semua',
+  pencarian: ''
+});
+const filterLaporanGPMKabidMobile = ref<{
+  periode: PeriodeLaporanKabid;
+  kecamatan: string;
+  status: string;
+}>({
+  periode: 'tahun_ini',
+  kecamatan: 'Semua',
+  status: 'Semua'
+});
+
+const ringkasanBerandaKabidMobile = computed(() =>
+  berandaKabidMobileService.hitungRingkasanKabid({
+    daftarPasarLengkap: daftarPasarLengkap.value,
+    daftarHarga: semuaKomoditas.value,
+    daftarMasterKomoditas: daftarMasterKomoditas.value,
+    daftarPengajuan: daftarPengajuanHargaMobile.value,
+    daftarAcaraGPM: semuaAcaraGPM.value,
+    periode: periodeBerandaKabidMobile.value
+  })
+);
+
+const daftarKeputusanVerifMobile = computed(() =>
+  daftarPengajuanHargaMobile.value.filter(
+    (p) => p && (p.status === 'Diverifikasi' || p.status === 'Ditolak')
+  )
+);
+
+const daftarPasarLaporanHargaMobile = computed<string[]>(() =>
+  Array.from(new Set(semuaKomoditas.value.map((h) => h.nama_pasar).filter(Boolean))).sort()
+);
+
+const daftarKategoriLaporanHargaMobile = computed<string[]>(() =>
+  Array.from(new Set(semuaKomoditas.value.map((h) => h.kategori).filter(Boolean))).sort()
+);
+
+const daftarLaporanHargaTerfilterMobile = computed(() => {
+  const f = filterLaporanHargaMobile.value;
+  const kata = f.pencarian.trim().toLowerCase();
+  return semuaKomoditas.value.filter((h) => {
+    if (f.pasar !== 'Semua' && h.nama_pasar !== f.pasar) return false;
+    if (f.kategori !== 'Semua' && h.kategori !== f.kategori) return false;
+    if (f.status !== 'Semua' && (h.status || 'Terbit') !== f.status) return false;
+    if (kata && !`${h.nama_komoditas || ''} ${h.nama_pasar || ''} ${h.kategori || ''}`.toLowerCase().includes(kata)) {
+      return false;
+    }
+    return true;
+  });
+});
+
+const rataHargaLaporanMobile = computed(() => {
+  const valid = daftarLaporanHargaTerfilterMobile.value.map((h) => Number(h.harga) || 0).filter((v) => v > 0);
+  if (valid.length === 0) return 0;
+  return Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
+});
+
+const daftarRekapGPMKabidMobile = computed(() =>
+  semuaAcaraGPM.value.map((a) => {
+    const st = jadwalGPMMobileService.hitungStatusOperasional(a, waktuSekarangGPMMs.value);
+    return {
+      id: String(a.id),
+      nama_acara: a.nama_acara,
+      lokasi: a.lokasi,
+      kecamatan: a.kecamatan || '-',
+      tanggal: a.tanggal,
+      jam_mulai: a.jam_mulai,
+      jam_selesai: a.jam_selesai,
+      target_kuota: st.kuotaMaks,
+      terdaftar: st.terisi,
+      terlayani: st.totalHadir,
+      status: st.sudahBerakhir ? 'Selesai' : 'Aktif',
+      komoditas_tersedia: a.komoditas_tersedia || '-'
+    };
+  })
+);
+
+const daftarKecamatanLaporanGPMMobile = computed<string[]>(() =>
+  Array.from(new Set(daftarRekapGPMKabidMobile.value.map((g) => g.kecamatan).filter(Boolean))).sort()
+);
+
+const daftarLaporanGPMTerfilterMobile = computed(() => {
+  const f = filterLaporanGPMKabidMobile.value;
+  return daftarRekapGPMKabidMobile.value.filter((g) => {
+    if (!berandaKabidMobileService.apakahAcaraMasukPeriode(g, f.periode)) return false;
+    if (f.kecamatan !== 'Semua' && g.kecamatan !== f.kecamatan) return false;
+    if (f.status !== 'Semua' && String(g.status || '').toLowerCase() !== f.status.toLowerCase()) return false;
+    return true;
+  });
+});
+
+const ringkasanLaporanGPMMobile = computed(() => {
+  const list = daftarLaporanGPMTerfilterMobile.value;
+  const totalTitik = list.length;
+  const totalKuota = list.reduce((acc, g) => acc + (Number(g.target_kuota) || 0), 0);
+  const totalTerdaftar = list.reduce((acc, g) => acc + (Number(g.terdaftar) || 0), 0);
+  const totalHadir = list.reduce((acc, g) => acc + (Number(g.terlayani) || 0), 0);
+  const persenSerapan = totalKuota > 0 ? Math.min(100, Math.round((totalHadir / totalKuota) * 100)) : 0;
+  return { totalTitik, totalKuota, totalTerdaftar, totalHadir, persenSerapan };
+});
+
 const ringkasanBerandaStafMobile = computed(() =>
   berandaStafMobileService.hitungRingkasanOperasional({
     daftarPasarLengkap: daftarPasarLengkap.value,
@@ -6715,9 +7198,20 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
 const komoditasDraft = computed(() => semuaKomoditas.value.filter(k => (k.status || '').toLowerCase() === 'draft'));
 const komoditasTerbit = computed(() => semuaKomoditas.value.filter(k => (k.status || 'Terbit').toLowerCase() === 'terbit'));
 const komoditasVerifTampil = computed(() => {
-  if (filterStatusVerif.value === 'Draft') return komoditasDraft.value;
-  if (filterStatusVerif.value === 'Terbit') return komoditasTerbit.value;
-  return semuaKomoditas.value;
+  const base =
+    filterStatusVerif.value === 'Draft'
+      ? komoditasDraft.value
+      : filterStatusVerif.value === 'Terbit'
+        ? komoditasTerbit.value
+        : semuaKomoditas.value;
+  const kata = cariVerifMobile.value.trim().toLowerCase();
+  return base.filter((k) => {
+    if (filterPasarVerifMobile.value !== 'Semua' && k.nama_pasar !== filterPasarVerifMobile.value) return false;
+    if (kata && !`${k.nama_komoditas || ''} ${k.nama_pasar || ''} ${k.kategori || ''}`.toLowerCase().includes(kata)) {
+      return false;
+    }
+    return true;
+  });
 });
 
 const eksekusiVerifikasiHarga = async (id: string, statusBaru: 'Terbit' | 'Draft') => {
@@ -6799,8 +7293,38 @@ const ambilNamaPenandatanganMobile = (peranTarget: 'Kabid' | 'Kadis'): string =>
 };
 
 const unduhLaporanPanganKabid = () => {
-  laporanMobileService.eksporLaporanHargaCSV(semuaKomoditas.value, {
-    nama: ambilNamaPenandatanganMobile('Kabid')
+  laporanMobileService.eksporLaporanHargaExcel(daftarLaporanHargaTerfilterMobile.value, {
+    penandatangan: { nama: ambilNamaPenandatanganMobile('Kabid') },
+    filter: { ...filterLaporanHargaMobile.value }
+  });
+};
+
+const cetakLaporanPanganKabidMobile = () => {
+  laporanMobileService.cetakLaporanHargaPDF(daftarLaporanHargaTerfilterMobile.value, {
+    penandatangan: { nama: ambilNamaPenandatanganMobile('Kabid') },
+    filter: { ...filterLaporanHargaMobile.value }
+  });
+};
+
+const unduhLaporanGPMKabidMobile = () => {
+  laporanMobileService.eksporLaporanGPMExcel(daftarLaporanGPMTerfilterMobile.value, {
+    penandatangan: { nama: ambilNamaPenandatanganMobile('Kabid') },
+    jabatanPenandatangan: 'Kepala Bidang Cadangan dan Distribusi Pangan',
+    filter: {
+      ...filterLaporanGPMKabidMobile.value,
+      labelPeriode: berandaKabidMobileService.labelPeriode(filterLaporanGPMKabidMobile.value.periode)
+    }
+  });
+};
+
+const cetakLaporanGPMKabidMobile = () => {
+  laporanMobileService.cetakLaporanGPMPDF(daftarLaporanGPMTerfilterMobile.value, {
+    penandatangan: { nama: ambilNamaPenandatanganMobile('Kabid') },
+    jabatanPenandatangan: 'Kepala Bidang Cadangan dan Distribusi Pangan',
+    filter: {
+      ...filterLaporanGPMKabidMobile.value,
+      labelPeriode: berandaKabidMobileService.labelPeriode(filterLaporanGPMKabidMobile.value.periode)
+    }
   });
 };
 
@@ -7133,15 +7657,19 @@ const unduhRekapAcaraMobile = async (acara: any) => {
       pendaftar = res.data || [];
       detailRiwayatPendaftar.value[String(acara.id)] = pendaftar;
     }
-    gpmMobileService.eksporKeCSV(acara, pendaftar);
+    gpmMobileService.eksporKeExcel(acara, pendaftar, {
+      nama: ambilNamaPenandatanganMobile(peranAktif.value === 'Kabid' ? 'Kabid' : 'Kadis')
+    });
   } catch (err: any) {
-    alert('Gagal mengunduh CSV: ' + (err?.message || 'Terjadi kesalahan'));
+    alert('Gagal mengunduh Excel: ' + (err?.message || 'Terjadi kesalahan'));
   }
 };
 
 const unduhLaporanEksekutifGPM = () => {
-  laporanMobileService.eksporRekapitulasiSemuaGPMCSV(daftarRekapGPMKadis.value, {
-    nama: ambilNamaPenandatanganMobile('Kadis')
+  laporanMobileService.eksporLaporanGPMExcel(daftarRekapGPMKadis.value, {
+    penandatangan: { nama: ambilNamaPenandatanganMobile('Kadis') },
+    jabatanPenandatangan: 'Kepala Dinas Pangan Kota Manado',
+    filter: { labelPeriode: 'Semua Periode' }
   });
 };
 
@@ -12265,6 +12793,135 @@ const eksekusiGantiFotoProfil = () => {
 
 .m-staf-market-card.st-draft {
   border-left: 4px solid #2563eb;
+}
+
+/* ─── KABID MOBILE: PERIODE BERANDA, DELTA VERIFIKASI, FILTER & EKSPOR ─── */
+.m-kabid-period-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 10px;
+}
+
+.m-kabid-period-btn {
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 6px 4px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.m-kabid-period-btn.active {
+  background: #8b1e1e;
+  color: #ffffff;
+}
+
+.m-btn-link-inline {
+  background: #fef2f2;
+  color: #8b1e1e;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.m-kabid-serapan-bar {
+  width: 100%;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.m-kabid-serapan-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #16a34a, #15803d);
+  border-radius: 999px;
+}
+
+.m-vbp-sub {
+  font-size: 0.7rem;
+  color: #64748b;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.m-vbp-diff {
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+}
+
+.m-vbp-diff.up { background: #fee2e2; color: #b91c1c; }
+.m-vbp-diff.down { background: #dcfce7; color: #166534; }
+.m-vbp-diff.same { background: #f1f5f9; color: #475569; }
+.m-vbp-diff.new { background: #dbeafe; color: #1d4ed8; }
+
+.m-kabid-filter-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.m-kabid-filter-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 6px;
+}
+
+.m-kabid-filter-input,
+.m-kabid-filter-select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0f172a;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.m-kabid-export-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.btn-m-export-pdf {
+  background: #8b1e1e;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 10px;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn-m-export-csv:disabled,
+.btn-m-export-pdf:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 </style>
