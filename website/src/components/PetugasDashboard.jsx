@@ -97,6 +97,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   const [keranjangPengajuan, setKeranjangPengajuan] = useState([]);
   const [cariKeranjangStaf, setCariKeranjangStaf] = useState('');
   const [dokumenPengajuanDiedit, setDokumenPengajuanDiedit] = useState(null);
+  const [adaPerubahanBelumDisimpan, setAdaPerubahanBelumDisimpan] = useState(false);
   const [detailPengajuanBatch, setDetailPengajuanBatch] = useState(null);
   const [modalTolakBatch, setModalTolakBatch] = useState({ buka: false, pengajuan: null, catatan: '' });
   const [subTabGpmTarget, setSubTabGpmTarget] = useState('scan');
@@ -531,18 +532,56 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     return { valid, berubah };
   }, [keranjangPengajuan]);
 
-  const handleGantiPasarPengajuan = (pasarBaru) => {
-    setFormHarga((prev) => ({ ...prev, nama_pasar: pasarBaru }));
-    if (dokumenPengajuanDiedit && String(dokumenPengajuanDiedit.nama_pasar || '').toLowerCase() !== String(pasarBaru || '').toLowerCase()) {
-      setDokumenPengajuanDiedit(null);
+  // Sinkronkan ruang kerja Daftar Harga Pangan saat berpindah pasar atau tanggal (isolasi penuh per pasar!)
+  const sinkronkanRuangKerjaPasar = (pasarTujuan, tanggalTujuan, sumberPengajuan = daftarPengajuanHarga) => {
+    const draftTujuan = pengajuanHargaService.cariPengajuanAktifPasar(sumberPengajuan, pasarTujuan, tanggalTujuan, 'Draft');
+    const diajukanTujuan = pengajuanHargaService.cariPengajuanAktifPasar(sumberPengajuan, pasarTujuan, tanggalTujuan, 'Diajukan');
+    const paketDitemukan = draftTujuan || diajukanTujuan || null;
+
+    if (paketDitemukan) {
+      const itemsKeranjang = pengajuanHargaService.bangunKeranjangDariDokumen(paketDitemukan, daftarHarga);
+      setKeranjangPengajuan(itemsKeranjang);
+      setDokumenPengajuanDiedit(paketDitemukan);
+    } else {
       setKeranjangPengajuan([]);
+      setDokumenPengajuanDiedit(null);
     }
+    setAdaPerubahanBelumDisimpan(false);
     setCariKeranjangStaf('');
+  };
+
+  const handleGantiPasarPengajuan = (pasarBaru) => {
+    if (String(pasarBaru || '').toLowerCase() === String(formHarga.nama_pasar || '').toLowerCase()) {
+      return;
+    }
+    if (adaPerubahanBelumDisimpan && keranjangPengajuan.length > 0 && formHarga.nama_pasar) {
+      const lanjut = window.confirm(
+        `Daftar Harga Pangan untuk "${formHarga.nama_pasar}" (${keranjangPengajuan.length} komoditas) belum disimpan ke Draft.\n\nKlik OK untuk pindah ke "${pasarBaru || 'pasar lain'}" (perubahan belum disimpan akan dibersihkan), atau klik Batal lalu tekan "💾 Simpan" terlebih dahulu.`
+      );
+      if (!lanjut) return;
+    }
+    setFormHarga((prev) => ({ ...prev, nama_pasar: pasarBaru, nama_komoditas: '', harga: '' }));
+    sinkronkanRuangKerjaPasar(pasarBaru, tanggalPengambilan);
+  };
+
+  const handleGantiTanggalPengajuan = (tanggalBaru) => {
+    if (tanggalBaru === tanggalPengambilan) return;
+    if (adaPerubahanBelumDisimpan && keranjangPengajuan.length > 0 && formHarga.nama_pasar) {
+      const lanjut = window.confirm(
+        `Ada ${keranjangPengajuan.length} komoditas untuk "${formHarga.nama_pasar}" yang belum disimpan ke Draft.\n\nKlik OK untuk mengganti tanggal pengajuan, atau klik Batal lalu tekan "💾 Simpan" terlebih dahulu.`
+      );
+      if (!lanjut) return;
+    }
+    setTanggalPengambilan(tanggalBaru);
+    if (formHarga.nama_pasar) {
+      sinkronkanRuangKerjaPasar(formHarga.nama_pasar, tanggalBaru);
+    }
   };
 
   const handleMulaiPengajuanBaruKosong = () => {
     setDokumenPengajuanDiedit(null);
     setKeranjangPengajuan([]);
+    setAdaPerubahanBelumDisimpan(false);
     setCariKeranjangStaf('');
     setTanggalPengambilan(berandaStafService.ambilTanggalHariIniISO());
     setFormHarga((prev) => ({
@@ -571,6 +610,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       paketAktif
     );
     setKeranjangPengajuan(daftar);
+    setAdaPerubahanBelumDisimpan(true);
     setCariKeranjangStaf('');
     tampilkanPesan(`⚡ ${daftar.length} komoditas untuk ${formHarga.nama_pasar} dimuat ke Daftar Harga Pangan. Ubah harga yang perlu diperbarui lalu Simpan atau Ajukan.`);
   };
@@ -586,6 +626,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
       return;
     }
     setKeranjangPengajuan(tersaring);
+    setAdaPerubahanBelumDisimpan(true);
     tampilkanPesan(`✂️ Daftar diringkas menjadi ${tersaring.length} komoditas yang berubah / baru.`);
   };
 
@@ -609,6 +650,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     );
     const itemsKeranjang = pengajuanHargaService.bangunKeranjangDariDokumen(pengajuan, daftarHarga);
     setKeranjangPengajuan(itemsKeranjang);
+    setAdaPerubahanBelumDisimpan(modeSalin || pengajuan.status === 'Ditolak');
     setCariKeranjangStaf('');
 
     // Untuk Ditolak atau Salin dari Disetujui -> buat dokumen baru agar histori audit tetap utuh
@@ -758,6 +800,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
         ...prev
       ];
     });
+    setAdaPerubahanBelumDisimpan(true);
     setFormHarga((prev) => ({ ...prev, nama_komoditas: '', harga: '' }));
     tampilkanPesan(`✅ "${namaTrim}" (${formatRupiah(hargaAngka)} / ${satuanGabungan}) ditambahkan ke Daftar Harga Pangan.`);
   };
@@ -768,11 +811,13 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
     setKeranjangPengajuan((prev) =>
       prev.map((row) => (row.tempId === tempId ? { ...row, harga_usulan: angkaBersih } : row))
     );
+    setAdaPerubahanBelumDisimpan(true);
   };
 
   // Hapus 1 baris komoditas dari tabel kanan Daftar Harga Pangan
   const handleHapusItemKeranjang = (tempId) => {
     setKeranjangPengajuan((prev) => prev.filter((row) => row.tempId !== tempId));
+    setAdaPerubahanBelumDisimpan(true);
   };
 
   // Tombol "Simpan" (status = 'Draft') atau "Ajukan" (status = 'Diajukan' dengan Timpa Cerdas)
@@ -836,14 +881,16 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
           nama_pasar: formHarga.nama_pasar,
           tanggal_pengambilan: tanggalPengambilan
         });
+        setAdaPerubahanBelumDisimpan(false);
         tampilkanPesan(
           hasil.ditimpa
-            ? `💾 Draft pengajuan "${hasil.namaPasar}" (${hasil.tanggalTampil}) berhasil diperbarui (${hasil.jumlahItem} komoditas).`
-            : `💾 Draft pengajuan "${hasil.namaPasar}" (${hasil.tanggalTampil}) berhasil disimpan (${hasil.jumlahItem} komoditas). Lanjutkan kapan saja melalui Daftar Pengajuan.`
+            ? `💾 Draft pengajuan "${hasil.namaPasar}" (${hasil.tanggalTampil}) berhasil diperbarui (${hasil.jumlahItem} komoditas). Anda bisa langsung ganti pasar lain untuk menyusun Draft terpisah.`
+            : `💾 Draft pengajuan "${hasil.namaPasar}" (${hasil.tanggalTampil}) berhasil disimpan (${hasil.jumlahItem} komoditas). Aman untuk pindah ke pasar lain atau lanjutkan kapan saja di Daftar Pengajuan.`
         );
       } else {
         setDokumenPengajuanDiedit(null);
         setKeranjangPengajuan([]);
+        setAdaPerubahanBelumDisimpan(false);
         setSubTabPengajuanStaf('daftar');
         tampilkanPesan(
           hasil.ditimpa
@@ -2122,6 +2169,35 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                   </div>
                 )}
 
+                {/* Bilah Pintasan Draft Tersimpan per Pasar (Bukti Visual Setiap Pasar Terpisah & Tidak Saling Menimpa) */}
+                {daftarPengajuanHarga.some((p) => p.status === 'Draft') && (
+                  <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '10px 12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#1e3a8a' }}>
+                      📝 Draft Tersimpan (Terpisah per Pasar):
+                    </span>
+                    {daftarPengajuanHarga
+                      .filter((p) => p.status === 'Draft')
+                      .map((dr) => {
+                        const aktifIni = dokumenPengajuanDiedit?.id && String(dokumenPengajuanDiedit.id) === String(dr.id);
+                        return (
+                          <button
+                            key={dr.id}
+                            type="button"
+                            className="staf-mini-btn"
+                            style={
+                              aktifIni
+                                ? { background: '#1d4ed8', color: '#ffffff', borderColor: '#1d4ed8' }
+                                : { background: '#ffffff', color: '#1e40af', borderColor: '#93c5fd' }
+                            }
+                            onClick={() => handleBukaDokumenUntukUbah(dr)}
+                          >
+                            📍 {dr.nama_pasar} ({dr.items?.length || 0})
+                          </button>
+                        );
+                      })}
+                  </div>
+                )}
+
                 <div className="tetapkan-content-columns pengajuan-hybrid-grid">
                   {/* KOLOM KIRI: FORM PENGAJUAN BARU (PERSIS STRUKTUR DOSEN) */}
                   <div className="tetapkan-form-card">
@@ -2152,7 +2228,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
                           type="date"
                           required
                           value={tanggalPengambilan}
-                          onChange={(e) => setTanggalPengambilan(e.target.value)}
+                          onChange={(e) => handleGantiTanggalPengajuan(e.target.value)}
                           className="field-input-box"
                         />
                       </div>

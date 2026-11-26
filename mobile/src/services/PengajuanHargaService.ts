@@ -73,13 +73,20 @@ export class PengajuanHargaMobileService {
   private apakahTabelBelumMigrasi(err: any): boolean {
     const msg = String(err?.message || '').toLowerCase();
     return (
-      msg.includes('pengajuan_harga') ||
-      msg.includes('item_pengajuan_harga') ||
       msg.includes('pgrst205') ||
+      msg.includes('42p01') ||
       msg.includes('does not exist') ||
       msg.includes('could not find the table') ||
+      msg.includes('relation "pengajuan_harga"') ||
+      msg.includes('relation "public.pengajuan_harga"') ||
       msg.includes('status 404')
     );
+  }
+
+  private validasiUuidAtauNull(nilai?: string | null): string | null {
+    const teks = String(nilai || '').trim();
+    if (!teks) return null;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(teks) ? teks : null;
   }
 
   formatTanggalID(isoDate?: string | null): string {
@@ -344,7 +351,7 @@ export class PengajuanHargaMobileService {
 
     const detailPayload = itemValid.map((it) => ({
       pengajuan_id: targetHeaderId,
-      komoditas_id: it.komoditas_id || null,
+      komoditas_id: this.validasiUuidAtauNull(it.komoditas_id),
       nama_komoditas: it.nama_komoditas,
       kategori: it.kategori,
       satuan: it.satuan,
@@ -422,16 +429,21 @@ export class PengajuanHargaMobileService {
         sumberPengajuan = segar.data;
       }
 
+      const tglBersih = String(params.tanggalPengambilan || '').split('T')[0].trim();
       const paketDiedit = params.pengajuanIdDiedit
         ? sumberPengajuan.find((p) => String(p.id) === String(params.pengajuanIdDiedit))
         : null;
+      // ISOLASI KETAT PER PASAR & TANGGAL: Jangan pernah menimpa dokumen milik pasar atau tanggal berbeda!
       const bolehTimpaDiedit =
-        paketDiedit && (paketDiedit.status === 'Draft' || paketDiedit.status === 'Diajukan');
+        paketDiedit &&
+        (paketDiedit.status === 'Draft' || paketDiedit.status === 'Diajukan') &&
+        String(paketDiedit.nama_pasar || '').trim().toLowerCase() === pasarBersih.toLowerCase() &&
+        String(paketDiedit.tanggal_pengambilan || '').split('T')[0].trim() === tglBersih;
 
       const paketSamaStatus = this.cariPengajuanAktifPasar(
         sumberPengajuan,
         pasarBersih,
-        params.tanggalPengambilan,
+        tglBersih,
         statusFinal
       );
 
@@ -455,6 +467,9 @@ export class PengajuanHargaMobileService {
         targetPaket = paketSamaStatus;
       }
 
+      const pasarUuid = this.validasiUuidAtauNull(params.pasarId);
+      const petugasUuid = this.validasiUuidAtauNull(params.petugasId);
+
       let targetHeaderId: string | null = null;
       let ditimpa = false;
 
@@ -465,10 +480,10 @@ export class PengajuanHargaMobileService {
         await this.gantiItemPengajuanAman(targetHeaderId, itemValid, targetPaket.items || []);
 
         await supabaseClient.updatePengajuanHarga(targetHeaderId, {
-          pasar_id: params.pasarId || targetPaket.pasar_id || null,
+          pasar_id: pasarUuid || this.validasiUuidAtauNull(targetPaket.pasar_id),
           nama_pasar: pasarBersih,
-          tanggal_pengambilan: params.tanggalPengambilan,
-          petugas_id: params.petugasId || targetPaket.petugas_id || null,
+          tanggal_pengambilan: tglBersih,
+          petugas_id: petugasUuid || this.validasiUuidAtauNull(targetPaket.petugas_id),
           nama_petugas: params.namaPetugas || targetPaket.nama_petugas || 'Petugas Lapangan',
           status: statusFinal,
           catatan_verifikasi: ''
@@ -479,10 +494,10 @@ export class PengajuanHargaMobileService {
         }
       } else {
         const header = await supabaseClient.tambahPengajuanHarga({
-          pasar_id: params.pasarId || null,
+          pasar_id: pasarUuid,
           nama_pasar: pasarBersih,
-          tanggal_pengambilan: params.tanggalPengambilan,
-          petugas_id: params.petugasId || null,
+          tanggal_pengambilan: tglBersih,
+          petugas_id: petugasUuid,
           nama_petugas: params.namaPetugas || 'Petugas Lapangan',
           status: statusFinal
         });
@@ -494,7 +509,7 @@ export class PengajuanHargaMobileService {
 
         const detailPayload = itemValid.map((it) => ({
           pengajuan_id: targetHeaderId,
-          komoditas_id: it.komoditas_id || null,
+          komoditas_id: this.validasiUuidAtauNull(it.komoditas_id),
           nama_komoditas: it.nama_komoditas,
           kategori: it.kategori,
           satuan: it.satuan,

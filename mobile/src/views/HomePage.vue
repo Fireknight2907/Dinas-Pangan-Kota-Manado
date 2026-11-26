@@ -289,6 +289,32 @@
               </div>
             </div>
 
+            <!-- Bilah Pintasan Draft Tersimpan per Pasar (Terpisah & Tidak Saling Menimpa) -->
+            <div
+              v-if="daftarPengajuanHargaMobile.some((p) => p.status === 'Draft')"
+              style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px 10px; margin-bottom: 10px;"
+            >
+              <div style="font-size: 0.72rem; font-weight: 800; color: #1e3a8a; margin-bottom: 6px;">
+                📝 Draft Tersimpan (Terpisah per Pasar):
+              </div>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <button
+                  v-for="dr in daftarPengajuanHargaMobile.filter((p) => p.status === 'Draft')"
+                  :key="dr.id"
+                  type="button"
+                  class="m-staf-mini-btn"
+                  :style="
+                    dokumenPengajuanDieditMobile?.id && String(dokumenPengajuanDieditMobile.id) === String(dr.id)
+                      ? 'background: #1d4ed8; color: #ffffff; border-color: #1d4ed8;'
+                      : 'background: #ffffff; color: #1e40af; border-color: #93c5fd;'
+                  "
+                  @click="bukaDokumenUntukUbahMobile(dr)"
+                >
+                  📍 {{ dr.nama_pasar }} ({{ dr.items?.length || 0 }})
+                </button>
+              </div>
+            </div>
+
             <!-- PANEL 1: FORM PENGAJUAN BARU -->
             <div class="staff-form-panel" id="formPenetapanPanel">
               <div style="margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
@@ -302,7 +328,7 @@
                     <label>Pilih Pasar *</label>
                     <select
                       :value="formPenetapan.nama_pasar"
-                      @change="gantiPasarPengajuanMobile(($event.target as HTMLSelectElement).value)"
+                      @change="gantiPasarPengajuanMobile(($event.target as HTMLSelectElement).value, $event.target as HTMLSelectElement)"
                       class="s-select-market"
                       required
                     >
@@ -314,7 +340,13 @@
                   </div>
                   <div class="s-field">
                     <label>Tanggal *</label>
-                    <input type="date" v-model="tanggalPengambilanMobile" class="m-date-input" required />
+                    <input
+                      type="date"
+                      :value="tanggalPengambilanMobile"
+                      @change="gantiTanggalPengajuanMobile(($event.target as HTMLInputElement).value, $event.target as HTMLInputElement)"
+                      class="m-date-input"
+                      required
+                    />
                   </div>
                 </div>
 
@@ -4958,6 +4990,7 @@ const filterStatusPengajuanStafMobile = ref<'semua' | 'Draft' | 'Diajukan' | 'Di
 const jenisKomoditasTerpilihMobile = ref<string>('Semua');
 const keranjangPengajuanMobile = ref<BarisInputCepatPasar[]>([]);
 const cariKeranjangStafMobile = ref('');
+const adaPerubahanBelumDisimpanMobile = ref(false);
 const dokumenPengajuanDieditMobile = ref<{
   id: string | null;
   status: string;
@@ -5912,6 +5945,7 @@ const eksekusiLogout = () => {
   hentikanScanKameraMobile();
   keranjangPengajuanMobile.value = [];
   dokumenPengajuanDieditMobile.value = null;
+  adaPerubahanBelumDisimpanMobile.value = false;
   detailPengajuanBatchMobile.value = null;
   daftarPengajuanHargaMobile.value = [];
   hargaPanganMobileService.keluar();
@@ -6067,21 +6101,77 @@ const pilihKomoditasMasterStafHybrid = (namaKomoditas: string) => {
   }
 };
 
-const gantiPasarPengajuanMobile = (pasarBaru: string) => {
-  formPenetapan.value.nama_pasar = pasarBaru;
-  if (
-    dokumenPengajuanDieditMobile.value &&
-    String(dokumenPengajuanDieditMobile.value.nama_pasar || '').toLowerCase() !== String(pasarBaru || '').toLowerCase()
-  ) {
-    dokumenPengajuanDieditMobile.value = null;
+const sinkronkanRuangKerjaPasarMobile = (pasarTujuan: string, tanggalTujuan: string) => {
+  const draftTujuan = pengajuanHargaMobileService.cariPengajuanAktifPasar(
+    daftarPengajuanHargaMobile.value,
+    pasarTujuan,
+    tanggalTujuan,
+    'Draft'
+  );
+  const diajukanTujuan = pengajuanHargaMobileService.cariPengajuanAktifPasar(
+    daftarPengajuanHargaMobile.value,
+    pasarTujuan,
+    tanggalTujuan,
+    'Diajukan'
+  );
+  const paketDitemukan = draftTujuan || diajukanTujuan || null;
+  if (paketDitemukan) {
+    keranjangPengajuanMobile.value = pengajuanHargaMobileService.bangunKeranjangDariDokumen(paketDitemukan, semuaKomoditas.value);
+    dokumenPengajuanDieditMobile.value = {
+      id: paketDitemukan.id,
+      status: paketDitemukan.status,
+      nama_pasar: paketDitemukan.nama_pasar,
+      tanggal_pengambilan: paketDitemukan.tanggal_pengambilan,
+      catatan_verifikasi: paketDitemukan.catatan_verifikasi
+    };
+  } else {
     keranjangPengajuanMobile.value = [];
+    dokumenPengajuanDieditMobile.value = null;
   }
+  adaPerubahanBelumDisimpanMobile.value = false;
   cariKeranjangStafMobile.value = '';
+};
+
+const gantiPasarPengajuanMobile = (pasarBaru: string, elSelect?: HTMLSelectElement) => {
+  if (String(pasarBaru || '').toLowerCase() === String(formPenetapan.value.nama_pasar || '').toLowerCase()) {
+    return;
+  }
+  if (adaPerubahanBelumDisimpanMobile.value && keranjangPengajuanMobile.value.length > 0 && formPenetapan.value.nama_pasar) {
+    const lanjut = confirm(
+      `Daftar Harga Pangan untuk "${formPenetapan.value.nama_pasar}" (${keranjangPengajuanMobile.value.length} komoditas) belum disimpan ke Draft.\n\nTekan OK untuk pindah ke "${pasarBaru || 'pasar lain'}", atau Batal lalu tekan 💾 Simpan terlebih dahulu.`
+    );
+    if (!lanjut) {
+      if (elSelect) elSelect.value = formPenetapan.value.nama_pasar;
+      return;
+    }
+  }
+  formPenetapan.value.nama_pasar = pasarBaru;
+  formPenetapan.value.nama_komoditas = '';
+  formPenetapan.value.harga = '';
+  sinkronkanRuangKerjaPasarMobile(pasarBaru, tanggalPengambilanMobile.value);
+};
+
+const gantiTanggalPengajuanMobile = (tanggalBaru: string, elInput?: HTMLInputElement) => {
+  if (!tanggalBaru || tanggalBaru === tanggalPengambilanMobile.value) return;
+  if (adaPerubahanBelumDisimpanMobile.value && keranjangPengajuanMobile.value.length > 0 && formPenetapan.value.nama_pasar) {
+    const lanjut = confirm(
+      `Ada ${keranjangPengajuanMobile.value.length} komoditas untuk "${formPenetapan.value.nama_pasar}" yang belum disimpan ke Draft.\n\nTekan OK untuk ganti tanggal, atau Batal lalu tekan 💾 Simpan terlebih dahulu.`
+    );
+    if (!lanjut) {
+      if (elInput) elInput.value = tanggalPengambilanMobile.value;
+      return;
+    }
+  }
+  tanggalPengambilanMobile.value = tanggalBaru;
+  if (formPenetapan.value.nama_pasar) {
+    sinkronkanRuangKerjaPasarMobile(formPenetapan.value.nama_pasar, tanggalBaru);
+  }
 };
 
 const mulaiPengajuanBaruKosongMobile = () => {
   dokumenPengajuanDieditMobile.value = null;
   keranjangPengajuanMobile.value = [];
+  adaPerubahanBelumDisimpanMobile.value = false;
   cariKeranjangStafMobile.value = '';
   tanggalPengambilanMobile.value = berandaStafMobileService.ambilTanggalHariIniISO();
   formPenetapan.value.nama_komoditas = '';
@@ -6107,6 +6197,7 @@ const muatSemuaHargaPasarKeKeranjangMobile = () => {
     paketAktif
   );
   keranjangPengajuanMobile.value = daftar;
+  adaPerubahanBelumDisimpanMobile.value = true;
   cariKeranjangStafMobile.value = '';
   pesanSuksesMobile.value = `⚡ ${daftar.length} komoditas pasar dimuat ke Daftar Harga Pangan.`;
   setTimeout(() => { pesanSuksesMobile.value = ''; }, 3000);
@@ -6119,6 +6210,7 @@ const saringHanyaBerubahKeranjangMobile = () => {
     return;
   }
   keranjangPengajuanMobile.value = tersaring;
+  adaPerubahanBelumDisimpanMobile.value = true;
   pesanSuksesMobile.value = `✂️ Daftar diringkas menjadi ${tersaring.length} komoditas yang berubah / baru.`;
   setTimeout(() => { pesanSuksesMobile.value = ''; }, 3000);
 };
@@ -6126,6 +6218,7 @@ const saringHanyaBerubahKeranjangMobile = () => {
 const kosongkanKeranjangMobile = () => {
   if (!confirm('Kosongkan seluruh isi Daftar Harga Pangan di keranjang ini?')) return;
   keranjangPengajuanMobile.value = [];
+  adaPerubahanBelumDisimpanMobile.value = true;
 };
 
 const bukaDokumenUntukUbahMobile = (pengajuan: DokumenPengajuanHarga, modeSalin = false) => {
@@ -6144,6 +6237,7 @@ const bukaDokumenUntukUbahMobile = (pengajuan: DokumenPengajuanHarga, modeSalin 
     : (pengajuan.tanggal_pengambilan || berandaStafMobileService.ambilTanggalHariIniISO());
   const itemsKeranjang = pengajuanHargaMobileService.bangunKeranjangDariDokumen(pengajuan, semuaKomoditas.value);
   keranjangPengajuanMobile.value = itemsKeranjang;
+  adaPerubahanBelumDisimpanMobile.value = modeSalin || pengajuan.status === 'Ditolak';
   cariKeranjangStafMobile.value = '';
 
   if (modeSalin || pengajuan.status === 'Ditolak' || isDisetujui) {
@@ -6280,10 +6374,12 @@ const ubahHargaItemKeranjangMobile = (tempId: string, nilaiMentah: string) => {
   keranjangPengajuanMobile.value = keranjangPengajuanMobile.value.map((r) =>
     r.tempId === tempId ? { ...r, harga_usulan: bersih } : r
   );
+  adaPerubahanBelumDisimpanMobile.value = true;
 };
 
 const hapusItemKeranjangMobile = (tempId: string) => {
   keranjangPengajuanMobile.value = keranjangPengajuanMobile.value.filter((r) => r.tempId !== tempId);
+  adaPerubahanBelumDisimpanMobile.value = true;
 };
 
 const bukaInputCepatPasarMobile = (namaPasar: string) => {
@@ -6371,6 +6467,7 @@ const tambahItemKeKeranjangMobile = () => {
       ...keranjangPengajuanMobile.value
     ];
   }
+  adaPerubahanBelumDisimpanMobile.value = true;
   formPenetapan.value.nama_komoditas = '';
   formPenetapan.value.harga = '';
   pesanSuksesMobile.value = `✅ "${namaTrim}" (${formatRupiah(hargaAngka)}) ditambahkan ke Daftar Harga Pangan.`;
@@ -6435,12 +6532,14 @@ const simpanAtauAjukanPengajuanMobile = async (statusTarget: 'Draft' | 'Diajukan
         nama_pasar: formPenetapan.value.nama_pasar,
         tanggal_pengambilan: tanggalPengambilanMobile.value
       };
+      adaPerubahanBelumDisimpanMobile.value = false;
       pesanSuksesMobile.value = hasil.ditimpa
-        ? `💾 Draft "${hasil.namaPasar}" diperbarui (${hasil.jumlahItem} komoditas).`
-        : `💾 Draft "${hasil.namaPasar}" tersimpan (${hasil.jumlahItem} komoditas).`;
+        ? `💾 Draft "${hasil.namaPasar}" diperbarui (${hasil.jumlahItem} komoditas). Aman pindah ke pasar lain untuk Draft terpisah.`
+        : `💾 Draft "${hasil.namaPasar}" tersimpan (${hasil.jumlahItem} komoditas). Aman pindah ke pasar lain!`;
     } else {
       dokumenPengajuanDieditMobile.value = null;
       keranjangPengajuanMobile.value = [];
+      adaPerubahanBelumDisimpanMobile.value = false;
       subTabPengajuanStafMobile.value = 'daftar';
       pesanSuksesMobile.value = hasil.ditimpa
         ? `🔄 Paket "${hasil.namaPasar}" (${hasil.tanggalTampil}) berhasil diperbarui/ditimpa (${hasil.jumlahItem} komoditas)!`
