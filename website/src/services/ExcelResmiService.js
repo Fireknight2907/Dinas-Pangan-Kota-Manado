@@ -34,13 +34,18 @@ export class ExcelResmiService {
     }
 
     escapeXml(teks) {
-        return String(teks ?? '')
+        const mentah = String(teks ?? '');
+        let bersih = '';
+        for (let i = 0; i < mentah.length; i++) {
+            const code = mentah.charCodeAt(i);
+            if (code >= 32 || code === 9 || code === 10 || code === 13) bersih += mentah[i];
+        }
+        return bersih
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
-            .replace(/'/g, '&apos;')
-            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+            .replace(/'/g, '&apos;');
     }
 
     indeksKeKolomExcel(indeks) {
@@ -56,7 +61,7 @@ export class ExcelResmiService {
 
     bersihkanNamaSheet(nama, fallback = 'Laporan') {
         const bersih = String(nama || fallback)
-            .replace(/[\\/*?:\[\]]/g, ' ')
+            .replace(/[\\/*?:[\]]/g, ' ')
             .trim()
             .slice(0, 31);
         return bersih || fallback;

@@ -54,7 +54,7 @@ export class RiwayatHargaService {
                     } else {
                         throw err;
                     }
-                } catch (_) {
+                } catch {
                     throw err;
                 }
             }

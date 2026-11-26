@@ -47,7 +47,7 @@ function PenentuTitikPeta({ posisi, onPilihTitik }) {
   ) : null;
 }
 
-export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'daftar' }) {
+export default function PetugasGPMManager({ token: _token, pengguna, subTabAwal = 'daftar' }) {
   // ─────────────────────────────────────────────
   // 1. STATE MANAGEMENT (MASTER-DETAIL EVENT WORKSPACE)
   // ─────────────────────────────────────────────
@@ -58,15 +58,18 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'dafta
   const [tabAcara, setTabAcara] = useState(subTabAwal === 'antrean' ? 'antrean' : 'scan'); // 'scan' | 'antrean'
 
   useEffect(() => {
-    if (subTabAwal === 'buat-gpm') {
-      setModeTampilan('buat-gpm');
-    } else if (subTabAwal === 'riwayat') {
-      setModeTampilan('daftar');
-      setTabDaftar('riwayat');
-    } else {
-      setModeTampilan('daftar');
-      setTabDaftar('aktif');
-    }
+    const id = setTimeout(() => {
+      if (subTabAwal === 'buat-gpm') {
+        setModeTampilan('buat-gpm');
+      } else if (subTabAwal === 'riwayat') {
+        setModeTampilan('daftar');
+        setTabDaftar('riwayat');
+      } else {
+        setModeTampilan('daftar');
+        setTabDaftar('aktif');
+      }
+    }, 0);
+    return () => clearTimeout(id);
   }, [subTabAwal]);
   
   // Data Acara & Pendaftar
@@ -79,7 +82,7 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'dafta
   const [sedangScan, setSedangScan] = useState(false);
   const [pesanScanError, setPesanScanError] = useState('');
   const [hasilScanPendaftar, setHasilScanPendaftar] = useState(null);
-  const [statusVerifikasiSukses, setStatusVerifikasiSukses] = useState(false);
+  const [_statusVerifikasiSukses, setStatusVerifikasiSukses] = useState(false);
   const [kameraAktif, setKameraAktif] = useState(false);
   const html5QrCodeRef = useRef(null);
 
@@ -157,10 +160,14 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'dafta
   // 2. LIFECYCLE & LOAD DATA
   // ─────────────────────────────────────────────
   useEffect(() => {
-    muatDataAwal();
-    muatKecamatan();
-    muatMasterKomoditas();
-    muatMasterPasarKoordinat();
+    const id = setTimeout(() => {
+      muatDataAwal();
+      muatKecamatan();
+      muatMasterKomoditas();
+      muatMasterPasarKoordinat();
+    }, 0);
+    return () => clearTimeout(id);
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const muatMasterPasarKoordinat = async () => {
@@ -344,7 +351,7 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'dafta
     try {
       const res = await gpmService.ambilPendaftarAcara(acara.id);
       setModalRiwayatDetail({ buka: true, acara, pendaftar: res.data || [], loading: false });
-    } catch (err) {
+    } catch {
       setModalRiwayatDetail(prev => ({ ...prev, loading: false }));
     }
   };
@@ -408,7 +415,7 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'dafta
       try {
         await html5QrCodeRef.current.stop();
         html5QrCodeRef.current.clear();
-      } catch (e) {}
+      } catch { /* abaikan */ }
       html5QrCodeRef.current = null;
     }
     setKameraAktif(false);
@@ -417,7 +424,7 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'dafta
   useEffect(() => {
     return () => {
       if (html5QrCodeRef.current) {
-        try { html5QrCodeRef.current.stop(); } catch (e) {}
+        try { html5QrCodeRef.current.stop(); } catch { /* abaikan */ }
       }
     };
   }, []);

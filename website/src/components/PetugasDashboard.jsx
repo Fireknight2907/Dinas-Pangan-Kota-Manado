@@ -54,7 +54,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   const [sidebarTerbuka, setSidebarTerbuka] = useState(false);
 
   // Data Dashboard Utama
-  const [statsDashboard, setStatsDashboard] = useState({
+  const [_statsDashboard, setStatsDashboard] = useState({
     harga_ditetapkan: 0,
     draft_harga: 0,
     gpm_terjadwal: 0,
@@ -255,8 +255,12 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   // 2. SIKLUS HIDUP & PEMUATAN DATA
   // ─────────────────────────────────────────────
   useEffect(() => {
-    muatDataDashboard();
-    muatMasterData();
+    const id = setTimeout(() => {
+      muatDataDashboard();
+      muatMasterData();
+    }, 0);
+    return () => clearTimeout(id);
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [peran]);
 
   // Daftar pilihan komoditas Grafik Tren Kadis & Superadmin — 100% sinkron dengan Master Komoditas Admin
@@ -269,13 +273,16 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   useEffect(() => {
     if (!isKadis) return;
     const daftarValid = pilihanKomoditasKadis.semuaNamaValid;
-    if (daftarValid.length === 0) {
-      if (komoditasTren !== '') setKomoditasTren('');
-      return;
-    }
-    if (!komoditasTren || !daftarValid.includes(komoditasTren)) {
-      setKomoditasTren(pilihanKomoditasKadis.komoditasDefaultTerbaik);
-    }
+    const id = setTimeout(() => {
+      if (daftarValid.length === 0) {
+        if (komoditasTren !== '') setKomoditasTren('');
+        return;
+      }
+      if (!komoditasTren || !daftarValid.includes(komoditasTren)) {
+        setKomoditasTren(pilihanKomoditasKadis.komoditasDefaultTerbaik);
+      }
+    }, 0);
+    return () => clearTimeout(id);
   }, [isKadis, pilihanKomoditasKadis, komoditasTren]);
 
   // Muat grafik tren riil dari tabel riwayat_harga_pangan setiap filter berubah
@@ -1244,7 +1251,7 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   };
 
   // Kabid: Verifikasi harga satuan (Draft -> Terbit anti-duplikat atau sebaliknya)
-  const handleVerifikasiHarga = async (item, statusBaru) => {
+  const _handleVerifikasiHarga = async (item, statusBaru) => {
     try {
       if (statusBaru === 'Terbit') {
         await pengajuanHargaService.setujuiDraftSatuanTanpaDuplikat(item, daftarHarga);
@@ -1675,10 +1682,16 @@ export default function PetugasDashboard({ pengguna, onKeluar }) {
   };
 
   // Data Riil Rekapitulasi GPM (Terkoneksi Basis Data Supabase & Pendaftar Riil)
-  const listPendaftarAman = Array.isArray(daftarPendaftarGPM)
-    ? daftarPendaftarGPM
-    : (Array.isArray(daftarPendaftarGPM?.data) ? daftarPendaftarGPM.data : []);
-  const listAcaraAman = Array.isArray(daftarAcaraGPM) ? daftarAcaraGPM : [];
+  const listPendaftarAman = useMemo(
+    () => (Array.isArray(daftarPendaftarGPM)
+      ? daftarPendaftarGPM
+      : (Array.isArray(daftarPendaftarGPM?.data) ? daftarPendaftarGPM.data : [])),
+    [daftarPendaftarGPM]
+  );
+  const listAcaraAman = useMemo(
+    () => (Array.isArray(daftarAcaraGPM) ? daftarAcaraGPM : []),
+    [daftarAcaraGPM]
+  );
 
   // Helper penandatangan resmi dinamis (dari profil login atau akun pejabat terdaftar di Supabase — 0% nama/NIP fiktif)
   const ambilNamaPenandatangan = (peranTarget) => {

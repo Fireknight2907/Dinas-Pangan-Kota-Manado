@@ -71,7 +71,8 @@ export default function DaftarPasarWeb({ daftarHargaTerbit = [], onLihatHargaPas
   };
 
   useEffect(() => {
-    muatDaftarPasar();
+    const id = setTimeout(() => { muatDaftarPasar(); }, 0);
+    return () => clearTimeout(id);
   }, []);
 
   // Hitung jumlah komoditas terbit riil per pasar dari daftarHargaTerbit

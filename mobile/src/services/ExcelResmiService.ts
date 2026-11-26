@@ -55,13 +55,18 @@ export class ExcelResmiMobileService {
   }
 
   private escapeXml(teks: unknown): string {
-    return String(teks ?? '')
+    const mentah = String(teks ?? '');
+    let bersih = '';
+    for (let i = 0; i < mentah.length; i++) {
+      const code = mentah.charCodeAt(i);
+      if (code >= 32 || code === 9 || code === 10 || code === 13) bersih += mentah[i];
+    }
+    return bersih
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;')
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+      .replace(/'/g, '&apos;');
   }
 
   indeksKeKolomExcel(indeks: number): string {
@@ -77,7 +82,7 @@ export class ExcelResmiMobileService {
 
   private bersihkanNamaSheet(nama?: string, fallback: string = 'Laporan'): string {
     const bersih = String(nama || fallback)
-      .replace(/[\\/*?:\[\]]/g, ' ')
+      .replace(/[\\/*?:[\]]/g, ' ')
       .trim()
       .slice(0, 31);
     return bersih || fallback;
@@ -364,10 +369,10 @@ export class ExcelResmiMobileService {
       try {
         const file = new File([blob], namaFinal, { type: mimeExcel });
         if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
-          navigator.share({ files: [file], title: namaFinal }).catch(() => {});
+          navigator.share({ files: [file], title: namaFinal }).catch(() => { });
           return true;
         }
-      } catch (_) {}
+      } catch { /* abaikan */ }
     }
 
     const url = URL.createObjectURL(blob);

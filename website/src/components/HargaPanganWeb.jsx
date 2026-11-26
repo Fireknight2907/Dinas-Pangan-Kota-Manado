@@ -93,7 +93,8 @@ export default function HargaPanganWeb({ onBukaLogin }) {
   };
 
   useEffect(() => {
-    muatDataPublik();
+    const id = setTimeout(() => { muatDataPublik(); }, 0);
+    return () => clearTimeout(id);
   }, []);
 
   // Peta cepat Master Komoditas (induk, sinonim, prioritas)
@@ -220,7 +221,8 @@ export default function HargaPanganWeb({ onBukaLogin }) {
   );
 
   useEffect(() => {
-    setHalaman(1);
+    const id = setTimeout(() => { setHalaman(1); }, 0);
+    return () => clearTimeout(id);
   }, [kategoriAktif, pencarian, pasarTerpilih, kelompokAktif, varianAktif, tanggalFilter, urutkan, modeTampilan]);
 
   const daftarTanggalUnik = useMemo(

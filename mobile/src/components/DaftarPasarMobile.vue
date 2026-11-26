@@ -239,7 +239,7 @@ const renderPetaPasar = () => {
     if (!el) return;
 
     if (mapPasar) {
-      try { mapPasar.remove(); } catch (_) {}
+      try { mapPasar.remove(); } catch { /* abaikan */ }
       mapPasar = null;
     }
     if ((el as any)._leaflet_id) {
@@ -298,7 +298,7 @@ const pilihPasar = (pasar: ItemMasterPasar) => {
   if (pasar.punyaKoordinat && mapPasar) {
     try {
       mapPasar.setView([pasar.latitude!, pasar.longitude!], 16, { animate: true });
-    } catch (_) {}
+    } catch { /* abaikan */ }
   }
 };
 
@@ -336,7 +336,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (mapPasar) {
-    try { mapPasar.remove(); } catch (_) {}
+    try { mapPasar.remove(); } catch { /* abaikan */ }
     mapPasar = null;
   }
 });

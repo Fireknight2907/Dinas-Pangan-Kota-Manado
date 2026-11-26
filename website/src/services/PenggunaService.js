@@ -20,7 +20,7 @@ class PenggunaService {
         try {
             localStorage.removeItem('sipatokean_master_users');
             localStorage.removeItem('sipatokaan_master_users');
-        } catch (_) { }
+        } catch { }
     }
 
     // Normalisasi string peran agar konsisten dengan standar sistem
@@ -127,7 +127,7 @@ class PenggunaService {
         let userCloud = null;
         try {
             userCloud = await supabaseClient.loginPengguna(inputBersih, kataSandi);
-        } catch (e) {
+        } catch {
             throw new Error('Gagal terhubung ke server autentikasi. Periksa koneksi internet Anda lalu coba lagi.');
         }
 
@@ -165,7 +165,7 @@ class PenggunaService {
                     return peranReal;
                 }
             }
-        } catch (_) {
+        } catch {
             return null;
         }
         return null;
@@ -520,7 +520,7 @@ class PenggunaService {
         if (dariSession && this.tokenMasihBerlaku(tokenSession)) {
             try {
                 return this.normalisasiDataPengguna(JSON.parse(dariSession));
-            } catch (_) { }
+            } catch { }
         } else if (dariSession || tokenSession) {
             sessionStorage.removeItem(this.kunciSesiToken);
             sessionStorage.removeItem(this.kunciSesiUser);
@@ -531,7 +531,7 @@ class PenggunaService {
         if (data && this.tokenMasihBerlaku(tokenLocal)) {
             try {
                 return this.normalisasiDataPengguna(JSON.parse(data));
-            } catch (_) { }
+            } catch { }
         } else if (data || tokenLocal) {
             localStorage.removeItem(this.kunciSesiToken);
             localStorage.removeItem(this.kunciSesiUser);

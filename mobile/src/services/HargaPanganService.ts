@@ -68,7 +68,7 @@ export class HargaPanganMobileService {
 
   normalisasiSatuan(satuan?: string): string {
     if (!satuan) return '1 KG';
-    let s = String(satuan).replace(/[\/]+/g, '').trim();
+    const s = String(satuan).replace(/[/]+/g, '').trim();
     if (!s) return '1 KG';
     if (/^kg$|^kilogram$/i.test(s)) return '1 KG';
     if (/^gram$|^gr$|^g$/i.test(s)) return '1 Gram';
@@ -116,7 +116,7 @@ export class HargaPanganMobileService {
         }));
         try {
           localStorage.setItem('sipatokaan_custom_items', JSON.stringify(cleaned));
-        } catch (_) {}
+        } catch { /* abaikan */ }
         return this.saringDaftar(cleaned, kategori, pasar, cari, status);
       }
     } catch (err) {
@@ -147,7 +147,7 @@ export class HargaPanganMobileService {
           return hasil.data.map((i: any) => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
         }
       }
-    } catch (_) {}
+    } catch { /* abaikan */ }
 
     return [];
   }
@@ -177,7 +177,7 @@ export class HargaPanganMobileService {
             .filter((i: any) => (i.status || '').toLowerCase() === 'terbit')
             .map((i: any) => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
         }
-      } catch (_) {}
+      } catch { /* abaikan */ }
       throw new Error(errCloud?.message || 'Tidak dapat terhubung ke basis data harga pangan.');
     }
     return [];

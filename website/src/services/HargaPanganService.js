@@ -15,7 +15,7 @@ class HargaPanganApiService {
         // Bersihkan sisa kunci notifikasi dummy warisan lama
         try {
             localStorage.removeItem('sipatokaan_notifikasi');
-        } catch (_) { }
+        } catch { }
     }
 
     formatTanggalHariIni() {
@@ -28,7 +28,7 @@ class HargaPanganApiService {
 
     normalisasiSatuan(satuan) {
         if (!satuan) return '1 KG';
-        let s = String(satuan).replace(/[\/]+/g, '').trim();
+        let s = String(satuan).replace(/[/]+/g, '').trim();
         if (!s) return '1 KG';
         if (/^kg$|^kilogram$/i.test(s)) return '1 KG';
         if (/^gram$|^gr$|^g$/i.test(s)) return '1 Gram';
@@ -70,7 +70,7 @@ class HargaPanganApiService {
                 const cleaned = dataCloud.map(i => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
                 try {
                     localStorage.setItem('sipatokaan_custom_items', JSON.stringify(cleaned));
-                } catch (_) { }
+                } catch { }
                 return this.saringDaftar(cleaned, kategori, pasar, cari, status);
             }
         } catch (err) {
@@ -93,7 +93,7 @@ class HargaPanganApiService {
                     return hasil.data.map(i => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
                 }
             }
-        } catch (_) { }
+        } catch { }
 
         return [];
     }
@@ -117,7 +117,7 @@ class HargaPanganApiService {
                         .filter(i => (i.status || '').toLowerCase() === 'terbit')
                         .map(i => ({ ...i, satuan: this.normalisasiSatuan(i.satuan) }));
                 }
-            } catch (_) { }
+            } catch { }
             throw new Error(errCloud?.message || 'Tidak dapat terhubung ke basis data harga pangan.');
         }
         return [];
@@ -145,7 +145,7 @@ class HargaPanganApiService {
             try {
                 const resAcara = await supabaseClient.getAcaraGPM();
                 if (Array.isArray(resAcara)) acaraList = resAcara;
-            } catch (_) {
+            } catch {
                 acaraList = [];
             }
         }

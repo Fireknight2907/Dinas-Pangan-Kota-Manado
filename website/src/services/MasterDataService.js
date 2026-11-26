@@ -65,7 +65,7 @@ export class MasterDataService {
 
     // Mengunci format satuan selalu per 1 unit (contoh: "kg" -> "1 KG", "liter" -> "1 Liter", "baki" -> "1 Baki")
     formatSatuanPerSatu(input) {
-        let teks = String(input || '').replace(/[\/]+/g, '').trim();
+        let teks = String(input || '').replace(/[/]+/g, '').trim();
         if (!teks) throw new Error('Nama satuan tidak boleh kosong!');
 
         const cocokAngka = teks.match(/^(\d+(?:[.,]\d+)?)\s*(.*)$/);
@@ -97,7 +97,7 @@ export class MasterDataService {
             const rows = await supabaseClient.getMasterSatuan();
             if (Array.isArray(rows)) {
                 const list = rows.map((r) => r.nama_satuan).filter(Boolean);
-                try { localStorage.setItem(this.kunciCacheSatuan, JSON.stringify(list)); } catch (_) {}
+                try { localStorage.setItem(this.kunciCacheSatuan, JSON.stringify(list)); } catch {}
                 return list;
             }
         } catch (err) {
@@ -110,7 +110,7 @@ export class MasterDataService {
                 const parsed = JSON.parse(cache);
                 if (Array.isArray(parsed)) return parsed;
             }
-        } catch (_) {}
+        } catch {}
         return [];
     }
 
@@ -191,7 +191,7 @@ export class MasterDataService {
                 this.kunciCachePasar,
                 JSON.stringify(daftarLengkap.map((p) => p.nama_pasar))
             );
-        } catch (_) {}
+        } catch {}
 
         return daftarLengkap;
     }
@@ -210,7 +210,7 @@ export class MasterDataService {
                 const parsed = JSON.parse(cache);
                 if (Array.isArray(parsed)) return parsed;
             }
-        } catch (_) {}
+        } catch {}
         return [];
     }
 
@@ -304,7 +304,7 @@ export class MasterDataService {
             const rows = await supabaseClient.getMasterKecamatan();
             if (Array.isArray(rows)) {
                 const list = rows.map((r) => r.nama_kecamatan).filter(Boolean);
-                try { localStorage.setItem(this.kunciCacheKecamatan, JSON.stringify(list)); } catch (_) {}
+                try { localStorage.setItem(this.kunciCacheKecamatan, JSON.stringify(list)); } catch {}
                 return list;
             }
         } catch (err) {
@@ -317,7 +317,7 @@ export class MasterDataService {
                 const parsed = JSON.parse(cache);
                 if (Array.isArray(parsed)) return parsed;
             }
-        } catch (_) {}
+        } catch {}
         return [];
     }
 
@@ -385,7 +385,7 @@ export class MasterDataService {
                             prioritas_tampil: Number(r.prioritas_tampil) || 50
                         }))
                 );
-                try { localStorage.setItem(this.kunciCacheKomoditas, JSON.stringify(rapi)); } catch (_) {}
+                try { localStorage.setItem(this.kunciCacheKomoditas, JSON.stringify(rapi)); } catch {}
                 return rapi;
             }
         } catch (err) {
@@ -398,7 +398,7 @@ export class MasterDataService {
                 const parsed = JSON.parse(cache);
                 if (Array.isArray(parsed)) return this.urutkanKomoditas(parsed);
             }
-        } catch (_) {}
+        } catch {}
         return [];
     }
 
@@ -506,14 +506,14 @@ export class MasterDataService {
             if (Array.isArray(rows)) {
                 rows.forEach((r) => masukkan(r?.nama_induk));
             }
-        } catch (_) {}
+        } catch {}
 
         (Array.isArray(daftarKomoditas) ? daftarKomoditas : []).forEach((k) => {
             masukkan(k?.kelompok_komoditas);
         });
 
         const hasil = Array.from(petaUnik.values()).sort((a, b) => a.localeCompare(b, 'id-ID'));
-        try { localStorage.setItem(this.kunciCacheInduk, JSON.stringify(hasil)); } catch (_) {}
+        try { localStorage.setItem(this.kunciCacheInduk, JSON.stringify(hasil)); } catch {}
         return hasil;
     }
 

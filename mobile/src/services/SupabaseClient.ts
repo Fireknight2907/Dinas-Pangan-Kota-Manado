@@ -48,7 +48,7 @@ export class SupabaseRestClient {
         try {
           const errJson = await res.json();
           errDetail = errJson.message || errJson.error || errDetail;
-        } catch (_) {}
+        } catch { /* abaikan */ }
         throw new Error(`Supabase Error: ${errDetail}`);
       }
 
@@ -274,7 +274,7 @@ export class SupabaseRestClient {
       await this.request(`harga_pangan?nama_pasar=eq.${encodeURIComponent(namaLama)}`, 'PATCH', {
         nama_pasar: namaBaru
       });
-    } catch (_) {}
+    } catch { /* abaikan */ }
     return true;
   }
 
@@ -349,18 +349,18 @@ export class SupabaseRestClient {
     }
     try {
       await this.request(`harga_pangan?nama_komoditas=eq.${encodeURIComponent(namaLama)}`, 'PATCH', payloadHarga);
-    } catch (_) {}
+    } catch { /* abaikan */ }
     if (namaLama !== namaBaru) {
       try {
         await this.request(`riwayat_harga_pangan?nama_komoditas=eq.${encodeURIComponent(namaLama)}`, 'PATCH', {
           nama_komoditas: namaBaru
         });
-      } catch (_) {}
+      } catch { /* abaikan */ }
       try {
         await this.request(`item_pengajuan_harga?nama_komoditas=eq.${encodeURIComponent(namaLama)}`, 'PATCH', {
           nama_komoditas: namaBaru
         });
-      } catch (_) {}
+      } catch { /* abaikan */ }
     }
     return true;
   }
@@ -410,7 +410,7 @@ export class SupabaseRestClient {
     try {
       const rows = await this.request<any[]>('rpc/rpc_ringkasan_pendaftar_gpm', 'POST', {});
       if (Array.isArray(rows)) return rows;
-    } catch (_) {}
+    } catch { /* abaikan */ }
 
     try {
       const raw = await this.request<any[]>('pendaftar_gpm?select=acara_id,status_kehadiran');
@@ -561,7 +561,7 @@ export class SupabaseRestClient {
     } catch (err: any) {
       const msg = String(err?.message || '').toLowerCase();
       if (msg.includes('mode_pendaftaran') || msg.includes('mode_penerima') || msg.includes('column')) {
-        const { mode_pendaftaran, mode_penerima, ...payloadDasar } = payload;
+        const payloadDasar: any = { ...payload }; delete payloadDasar.mode_pendaftaran; delete payloadDasar.mode_penerima;
         const resFallback = await this.request<any[]>('acara_gpm', 'POST', payloadDasar);
         return Array.isArray(resFallback) && resFallback.length > 0 ? resFallback[0] : resFallback;
       }
@@ -648,7 +648,7 @@ export class SupabaseRestClient {
       if (Array.isArray(res) && res.length > 0 && res[0].nomor_antrean) {
         return Number(res[0].nomor_antrean);
       }
-    } catch (_) {}
+    } catch { /* abaikan */ }
     return 0;
   }
 
@@ -716,7 +716,7 @@ export class SupabaseRestClient {
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
       }
-    } catch (_) {}
+    } catch { /* abaikan */ }
     return this.sha256FallbackJs(input);
   }
 

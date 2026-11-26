@@ -161,7 +161,7 @@ export class GeocodingService {
                     displayName: r.display_name || ''
                 }))
                 .filter((r) => this.punyaKoordinatValid(r.latitude, r.longitude));
-        } catch (_) {
+        } catch {
             return [];
         } finally {
             clearTimeout(timeoutId);

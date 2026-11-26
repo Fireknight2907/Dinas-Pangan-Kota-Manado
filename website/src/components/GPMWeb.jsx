@@ -35,7 +35,7 @@ const ikonGPM = new L.Icon({
   shadowSize: [41, 41]
 });
 
-export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
+export default function GPMWeb({ onKembaliKeHarga: _onKembaliKeHarga, onBukaLogin: _onBukaLogin }) {
   // 1. STATE UTAMA
   const [subTabPublik, setSubTabPublik] = useState('aktif'); // 'aktif' | 'riwayat'
   const [semuaAcara, setSemuaAcara] = useState([]);
@@ -81,11 +81,14 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
   };
 
   useEffect(() => {
-    muatDaftarAcaraGPM();
+    const initId = setTimeout(() => { muatDaftarAcaraGPM(); }, 0);
     const timer = setInterval(() => {
       setWaktuSekarangMs(Date.now());
     }, 15000);
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(initId);
+      clearInterval(timer);
+    };
   }, []);
 
   // 3. KALKULASI OOP: JADWAL AKTIF TERURUT & RIWAYAT TERLAKSANA
@@ -129,14 +132,17 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
 
   // Jaga pilihan acara tetap sinkron dengan urutan terbaru
   useEffect(() => {
-    if (daftarAcaraAktif.length === 0) {
-      setAcaraDipilihId('');
-      return;
-    }
-    const masihAda = daftarAcaraAktif.some((a) => String(a.id) === String(acaraDipilihId));
-    if (!masihAda) {
-      setAcaraDipilihId(daftarAcaraAktif[0].id);
-    }
+    const id = setTimeout(() => {
+      if (daftarAcaraAktif.length === 0) {
+        setAcaraDipilihId('');
+        return;
+      }
+      const masihAda = daftarAcaraAktif.some((a) => String(a.id) === String(acaraDipilihId));
+      if (!masihAda) {
+        setAcaraDipilihId(daftarAcaraAktif[0].id);
+      }
+    }, 0);
+    return () => clearTimeout(id);
   }, [daftarAcaraAktif, acaraDipilihId]);
 
   // Acara terpilih saat ini (atau cek apakah baru saja melewati jam tutup saat tab sedang dibuka)
@@ -245,10 +251,10 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
         false,
         isModeKeluarga
           ? {
-              no_kk: noKkBersih,
-              nama_kepala_keluarga: namaBersih,
-              jumlah_anggota: Math.max(1, parseInt(jumlahAnggota || '1', 10) || 1)
-            }
+            no_kk: noKkBersih,
+            nama_kepala_keluarga: namaBersih,
+            jumlah_anggota: Math.max(1, parseInt(jumlahAnggota || '1', 10) || 1)
+          }
           : null
       );
 

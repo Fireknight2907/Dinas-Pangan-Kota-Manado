@@ -182,7 +182,7 @@ export class AnalisisHargaMobileService {
   // Menormalisasi penulisan satuan agar seragam dan terkunci per 1 unit (1 KG, 1 Liter, 1 Baki, dst.)
   normalisasiSatuan(satuan?: string): string {
     if (!satuan) return '1 KG';
-    const bersih = String(satuan).replace(/[\/]+/g, '').trim();
+    const bersih = String(satuan).replace(/[/]+/g, '').trim();
     if (!bersih) return '1 KG';
     if (/^(1\s*)?(kg|kilogram)$/i.test(bersih)) return '1 KG';
     if (/^(1\s*)?(l|ltr|liter)$/i.test(bersih)) return '1 Liter';

@@ -289,7 +289,7 @@ export class PengajuanHargaService {
         } catch (errDetail) {
             const msg = String(errDetail?.message || '').toLowerCase();
             if (msg.includes('harga_lama')) {
-                const tanpaHargaLama = detailPayload.map(({ harga_lama, ...rest }) => rest);
+                const tanpaHargaLama = detailPayload.map((item) => { const salinan = { ...item }; delete salinan.harga_lama; return salinan; });
                 await supabaseClient.tambahItemPengajuanHargaBatch(tanpaHargaLama);
             } else {
                 if (Array.isArray(itemLamaBackup) && itemLamaBackup.length > 0) {
@@ -450,7 +450,7 @@ export class PengajuanHargaService {
                 } catch (errDetail) {
                     const msg = String(errDetail?.message || '').toLowerCase();
                     if (msg.includes('harga_lama')) {
-                        const tanpaHargaLama = detailPayload.map(({ harga_lama, ...rest }) => rest);
+                        const tanpaHargaLama = detailPayload.map((item) => { const salinan = { ...item }; delete salinan.harga_lama; return salinan; });
                         await supabaseClient.tambahItemPengajuanHargaBatch(tanpaHargaLama);
                     } else {
                         throw errDetail;
@@ -711,7 +711,7 @@ export class PengajuanHargaService {
                     await supabaseClient.tambahItemPengajuanHargaBatch(detailPayload);
                 } catch (errDetail) {
                     if (String(errDetail?.message || '').toLowerCase().includes('harga_lama')) {
-                        const tanpaLama = detailPayload.map(({ harga_lama, ...rest }) => rest);
+                        const tanpaLama = detailPayload.map((item) => { const salinan = { ...item }; delete salinan.harga_lama; return salinan; });
                         await supabaseClient.tambahItemPengajuanHargaBatch(tanpaLama);
                     }
                 }

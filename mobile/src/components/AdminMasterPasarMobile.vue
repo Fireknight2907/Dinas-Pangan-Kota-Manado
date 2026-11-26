@@ -192,7 +192,7 @@ const jumlahBertitik = computed(() => (props.daftarPasarLengkap || []).filter((p
 const pasangPinAktif = (lat: number, lng: number, panKeTitik = false) => {
   if (!mapAdmin) return;
   if (markerAktif) {
-    try { mapAdmin.removeLayer(markerAktif); } catch (_) {}
+    try { mapAdmin.removeLayer(markerAktif); } catch { /* abaikan */ }
     markerAktif = null;
   }
   const icon = L.divIcon({
@@ -209,14 +209,14 @@ const pasangPinAktif = (lat: number, lng: number, panKeTitik = false) => {
   });
 
   if (panKeTitik) {
-    try { mapAdmin.setView([lat, lng], 16, { animate: true }); } catch (_) {}
+    try { mapAdmin.setView([lat, lng], 16, { animate: true }); } catch { /* abaikan */ }
   }
 };
 
 const renderPinPasarLain = () => {
   if (!mapAdmin) return;
   markerLain.forEach((m) => {
-    try { mapAdmin?.removeLayer(m); } catch (_) {}
+    try { mapAdmin?.removeLayer(m); } catch { /* abaikan */ }
   });
   markerLain = [];
 
@@ -243,7 +243,7 @@ const inisialisasiPetaAdmin = () => {
     if (!el) return;
 
     if (mapAdmin) {
-      try { mapAdmin.remove(); } catch (_) {}
+      try { mapAdmin.remove(); } catch { /* abaikan */ }
       mapAdmin = null;
       markerAktif = null;
       markerLain = [];
@@ -349,7 +349,7 @@ const kosongkanTitik = () => {
   form.value.latitude = '';
   form.value.longitude = '';
   if (markerAktif && mapAdmin) {
-    try { mapAdmin.removeLayer(markerAktif); } catch (_) {}
+    try { mapAdmin.removeLayer(markerAktif); } catch { /* abaikan */ }
     markerAktif = null;
   }
 };
@@ -460,7 +460,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (mapAdmin) {
-    try { mapAdmin.remove(); } catch (_) {}
+    try { mapAdmin.remove(); } catch { /* abaikan */ }
     mapAdmin = null;
   }
 });

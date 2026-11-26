@@ -4655,7 +4655,7 @@
       <div class="server-config-modal-card">
         <div class="server-modal-header">
           <div class="server-modal-title-wrap">
-            <span class="server-icon-pulse">🌐</span>
+            <span class="server-icon-pulse">🌐</span>
             <div>
               <h3 class="server-m-title">Koneksi Server & Web</h3>
               <p class="server-m-sub">Sinkronisasi data HP dan Website Dinas Pangan</p>
@@ -4735,7 +4735,7 @@
                 class="btn-preset-chip" 
                 @click="pilihPreset('http://localhost:3000')"
               >
-                🌐  Localhost (localhost:3000)
+                🌐  Localhost (localhost:3000)
               </button>
             </div>
           </div>
@@ -5654,8 +5654,7 @@ import {
   gpmMobileService, 
   ItemAcaraGPM, 
   ItemPendaftarGPM, 
-  HasilTiketGPM,
-  StatistikGPM
+  HasilTiketGPM
 } from '../services/GPMService';
 import {
   jadwalGPMMobileService,
@@ -5700,7 +5699,7 @@ const inisialisasiPetaGpm = () => {
     if (mapInstance) {
       try {
         mapInstance.remove();
-      } catch (err) {}
+      } catch { /* abaikan */ }
       mapInstance = null;
     }
 
@@ -5774,17 +5773,17 @@ const pilihAcaraGpm = async (acara: ItemAcaraGPM) => {
   try {
     const res = await gpmMobileService.ambilPendaftarAcara(acara.id);
     pendaftarGPMList.value = res.data || [];
-  } catch (e) {}
+  } catch { /* abaikan */ }
   if (mapInstance) {
     const lat = Number(acara.latitude) || 1.4883;
     const lng = Number(acara.longitude) || 124.8436;
     try {
       mapInstance.setView([lat, lng], 14, { animate: true });
-    } catch (e) {}
+    } catch { /* abaikan */ }
   }
 };
 
-const pilihAcaraGpmById = async (id: string) => {
+const _pilihAcaraGpmById = async (id: string) => {
   const target = daftarAcaraGPM.value.find(a => String(a.id) === String(id));
   if (target) {
     await pilihAcaraGpm(target);
@@ -5860,7 +5859,7 @@ const simpanKonfigurasiServer = async () => {
     tampilkanModalServer.value = false;
     alert(statusKoneksi.value.online 
       ? '✅ Berhasil terhubung ke server website! Data kini tersinkronisasi langsung.' 
-      : '⚠️  Alamat server disimpan, namun server belum merespon. Pastikan backend di PC sudah berjalan.');
+      : '⚠️  Alamat server disimpan, namun server belum merespon. Pastikan backend di PC sudah berjalan.');
   } finally {
     sedangUjiKoneksi.value = false;
   }
@@ -6079,7 +6078,7 @@ const hentikanScanKameraMobile = async () => {
     try {
       await html5QrMobileScanner.stop();
       html5QrMobileScanner.clear();
-    } catch (e) {}
+    } catch { /* abaikan */ }
     html5QrMobileScanner = null;
   }
   kameraAktifMobile.value = false;
@@ -6124,7 +6123,7 @@ const daftarKomoditasPilihanGPM = computed(() => {
 });
 
 const toggleKomoditasGPM = (nama: string) => {
-  let list = formGPMBaru.value.komoditas_tersedia
+  const list = formGPMBaru.value.komoditas_tersedia
     ? formGPMBaru.value.komoditas_tersedia.split(',').map(s => s.trim()).filter(Boolean)
     : [];
   const idx = list.indexOf(nama);
@@ -6485,7 +6484,7 @@ const formKomoditasMasterMobile = ref({
 });
 const inputSatuanBaru = ref('');
 const daftarSatuan = ref<string[]>(['1 KG', '1 Liter']);
-const inputPasarBaru = ref('');
+const _inputPasarBaru = ref('');
 const inputKecamatanBaru = ref('');
 const daftarKecamatan = ref<string[]>([]);
 
@@ -6549,7 +6548,7 @@ const daftarNotifMobile = ref<NotifMobileItem[]>([]);
 const pilihanKomoditasKadisMobile = computed(() =>
   masterDataMobileService.susunPilihanKomoditasKadis(daftarMasterKomoditas.value, semuaKomoditas.value)
 );
-const daftarKomoditasTersediaKadis = computed(() => pilihanKomoditasKadisMobile.value.semuaNamaValid);
+const _daftarKomoditasTersediaKadis = computed(() => pilihanKomoditasKadisMobile.value.semuaNamaValid);
 const daftarPasarTersediaKadis = computed(() => {
   return Array.from(new Set([
     ...daftarPasar.value,
@@ -6675,9 +6674,9 @@ const pendaftarAcaraMobileTersaring = computed(() => {
 });
 
 // Computed Statistik Ringkasan Eksekutif GPM Kadis (kompatibilitas)
-const totalKuotaGPMKadis = computed(() => ringkasanLaporanGPMKadisMobile.value.totalKuota);
-const totalTerlayaniGPMKadis = computed(() => ringkasanLaporanGPMKadisMobile.value.totalHadir);
-const persentaseSerapanKadis = computed(() => String(ringkasanLaporanGPMKadisMobile.value.persenSerapan));
+const _totalKuotaGPMKadis = computed(() => ringkasanLaporanGPMKadisMobile.value.totalKuota);
+const _totalTerlayaniGPMKadis = computed(() => ringkasanLaporanGPMKadisMobile.value.totalHadir);
+const _persentaseSerapanKadis = computed(() => String(ringkasanLaporanGPMKadisMobile.value.persenSerapan));
 
 // ─── PROFIL MANDIRI & GANTI KATA SANDI PRIBADI (SEMUA ROLE) ────────
 const modalProfilBuka = ref(false);
@@ -7018,7 +7017,7 @@ const toggleLihatRiwayatAntrean = async (acara: ItemAcaraGPM) => {
     try {
       const res = await gpmMobileService.ambilPendaftarAcara(acara.id);
       detailRiwayatPendaftar.value[acara.id] = res.data || [];
-    } catch (e) {}
+    } catch { /* abaikan */ }
   }
 };
 
@@ -7450,12 +7449,12 @@ const resetPencarian = () => {
   varianAktifPublik.value = 'Semua';
 };
 
-const filterDataLokal = () => {
-  // Tersaring otomatis & reaktif via komoditasTerfilter
+const _filterDataLokal = () => {
+  // Tersaring otomatis & reaktif via _komoditasTerfilter
 };
 
 // Filter data komoditas publik (hanya yang berstatus Terbit dan cocok dengan filter pencarian/kategori warga)
-const komoditasTerfilter = computed(() => {
+const _komoditasTerfilter = computed(() => {
   let list = semuaKomoditas.value.filter(item => (item.status || 'Terbit').toLowerCase() !== 'draft');
   if (kategoriAktif.value && kategoriAktif.value !== 'Semua') {
     list = list.filter(item => (item.kategori || '').toLowerCase() === kategoriAktif.value.toLowerCase());
@@ -7614,7 +7613,7 @@ const pilihKomoditasMasterKabid = (namaKomoditas: string) => {
   }
 };
 
-const mulaiEditItem = (item: ItemHargaPangan) => {
+const _mulaiEditItem = (item: ItemHargaPangan) => {
   idDiedit.value = item.id || null;
   formPenetapan.value = {
     nama_komoditas: item.nama_komoditas,
@@ -8528,7 +8527,7 @@ const hapusItem = async (item: ItemHargaPangan) => {
   if (!confirm(`Hapus data harga untuk "${item.nama_komoditas}"?`)) return;
   try {
     await hargaPanganMobileService.hapus(item.id);
-    pesanSuksesMobile.value = `🗑️  Data ${item.nama_komoditas} berhasil dihapus!`;
+    pesanSuksesMobile.value = `🗑️  Data ${item.nama_komoditas} berhasil dihapus!`;
     setTimeout(() => pesanSuksesMobile.value = '', 3500);
     if (idDiedit.value === item.id) {
       batalEditItem();
@@ -8540,7 +8539,7 @@ const hapusItem = async (item: ItemHargaPangan) => {
   }
 };
 
-const simpanHargaPetugas = async (statusOverride?: string) => {
+const _simpanHargaPetugas = async (statusOverride?: string) => {
   if (!formPenetapan.value.nama_komoditas.trim()) {
     alert('Silakan pilih nama komoditas resmi terlebih dahulu!');
     return;
@@ -8618,7 +8617,7 @@ const simpanHargaPetugas = async (statusOverride?: string) => {
   }
 };
 
-const ubahStatusItem = async (item: ItemHargaPangan) => {
+const _ubahStatusItem = async (item: ItemHargaPangan) => {
   const statusBaru = (item.status || '').toLowerCase() === 'draft' ? 'Terbit' : 'Draft';
   if (item.id) {
     if (statusBaru === 'Terbit') {
@@ -8640,7 +8639,7 @@ const ubahStatusItem = async (item: ItemHargaPangan) => {
 // ─────────────────────────────────────────────────────────────
 const komoditasDraft = computed(() => semuaKomoditas.value.filter(k => (k.status || '').toLowerCase() === 'draft'));
 const komoditasTerbit = computed(() => semuaKomoditas.value.filter(k => (k.status || 'Terbit').toLowerCase() === 'terbit'));
-const komoditasVerifTampil = computed(() => {
+const _komoditasVerifTampil = computed(() => {
   const base =
     filterStatusVerif.value === 'Draft'
       ? komoditasDraft.value
@@ -8657,7 +8656,7 @@ const komoditasVerifTampil = computed(() => {
   });
 });
 
-const eksekusiVerifikasiHarga = async (id: string, statusBaru: 'Terbit' | 'Draft') => {
+const _eksekusiVerifikasiHarga = async (id: string, statusBaru: 'Terbit' | 'Draft') => {
   try {
     const itemTarget = semuaKomoditas.value.find((k) => String(k.id) === String(id));
     if (statusBaru === 'Terbit' && itemTarget) {
@@ -8783,7 +8782,7 @@ const muatSemuaPengguna = async () => {
   }
   try {
     daftarKecamatan.value = await masterDataMobileService.ambilDaftarKecamatan();
-  } catch (_) {}
+  } catch { /* abaikan */ }
 };
 
 const tambahPenggunaBaru = async () => {
@@ -9244,7 +9243,7 @@ const bukaDetailWargaMobile = async (acara: any) => {
     try {
       const res = await gpmMobileService.ambilPendaftarAcara(String(acara.id));
       detailRiwayatPendaftar.value[String(acara.id)] = res.data || [];
-    } catch (e) {}
+    } catch { /* abaikan */ }
   }
 };
 
@@ -9332,7 +9331,7 @@ const cetakLaporanHargaKadisMobile = () => {
   });
 };
 
-const unduhLaporanEksekutifGPM = () => {
+const _unduhLaporanEksekutifGPM = () => {
   unduhLaporanGPMKadisMobile();
 };
 
@@ -10107,6 +10106,7 @@ const eksekusiGantiFotoProfil = () => {
   background-color: #ffffff !important;
   color: #0f172a !important;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .s-row-two {
@@ -10488,6 +10488,7 @@ const eksekusiGantiFotoProfil = () => {
   color: #0f172a !important;
   outline: none;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .mobile-search-input::placeholder {
@@ -10663,6 +10664,7 @@ const eksekusiGantiFotoProfil = () => {
   background-color: #ffffff !important;
   color: #0f172a !important;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .m-scan-input::placeholder {
@@ -11084,6 +11086,7 @@ const eksekusiGantiFotoProfil = () => {
   background-color: #ffffff !important;
   color: #0f172a !important;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .m-input-text::placeholder {

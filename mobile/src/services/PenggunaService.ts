@@ -40,7 +40,7 @@ class PenggunaMobileService {
     try {
       localStorage.removeItem('sipatokaan_master_users');
       localStorage.removeItem('sipatokean_master_users');
-    } catch (_) { }
+    } catch { /* abaikan */ }
   }
 
   // Normalisasi string peran agar konsisten dengan standar sistem
@@ -546,7 +546,7 @@ class PenggunaMobileService {
     if (dariSession && this.tokenMasihBerlaku(tokenSession)) {
       try {
         return this.normalisasiDataPengguna(JSON.parse(dariSession));
-      } catch (_) { }
+      } catch { /* abaikan */ }
     } else if (dariSession || tokenSession) {
       sessionStorage.removeItem(this.kunciSesiToken);
       sessionStorage.removeItem(this.kunciSesiUser);
@@ -557,7 +557,7 @@ class PenggunaMobileService {
     if (data && this.tokenMasihBerlaku(tokenLocal)) {
       try {
         return this.normalisasiDataPengguna(JSON.parse(data));
-      } catch (_) { }
+      } catch { /* abaikan */ }
     } else if (data || tokenLocal) {
       localStorage.removeItem(this.kunciSesiToken);
       localStorage.removeItem(this.kunciSesiUser);
