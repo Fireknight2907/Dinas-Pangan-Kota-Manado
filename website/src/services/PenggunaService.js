@@ -78,9 +78,9 @@ class PenggunaService {
                     { id: 'kelola-gpm', label: 'Kelola GPM', icon: '🎟️' },
                     { id: 'laporan', label: 'Laporan Bidang Pangan', icon: '📑' },
                     { id: 'grafik-pangan', label: 'Grafik Pangan', icon: '📈' },
-                    { id: 'laporan-gpm', label: 'Laporan GPM', icon: '📋' },
+                    { id: 'laporan-gpm', label: 'Laporan Eksekutif Kadis', icon: '📋' },
                     { id: 'kelola-user', label: 'Kelola Pengguna', icon: '👥' },
-                    { id: 'master-data', label: 'Master Satuan, Pasar & Wilayah', icon: '🏛️' },
+                    { id: 'master-data', label: 'Master Komoditas & Wilayah', icon: '🏛️' },
                     { id: 'cek-gpm', label: 'Menu Cek GPM', icon: '🔍' }
                 ];
 
@@ -88,7 +88,7 @@ class PenggunaService {
                 return [
                     { id: 'dashboard', label: 'Beranda', icon: '📊' },
                     { id: 'kelola-user', label: 'Kelola Pengguna', icon: '👥' },
-                    { id: 'master-data', label: 'Master Satuan, Pasar & Wilayah', icon: '🏛️' },
+                    { id: 'master-data', label: 'Master Komoditas & Wilayah', icon: '🏛️' },
                     { id: 'cek-gpm', label: 'Menu Cek GPM', icon: '🔍' }
                 ];
 
@@ -164,19 +164,42 @@ class PenggunaService {
             .filter(Boolean);
     }
 
-    // Verifikasi real-time ke database Supabase untuk memastikan akun sah berstatus Admin/Superadmin
-    async verifikasiHakAdminServer(idAdmin) {
-        if (!idAdmin) return false;
+    // Verifikasi real-time ke database Supabase untuk mengambil peran sah aktor (Superadmin / Admin / null)
+    async ambilPeranTerverifikasiServer(idAdmin) {
+        if (!idAdmin) return null;
         try {
             const res = await supabaseClient.request(`pengguna?id=eq.${encodeURIComponent(idAdmin)}&select=peran&limit=1`);
             if (Array.isArray(res) && res.length > 0 && res[0].peran) {
                 const peranReal = this.normalisasiPeran(res[0].peran);
-                return peranReal === 'Admin' || peranReal === 'Superadmin';
+                if (peranReal === 'Superadmin' || peranReal === 'Admin') {
+                    return peranReal;
+                }
             }
         } catch (_) {
-            return false;
+            return null;
         }
-        return false;
+        return null;
+    }
+
+    // Verifikasi real-time ke database Supabase untuk memastikan akun sah berstatus Admin/Superadmin
+    async verifikasiHakAdminServer(idAdmin) {
+        const peran = await this.ambilPeranTerverifikasiServer(idAdmin);
+        return peran === 'Admin' || peran === 'Superadmin';
+    }
+
+    // Pengaman hierarki RBAC: Admin tidak boleh memodifikasi/menghapus akun Superadmin atau mempromosikan ke Superadmin
+    async validasiHierarkiAdmin(idAdmin, targetUser = null, peranBaru = null) {
+        const peranAktor = await this.ambilPeranTerverifikasiServer(idAdmin);
+        if (!peranAktor) {
+            throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak memiliki hak akses administrator!');
+        }
+        if (targetUser && this.normalisasiPeran(targetUser.peran) === 'Superadmin' && peranAktor !== 'Superadmin') {
+            throw new Error('Akses ditolak: Akun Superadmin dilindungi dan hanya dapat dikelola oleh Superadmin!');
+        }
+        if (peranBaru && this.normalisasiPeran(peranBaru) === 'Superadmin' && peranAktor !== 'Superadmin') {
+            throw new Error('Akses ditolak: Hanya Superadmin yang berwenang menetapkan atau membuat peran Superadmin!');
+        }
+        return peranAktor;
     }
 
     // Helper: cek apakah sesi saat ini disimpan permanen (Ingat Saya)
@@ -186,32 +209,61 @@ class PenggunaService {
 
     // Hard reset kata sandi oleh Admin / Superadmin langsung ke Supabase Cloud
     async adminResetPassword(idAdmin, idTarget, passwordBaru) {
-        const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
-        if (!isAuthorized) {
-            throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak memiliki hak akses administrator!');
-        }
-
         if (!passwordBaru || passwordBaru.length < 8) {
             throw new Error('Kata sandi baru minimal harus 8 karakter demi standar keamanan!');
         }
 
         const daftar = await this.ambilSemuaPengguna();
-        const targetUser = daftar.find(u => u.id === idTarget);
+        const targetUser = daftar.find(u => String(u.id) === String(idTarget));
         if (!targetUser) {
             throw new Error('Data pengguna target tidak ditemukan dalam basis data!');
         }
+
+        await this.validasiHierarkiAdmin(idAdmin, targetUser);
 
         await supabaseClient.ubahPasswordPengguna(idTarget, passwordBaru, targetUser.username);
         return true;
     }
 
-    // Pengubahan username oleh Admin / Superadmin langsung ke Supabase Cloud
-    async adminUbahUsername(idAdmin, idTarget, usernameBaru) {
-        const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
-        if (!isAuthorized) {
-            throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak berwenang mengubah username!');
+    // Pengubahan nama lengkap & bidang pengguna oleh Admin / Superadmin langsung ke Supabase Cloud
+    async adminUbahProfil(idAdmin, idTarget, { nama, bidang } = {}) {
+        const namaBersih = String(nama || '').trim();
+        if (!namaBersih) {
+            throw new Error('Nama lengkap pengguna tidak boleh kosong!');
         }
 
+        const daftar = await this.ambilSemuaPengguna();
+        const targetUser = daftar.find(u => String(u.id) === String(idTarget));
+        if (!targetUser) {
+            throw new Error('Pengguna target tidak ditemukan!');
+        }
+
+        await this.validasiHierarkiAdmin(idAdmin, targetUser);
+
+        const peranTarget = this.normalisasiPeran(targetUser.peran);
+        const bidangBersih = peranTarget === 'Superadmin'
+            ? 'Superadmin'
+            : (peranTarget === 'Admin' ? 'Admin' : (String(bidang || '').trim() || targetUser.bidang || 'Dinas Pangan Kota Manado'));
+
+        await supabaseClient.updatePengguna(idTarget, {
+            nama: namaBersih,
+            bidang: bidangBersih
+        }, targetUser.username);
+
+        const hasilUpdate = { ...targetUser, nama: namaBersih, bidang: bidangBersih };
+
+        const userSesi = this.ambilUserSesi();
+        if (userSesi && (String(userSesi.id) === String(idTarget) || userSesi.username === targetUser.username)) {
+            userSesi.nama = namaBersih;
+            userSesi.bidang = bidangBersih;
+            this.simpanSesi(this.ambilToken(), userSesi, this.apakahSesiPermanen());
+        }
+
+        return hasilUpdate;
+    }
+
+    // Pengubahan username oleh Admin / Superadmin langsung ke Supabase Cloud
+    async adminUbahUsername(idAdmin, idTarget, usernameBaru) {
         const usernameBersih = (usernameBaru || '').toLowerCase().trim();
         if (!usernameBersih) {
             throw new Error('Username baru tidak boleh kosong!');
@@ -221,14 +273,16 @@ class PenggunaService {
         }
 
         const daftar = await this.ambilSemuaPengguna();
-        const sudahAda = daftar.some(u => u.id !== idTarget && u.username.toLowerCase() === usernameBersih);
-        if (sudahAda) {
-            throw new Error(`Username "${usernameBersih}" sudah digunakan oleh akun lain!`);
-        }
-
-        const targetUser = daftar.find(u => u.id === idTarget);
+        const targetUser = daftar.find(u => String(u.id) === String(idTarget));
         if (!targetUser) {
             throw new Error('Pengguna target tidak ditemukan!');
+        }
+
+        await this.validasiHierarkiAdmin(idAdmin, targetUser);
+
+        const sudahAda = daftar.some(u => String(u.id) !== String(idTarget) && u.username.toLowerCase() === usernameBersih);
+        if (sudahAda) {
+            throw new Error(`Username "${usernameBersih}" sudah digunakan oleh akun lain!`);
         }
 
         const usernameLama = targetUser.username;
@@ -245,7 +299,7 @@ class PenggunaService {
 
         // Jika admin mengubah username dirinya sendiri, perbarui sesi aktif
         const userSesi = this.ambilUserSesi();
-        if (userSesi && (userSesi.id === idTarget || userSesi.username === usernameLama)) {
+        if (userSesi && (String(userSesi.id) === String(idTarget) || userSesi.username === usernameLama)) {
             userSesi.username = usernameBersih;
             userSesi.email = emailBaru;
             this.simpanSesi(this.ambilToken(), userSesi, this.apakahSesiPermanen());
@@ -254,13 +308,8 @@ class PenggunaService {
         return hasilUpdate;
     }
 
-    // Pengubahan email oleh Admin langsung ke Supabase Cloud
+    // Pengubahan email oleh Admin / Superadmin langsung ke Supabase Cloud
     async adminUbahEmail(idAdmin, idTarget, emailBaru) {
-        const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
-        if (!isAuthorized) {
-            throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak berwenang mengubah email pengguna!');
-        }
-
         const emailBersih = (emailBaru || '').toLowerCase().trim();
         if (!emailBersih) {
             throw new Error('Alamat email baru tidak boleh kosong!');
@@ -272,21 +321,23 @@ class PenggunaService {
         }
 
         const daftar = await this.ambilSemuaPengguna();
-        const sudahAda = daftar.some(u => u.id !== idTarget && u.email && u.email.toLowerCase() === emailBersih);
-        if (sudahAda) {
-            throw new Error(`Email "${emailBersih}" sudah digunakan oleh akun lain!`);
-        }
-
-        const targetUser = daftar.find(u => u.id === idTarget);
+        const targetUser = daftar.find(u => String(u.id) === String(idTarget));
         if (!targetUser) {
             throw new Error('Pengguna target tidak ditemukan!');
+        }
+
+        await this.validasiHierarkiAdmin(idAdmin, targetUser);
+
+        const sudahAda = daftar.some(u => String(u.id) !== String(idTarget) && u.email && u.email.toLowerCase() === emailBersih);
+        if (sudahAda) {
+            throw new Error(`Email "${emailBersih}" sudah digunakan oleh akun lain!`);
         }
 
         await supabaseClient.updatePengguna(idTarget, { email: emailBersih }, targetUser.username);
         const hasilUpdate = { ...targetUser, email: emailBersih };
 
         const userSesi = this.ambilUserSesi();
-        if (userSesi && (userSesi.id === idTarget || userSesi.username === targetUser.username)) {
+        if (userSesi && (String(userSesi.id) === String(idTarget) || userSesi.username === targetUser.username)) {
             userSesi.email = emailBersih;
             this.simpanSesi(this.ambilToken(), userSesi, this.apakahSesiPermanen());
         }
@@ -296,16 +347,24 @@ class PenggunaService {
 
     // Pengubahan role pengguna oleh Admin / Superadmin langsung ke Supabase Cloud
     async adminUbahPeran(idAdmin, idTarget, peranBaru) {
-        const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
-        if (!isAuthorized) {
-            throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak berwenang mengubah peran pengguna!');
-        }
-
         const daftar = await this.ambilSemuaPengguna();
         const peranValid = this.normalisasiPeran(peranBaru);
-        const targetUser = daftar.find(u => u.id === idTarget);
+        const targetUser = daftar.find(u => String(u.id) === String(idTarget));
         if (!targetUser) {
             throw new Error('Pengguna target tidak ditemukan!');
+        }
+
+        await this.validasiHierarkiAdmin(idAdmin, targetUser, peranValid);
+
+        if (String(idAdmin) === String(idTarget) && peranValid !== targetUser.peran) {
+            throw new Error('Demi keamanan akses, Anda tidak dapat mengubah peran akun Anda sendiri yang sedang aktif!');
+        }
+
+        if (targetUser.peran === 'Superadmin' && peranValid !== 'Superadmin') {
+            const jumlahSuperadmin = daftar.filter(u => this.normalisasiPeran(u.peran) === 'Superadmin').length;
+            if (jumlahSuperadmin <= 1) {
+                throw new Error('Tidak dapat menurunkan peran satu-satunya akun Superadmin aktif di sistem!');
+            }
         }
 
         const bidangBaru = peranValid === 'Admin'
@@ -320,7 +379,7 @@ class PenggunaService {
         const hasilUpdate = { ...targetUser, peran: peranValid, bidang: bidangBaru };
 
         const userSesi = this.ambilUserSesi();
-        if (userSesi && (userSesi.id === idTarget || userSesi.username === targetUser.username)) {
+        if (userSesi && (String(userSesi.id) === String(idTarget) || userSesi.username === targetUser.username)) {
             userSesi.peran = peranValid;
             userSesi.bidang = bidangBaru;
             this.simpanSesi(this.ambilToken(), userSesi, this.apakahSesiPermanen());
@@ -331,10 +390,8 @@ class PenggunaService {
 
     // Tambah pengguna baru oleh Admin / Superadmin langsung ke Supabase Cloud
     async adminTambahPengguna(idAdmin, dataBaru) {
-        const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
-        if (!isAuthorized) {
-            throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak dapat menambahkan pengguna!');
-        }
+        const peranValid = this.normalisasiPeran(dataBaru.peran);
+        await this.validasiHierarkiAdmin(idAdmin, null, peranValid);
 
         const usernameBersih = (dataBaru.username || '').toLowerCase().trim();
         if (!dataBaru.nama || !dataBaru.nama.trim()) {
@@ -360,7 +417,6 @@ class PenggunaService {
             throw new Error(`Email "${emailBersih}" sudah digunakan oleh akun lain!`);
         }
 
-        const peranValid = this.normalisasiPeran(dataBaru.peran);
         const hashKataSandi = await hitungHashSandi(dataBaru.kata_sandi);
         const bidangBersih = peranValid === 'Admin'
             ? 'Admin'
@@ -386,17 +442,25 @@ class PenggunaService {
 
     // Hapus pengguna oleh Admin / Superadmin langsung dari Supabase Cloud
     async adminHapusPengguna(idAdmin, idTarget) {
-        const isAuthorized = await this.verifikasiHakAdminServer(idAdmin);
-        if (!isAuthorized) {
-            throw new Error('Akses ditolak: Verifikasi server mendeteksi akun Anda tidak dapat menghapus akun pengguna!');
-        }
-
-        if (idAdmin === idTarget) {
-            throw new Error('Akun admin yang sedang aktif tidak dapat menghapus dirinya sendiri!');
+        if (String(idAdmin) === String(idTarget)) {
+            throw new Error('Akun administrator yang sedang aktif tidak dapat menghapus dirinya sendiri!');
         }
 
         const daftar = await this.ambilSemuaPengguna();
-        const targetUser = daftar.find(u => u.id === idTarget);
+        const targetUser = daftar.find(u => String(u.id) === String(idTarget));
+        if (!targetUser) {
+            throw new Error('Pengguna target tidak ditemukan di basis data!');
+        }
+
+        await this.validasiHierarkiAdmin(idAdmin, targetUser);
+
+        if (this.normalisasiPeran(targetUser.peran) === 'Superadmin') {
+            const jumlahSuperadmin = daftar.filter(u => this.normalisasiPeran(u.peran) === 'Superadmin').length;
+            if (jumlahSuperadmin <= 1) {
+                throw new Error('Tidak dapat menghapus satu-satunya akun Superadmin aktif di sistem!');
+            }
+        }
+
         await supabaseClient.hapusPengguna(idTarget, targetUser?.username);
         return true;
     }

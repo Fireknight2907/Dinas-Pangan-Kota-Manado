@@ -123,7 +123,7 @@ export class BerandaStafService {
                     kodeStatus = 'revisi';
                     labelStatus = 'Perlu Revisi (Ditolak Kabid)';
                     prioritasUrut = 0;
-                } else if (pengajuanDiajukan.length > 0 || draftList.length > 0) {
+                } else if (pengajuanDiajukan.length > 0) {
                     kodeStatus = 'menunggu';
                     labelStatus = 'Menunggu Verifikasi Kabid';
                     prioritasUrut = 1;

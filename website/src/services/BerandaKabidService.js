@@ -68,7 +68,6 @@ export class BerandaKabidService {
 
         const semuaHarga = Array.isArray(daftarHarga) ? daftarHarga : [];
         const hargaTerbitList = semuaHarga.filter((h) => String(h.status || '').toLowerCase() === 'terbit');
-        const draftSatuanList = semuaHarga.filter((h) => String(h.status || '').toLowerCase() === 'draft');
 
         const stafOps = berandaStafService.hitungRingkasanOperasional({
             daftarPasarLengkap,
@@ -128,8 +127,8 @@ export class BerandaKabidService {
             tahunBerjalan: infoWaktu.tahun,
             kpi: {
                 menungguVerifikasiPaket: pengajuanMenunggu.length,
-                menungguVerifikasiSatuan: draftSatuanList.length,
-                totalMenungguVerifikasi: pengajuanMenunggu.length + draftSatuanList.length,
+                menungguVerifikasiSatuan: 0,
+                totalMenungguVerifikasi: pengajuanMenunggu.length,
                 disetujuiTotal: pengajuanDisetujui.length,
                 ditolakTotal: pengajuanDitolak.length,
                 totalHargaTerbit: hargaTerbitList.length,

@@ -859,8 +859,12 @@ export class PengajuanHargaMobileService {
       if (Array.isArray(segar)) snapshotHarga = segar;
     }
 
-    const sisaDraft = snapshotHarga.filter((h) => String(h.status || '').toLowerCase() === 'draft');
-    const targetDraft = jumlahPaketDisetujui > 0 ? sisaDraft : (params.daftarDraftSatuan || []);
+    const daftarDraftInput = Array.isArray(params.daftarDraftSatuan) ? params.daftarDraftSatuan : [];
+    const targetDraft = daftarDraftInput.length > 0
+      ? (jumlahPaketDisetujui > 0
+          ? snapshotHarga.filter((h) => String(h.status || '').toLowerCase() === 'draft')
+          : daftarDraftInput)
+      : [];
     const hasilDraft = await this.setujuiSemuaDraftSatuan(targetDraft, snapshotHarga);
 
     return {

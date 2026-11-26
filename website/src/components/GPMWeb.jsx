@@ -592,19 +592,12 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
 
                       <div className="ticket-details-summary">
                         <p><span className="lbl">Nama Pendaftar:</span><span className="val">{tiketHasil.tiket.nama_bersih || tiketHasil.tiket.nama_pendaftar}</span></p>
-                        <p><span className="lbl">NIK (16 Digit):</span><span className="val">{tiketHasil.tiket.nik || '-'}</span></p>
-                        {tiketHasil.tiket.no_kk && (
-                          <p><span className="lbl">No. Kartu Keluarga (KK):</span><span className="val">{tiketHasil.tiket.no_kk} ({tiketHasil.tiket.jumlah_anggota || 1} anggota)</span></p>
-                        )}
-                        <p><span className="lbl">Jalur Pendaftaran:</span><span className="val">{tiketHasil.tiket.jalur_pendaftaran || 'Daring'}</span></p>
-                        <p><span className="lbl">Nomor Telepon / WA:</span><span className="val">{tiketHasil.tiket.nomor_telepon || '-'}</span></p>
-                        <p><span className="lbl">Lokasi Acara GPM:</span><span className="val">{tiketHasil.acara.nama_acara}</span></p>
-                        <p><span className="lbl">Alamat Tempat:</span><span className="val">{tiketHasil.acara.lokasi}</span></p>
-                        <p><span className="lbl">Tanggal &amp; Jam:</span><span className="val">{tiketHasil.acara.tanggal} ({tiketHasil.acara.jam})</span></p>
+                        <p><span className="lbl">Lokasi GPM:</span><span className="val">{tiketHasil.acara.nama_acara} — {tiketHasil.acara.lokasi}</span></p>
+                        <p><span className="lbl">Waktu Pelaksanaan:</span><span className="val">{tiketHasil.acara.tanggal} ({tiketHasil.acara.jam})</span></p>
                       </div>
 
                       <div className="ticket-scan-instruction">
-                        📱 <strong>Petunjuk:</strong> Tiket ini adalah <strong>bukti nomor antrean &amp; alokasi kuota</strong> (bukan bukti pembayaran) dan tidak dapat dipindahtangankan. Tunjukkan Kode QR ini kepada petugas di lokasi GPM <strong>sebelum jam selesai berakhir</strong>. Tiket QR otomatis terkunci setelah jadwal GPM ditutup.
+                        📱 <strong>Petunjuk:</strong> Tiket ini menampilkan data ringkas demi privasi (NIK tidak ditampilkan di tiket publik sesuai UU PDP). Tunjukkan Kode QR ini bersama KTP fisik kepada petugas di lokasi GPM <strong>sebelum jam selesai berakhir</strong>.
                       </div>
 
                       <div className="ticket-actions-row">

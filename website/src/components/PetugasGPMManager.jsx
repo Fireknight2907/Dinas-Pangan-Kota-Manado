@@ -758,9 +758,31 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan'
             <div className="scan-box-icon">📷</div>
             <h2 className="scan-box-title">Verifikasi Kode QR Tiket Antrean Warga</h2>
             <p className="scan-box-desc">
-              Pindai kode QR tiket yang ditunjukkan oleh masyarakat atau masukan kode secara manual untuk memverifikasi kehadiran di lokasi GPM.
+              Pindai kode QR tiket masyarakat untuk mencocokkan Nomor Antrean, Nama, dan NIK dengan KTP fisik di lokasi GPM.
             </p>
           </div>
+
+          {daftarAcara.length > 1 && (
+            <div style={{ maxWidth: '520px', margin: '0 auto 14px auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 14px' }}>
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                📍 Lokasi Jaga GPM Saat Ini (Deteksi Otomatis Salah Lokasi):
+              </label>
+              <select
+                value={acaraTerpilihId}
+                onChange={(e) => {
+                  setAcaraTerpilihId(e.target.value);
+                  muatPendaftar(e.target.value);
+                }}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.84rem', fontWeight: 600, background: '#ffffff' }}
+              >
+                {daftarAcara.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.nama_acara} — {a.lokasi} ({a.tanggal})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Tombol Pemindai Kamera Langsung & Tombol Tambah Manual (Walk-in) */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '18px' }}>
@@ -854,85 +876,73 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan'
             </div>
           )}
 
-          {/* KARTU HASIL SCAN */}
+          {/* KARTU HASIL SCAN (RINGKAS: NOMOR ANTREAN, NAMA, NIK + DETEKSI SALAH LOKASI) */}
           {hasilScanPendaftar && (() => {
             const parsedScan = gpmService.parseDataPendaftar(hasilScanPendaftar);
+            const idAcaraScan = parsedScan.acara_id || parsedScan.acara?.id || '';
+            const salahLokasi = Boolean(
+              acaraTerpilihId &&
+              idAcaraScan &&
+              String(idAcaraScan) !== String(acaraTerpilihId)
+            );
             return (
               <div className="scan-result-profile-card">
                 <div className="result-card-banner">
                   <span className="result-banner-title">
-                    <span>✓</span> DATA PENDAFTAR RESMI DITEMUKAN
+                    <span>✓</span> DATA PENDAFTAR VALID
                   </span>
-                  <span className="result-barcode-tag">
-                    {parsedScan.kode_barcode}
+                  <span className={`badge-status-attend ${parsedScan.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu'}`}>
+                    {parsedScan.status_kehadiran === 'Hadir' ? '✓ Sudah Hadir' : '⏳ Menunggu Verifikasi'}
                   </span>
                 </div>
 
                 <div className="result-card-body">
-                  <div className="result-card-inner-flex">
-                    <div className="result-qr-box">
-                      <QRCodeComponent value={parsedScan.kode_barcode} size={115} />
-                      <div style={{ fontSize: '0.75rem', fontWeight: 700, marginTop: '6px', color: '#64748b' }}>
-                        QR RESMI GPM
-                      </div>
+                  {salahLokasi && (
+                    <div style={{ background: '#fef2f2', color: '#991b1b', border: '1.5px solid #fca5a5', padding: '11px 14px', borderRadius: '10px', fontSize: '0.84rem', fontWeight: 700, marginBottom: '14px' }}>
+                      ⚠️ Perhatian — Salah Lokasi/Jadwal: Tiket ini terdaftar untuk{' '}
+                      <strong>{parsedScan.acara?.nama_acara || 'kegiatan GPM lain'}</strong>
+                      {parsedScan.acara?.lokasi ? ` (${parsedScan.acara.lokasi})` : ''}.
+                    </div>
+                  )}
+
+                  <div className="result-data-grid" style={{ width: '100%' }}>
+                    <div className="data-item-col">
+                      <span className="data-item-lbl">Nomor Antrean</span>
+                      <span className="data-item-val big-queue">
+                        #{String(parsedScan.nomor_antrean || 1).padStart(3, '0')}
+                      </span>
                     </div>
 
-                    <div className="result-data-grid">
-                      <div className="data-item-col">
-                        <span className="data-item-lbl">Nomor Antrean</span>
-                        <span className="data-item-val big-queue">
-                          #{String(parsedScan.nomor_antrean || 1).padStart(3, '0')}
-                        </span>
-                      </div>
-
-                      <div className="data-item-col">
-                        <span className="data-item-lbl">Status Kehadiran</span>
-                        <div>
-                          <span className={`badge-status-attend ${parsedScan.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu'}`}>
-                            {parsedScan.status_kehadiran === 'Hadir' ? '✓ Sudah Hadir / Terlayani' : '⏳ Menunggu Verifikasi'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="data-item-col">
-                        <span className="data-item-lbl">Nama Lengkap</span>
-                        <span className="data-item-val">{parsedScan.nama_bersih}</span>
-                      </div>
-
-                      <div className="data-item-col">
-                        <span className="data-item-lbl">NIK (16 Digit)</span>
-                        <span className="data-item-val" style={{ fontWeight: 700, letterSpacing: '0.5px' }}>{parsedScan.nik || '-'}</span>
-                      </div>
-
-                      <div className="data-item-col">
-                        <span className="data-item-lbl">Jalur Pendaftaran</span>
-                        <div>
-                          <span className={parsedScan.jalur_pendaftaran === 'Langsung' ? 'badge-jalur-langsung' : 'badge-jalur-daring'}>
-                            {parsedScan.jalur_pendaftaran === 'Langsung' ? '📍 Langsung (Di Tempat)' : '🌐 Daring (Online)'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="data-item-col">
-                        <span className="data-item-lbl">Nomor Telepon / WhatsApp</span>
-                        <span className="data-item-val">{parsedScan.nomor_telepon}</span>
-                      </div>
-
-                      <div className="data-item-col" style={{ gridColumn: '1 / -1' }}>
-                        <span className="data-item-lbl">Lokasi Acara GPM</span>
-                        <span className="data-item-val">
-                          {parsedScan.acara ? parsedScan.acara.nama_acara : 'Gerakan Pangan Murah (GPM) Kota Manado'}
-                        </span>
-                      </div>
+                    <div className="data-item-col">
+                      <span className="data-item-lbl">Nama Lengkap</span>
+                      <span className="data-item-val" style={{ fontSize: '1.08rem', fontWeight: 800 }}>
+                        {parsedScan.nama_bersih}
+                      </span>
                     </div>
+
+                    <div className="data-item-col" style={{ gridColumn: parsedScan.no_kk ? undefined : '1 / -1' }}>
+                      <span className="data-item-lbl">NIK (16 Digit — Cocokkan dengan KTP)</span>
+                      <span className="data-item-val" style={{ fontFamily: 'monospace', fontSize: '1.12rem', fontWeight: 800, letterSpacing: '1px', color: '#0f172a' }}>
+                        {parsedScan.nik || '-'}
+                      </span>
+                    </div>
+
+                    {parsedScan.no_kk && (
+                      <div className="data-item-col">
+                        <span className="data-item-lbl">No. Kartu Keluarga (Opsional Mode Keluarga)</span>
+                        <span className="data-item-val" style={{ fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.6px' }}>
+                          {parsedScan.no_kk}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {parsedScan.acara?.terkunci_waktu || String(parsedScan.acara?.status || '').toLowerCase() === 'selesai' ? (
-                    <div style={{ background: '#fef2f2', color: '#991b1b', border: '1.5px solid #fca5a5', padding: '12px 16px', borderRadius: '10px', fontWeight: 700, fontSize: '0.88rem', marginTop: '12px' }}>
+                    <div style={{ background: '#fef2f2', color: '#991b1b', border: '1.5px solid #fca5a5', padding: '12px 16px', borderRadius: '10px', fontWeight: 700, fontSize: '0.88rem', marginTop: '14px' }}>
                       🔒 Verifikasi QR Dikunci: Jadwal kegiatan GPM ini telah berakhir ({parsedScan.acara?.jam_selesai || '-'} WITA / Selesai). Tiket tidak dapat diverifikasi lagi.
                     </div>
                   ) : parsedScan.status_kehadiran === 'Hadir' ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '14px' }}>
                       <div className="badge-verified-done">
                         ✅ Warga ini telah diverifikasi hadir ({parsedScan.status_pengambilan === 'Sudah Diambil' ? '📦 Pangan Sudah Diambil' : '⏳ Belum Mengambil Pangan'}).
                       </div>
@@ -948,7 +958,12 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan'
                       )}
                     </div>
                   ) : (
-                    <button className="btn-verify-success" onClick={handleKonfirmasiKehadiran}>
+                    <button
+                      type="button"
+                      className="btn-verify-success"
+                      style={{ marginTop: '14px' }}
+                      onClick={handleKonfirmasiKehadiran}
+                    >
                       <span>✓</span> Konfirmasi Kehadiran &amp; Layani Antrean #{parsedScan.nomor_antrean}
                     </button>
                   )}

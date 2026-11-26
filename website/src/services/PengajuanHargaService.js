@@ -788,9 +788,11 @@ export class PengajuanHargaService {
             if (Array.isArray(segar)) snapshotHarga = segar;
         }
 
-        // Ambil sisa draf yang masih berstatus Draft setelah paket disetujui
-        const sisaDraft = snapshotHarga.filter((h) => String(h.status || '').toLowerCase() === 'draft');
-        const targetDraft = jumlahPaketDisetujui > 0 ? sisaDraft : daftarDraftSatuan;
+        const targetDraft = Array.isArray(daftarDraftSatuan) && daftarDraftSatuan.length > 0
+            ? (jumlahPaketDisetujui > 0
+                ? snapshotHarga.filter((h) => String(h.status || '').toLowerCase() === 'draft')
+                : daftarDraftSatuan)
+            : [];
         const hasilDraft = await this.setujuiSemuaDraftSatuan(targetDraft, snapshotHarga);
 
         return {

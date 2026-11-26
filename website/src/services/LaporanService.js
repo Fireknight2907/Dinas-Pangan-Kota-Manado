@@ -1353,6 +1353,160 @@ class LaporanService {
         return this.cetakHtmlViaIframe(html);
     }
 
+    // 4D. Ekspor Excel (.xlsx) & Cetak PDF Resmi — Analisis Tren Fluktuasi Harga (Kepala Dinas / TPID)
+    eksporTrenHargaExcel(dataTren, opsi = {}) {
+        if (!dataTren || !dataTren.adaData || !Array.isArray(dataTren.titikData) || dataTren.titikData.length === 0) {
+            alert('Tidak ada data tren fluktuasi harga untuk diunduh ke Excel.');
+            return false;
+        }
+        const meta = this.normalisasiOpsiLaporan(opsi, 'Kepala Dinas Pangan Kota Manado');
+        const labelPeriode = dataTren.periode === '7hari' ? '7 Hari Terakhir' : dataTren.periode === '30hari' ? '30 Hari Terakhir' : '3 Bulan Terakhir';
+
+        const baris = [
+            { tinggi: 24, sel: [{ v: 'PEMERINTAH KOTA MANADO', s: 1 }] },
+            { tinggi: 20, sel: [{ v: 'DINAS PANGAN KOTA MANADO', s: 2 }] },
+            { tinggi: 17, sel: [{ v: `${this.alamatResmi} — Portal Resmi SIPATOKAAN`, s: 3 }] },
+            { tinggi: 8, sel: [] },
+            { tinggi: 22, sel: [{ v: `LAPORAN ANALISIS TREN HARGA KOMODITAS: ${String(dataTren.namaKomoditas || '').toUpperCase()}`, s: 4 }] },
+            {
+                tinggi: 20,
+                sel: [
+                    { v: 'Komoditas / Pasar', s: 5 },
+                    { v: `${dataTren.namaKomoditas} • ${dataTren.pasar === 'Semua' ? 'Semua Pasar Pantauan' : dataTren.pasar}`, s: 6 }, null,
+                    { v: 'Rentang Periode', s: 5 },
+                    { v: `${labelPeriode} (${meta.tanggalCetakWITA})`, s: 6 }, null
+                ]
+            },
+            {
+                tinggi: 20,
+                sel: [
+                    { v: 'Harga Terkini / Rata-Rata', s: 5 },
+                    { v: `${this.formatRupiah(dataTren.hargaTerkini)} • Rata-rata ${this.formatRupiah(dataTren.rataRata)}`, s: 6 }, null,
+                    { v: 'Status Tren / Rentang', s: 5 },
+                    { v: `${dataTren.statusTren} (${dataTren.selisih > 0 ? '+' : ''}${this.formatRupiah(dataTren.selisih)} / ${dataTren.persentase}%) • Min ${this.formatRupiah(dataTren.hargaTerendah)} – Maks ${this.formatRupiah(dataTren.hargaTertinggi)}`, s: 6 }, null
+                ]
+            },
+            { tinggi: 10, sel: [] },
+            {
+                tinggi: 26,
+                sel: [
+                    { v: 'No', s: 7 },
+                    { v: 'Waktu Tercatat', s: 7 },
+                    { v: 'Pasar Pantauan', s: 7 },
+                    { v: 'Harga Tercatat (Rp)', s: 7 },
+                    { v: 'Selisih (Rp)', s: 7 },
+                    { v: 'Keterangan', s: 7 }
+                ]
+            }
+        ];
+
+        dataTren.titikData.forEach((t, idx) => {
+            const zebra = idx % 2 === 1;
+            baris.push({
+                tinggi: 21,
+                sel: [
+                    { v: idx + 1, t: 'n', s: zebra ? 13 : 9 },
+                    { v: t.tanggalLengkap || t.tanggal || '-', s: zebra ? 12 : 8 },
+                    { v: t.pasar || '-', s: zebra ? 12 : 8 },
+                    { v: Number(t.harga) || 0, t: 'n', s: zebra ? 15 : 11 },
+                    { v: Number(t.selisih) || 0, t: 'n', s: zebra ? 15 : 11 },
+                    { v: t.keterangan || '-', s: zebra ? 12 : 8 }
+                ]
+            });
+        });
+
+        const ttdStart = baris.length + 2;
+        baris.push(
+            { tinggi: 14, sel: [] },
+            { tinggi: 19, sel: [null, null, null, { v: `Manado, ${meta.tanggalTtdID}`, s: 18 }] },
+            { tinggi: 19, sel: [null, null, null, { v: 'Mengetahui,', s: 18 }] },
+            { tinggi: 19, sel: [null, null, null, { v: meta.jabatan, s: 19 }] },
+            { tinggi: 18, sel: [] },
+            { tinggi: 18, sel: [] },
+            { tinggi: 18, sel: [] },
+            { tinggi: 20, sel: [null, null, null, { v: meta.barisNama, s: 19 }] },
+            { tinggi: 19, sel: [null, null, null, { v: meta.barisNip, s: 18 }] }
+        );
+
+        const slugKom = String(dataTren.namaKomoditas || 'Komoditas').replace(/[^a-zA-Z0-9_-]/g, '_');
+        return excelResmiService.unduhWorkbookXlsx(
+            `Analisis_Tren_${slugKom}_${meta.slugTanggal}.xlsx`,
+            [
+                {
+                    namaSheet: 'Analisis Tren Harga',
+                    lebarKolom: [6, 26, 22, 19, 17, 34],
+                    merges: [
+                        'A1:F1', 'A2:F2', 'A3:F3', 'A5:F5',
+                        'B6:C6', 'E6:F6', 'B7:C7', 'E7:F7',
+                        `D${ttdStart}:F${ttdStart}`,
+                        `D${ttdStart + 1}:F${ttdStart + 1}`,
+                        `D${ttdStart + 2}:F${ttdStart + 2}`,
+                        `D${ttdStart + 6}:F${ttdStart + 6}`,
+                        `D${ttdStart + 7}:F${ttdStart + 7}`
+                    ],
+                    baris
+                }
+            ]
+        );
+    }
+
+    cetakTrenHargaPDF(dataTren, opsi = {}) {
+        if (!dataTren || !dataTren.adaData || !Array.isArray(dataTren.titikData) || dataTren.titikData.length === 0) {
+            alert('Tidak ada data tren fluktuasi harga untuk dicetak ke PDF.');
+            return false;
+        }
+        const meta = this.normalisasiOpsiLaporan(opsi, 'Kepala Dinas Pangan Kota Manado');
+        const labelPeriode = dataTren.periode === '7hari' ? '7 Hari Terakhir' : dataTren.periode === '30hari' ? '30 Hari Terakhir' : '3 Bulan Terakhir';
+        const logoUrl = `${window.location.origin}/logodinaspangan.png`;
+
+        const rowsHtml = [...dataTren.titikData].reverse().map((t, idx) => `
+            <tr>
+                <td class="tengah">${idx + 1}</td>
+                <td>${this.escapeHtml(t.tanggalLengkap || t.tanggal || '-')}</td>
+                <td>${this.escapeHtml(t.pasar || '-')}</td>
+                <td class="kanan tebal">${this.escapeHtml(this.formatRupiah(t.harga))}</td>
+                <td class="kanan">${t.selisih > 0 ? `+${this.escapeHtml(this.formatRupiah(t.selisih))}` : t.selisih < 0 ? `-${this.escapeHtml(this.formatRupiah(Math.abs(t.selisih)))}` : 'Tetap'}</td>
+                <td>${this.escapeHtml(t.keterangan || '-')}</td>
+            </tr>
+        `).join('');
+
+        const html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8" /><title>Analisis Tren Harga - ${this.escapeHtml(dataTren.namaKomoditas)}</title><style>${this.bangunCssCetakA4('portrait')}</style></head><body>
+          <div class="kop-surat">
+            <img src="${this.escapeHtml(logoUrl)}" alt="Logo Dinas Pangan" class="kop-logo" />
+            <div class="kop-teks">
+              <p class="kop-pemkot">PEMERINTAH KOTA MANADO</p>
+              <p class="kop-dinas">DINAS PANGAN KOTA MANADO</p>
+              <p class="kop-alamat">${this.escapeHtml(this.alamatResmi)}</p>
+            </div>
+          </div>
+          <div class="judul-dokumen">
+            <h1>Analisis Fluktuasi Harga Komoditas: ${this.escapeHtml(dataTren.namaKomoditas)}</h1>
+            <p>Pasar: ${this.escapeHtml(dataTren.pasar === 'Semua' ? 'Semua Pasar Pantauan' : dataTren.pasar)} • Periode: ${this.escapeHtml(labelPeriode)} • Dicetak: ${this.escapeHtml(meta.tanggalCetakWITA)}</p>
+          </div>
+          <div class="kpi-strip">
+            <div class="kpi-box"><div class="kpi-label">Harga Terkini</div><div class="kpi-nilai">${this.escapeHtml(this.formatRupiah(dataTren.hargaTerkini))}</div></div>
+            <div class="kpi-box"><div class="kpi-label">Rata-Rata</div><div class="kpi-nilai">${this.escapeHtml(this.formatRupiah(dataTren.rataRata))}</div></div>
+            <div class="kpi-box"><div class="kpi-label">Min – Maks</div><div class="kpi-nilai" style="font-size:11px;">${this.escapeHtml(this.formatRupiah(dataTren.hargaTerendah))} – ${this.escapeHtml(this.formatRupiah(dataTren.hargaTertinggi))}</div></div>
+            <div class="kpi-box"><div class="kpi-label">Status Tren</div><div class="kpi-nilai">${this.escapeHtml(dataTren.statusTren)} (${dataTren.persentase}%)</div></div>
+          </div>
+          <table>
+            <thead><tr><th class="tengah" style="width:28px;">No</th><th>Waktu Tercatat</th><th>Pasar</th><th class="kanan">Harga</th><th class="kanan">Perubahan</th><th>Keterangan</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+          <div class="ttd-wrap"><div class="ttd-box">
+            <p>Manado, ${this.escapeHtml(meta.tanggalTtdID)}</p>
+            <p>Mengetahui,</p>
+            <p class="tebal">${this.escapeHtml(meta.jabatan)}</p>
+            <p>${this.escapeHtml(this.instansi)}</p>
+            <div class="ttd-ruang"></div>
+            <p class="ttd-nama">${this.escapeHtml(meta.barisNama)}</p>
+            <p>${this.escapeHtml(meta.barisNip)}</p>
+          </div></div>
+        </body></html>`;
+
+        return this.cetakHtmlViaIframe(html);
+    }
+
     // 5. Cadangan CSV Kompatibel Excel Indonesia (sep=; + delimiter titik koma)
     eksporLaporanHargaCSV(daftarKomoditas, penandatangan = {}) {
         if (!daftarKomoditas || daftarKomoditas.length === 0) {
