@@ -12,6 +12,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import QRCodeComponent from './QRCodeComponent';
+import { tiketGPMService } from '../services/TiketGPMService';
 import { gpmService } from '../services/GPMService';
 import { jadwalGPMService } from '../services/JadwalGPMService';
 import './GPMWeb.css';
@@ -266,7 +267,13 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
     }
   };
 
-  const handlePrintTiket = () => window.print();
+  const handleUnduhTiketPNG = async () => {
+    try {
+      await tiketGPMService.unduhTiketPNG(tiketHasil);
+    } catch (err) {
+      alert(err?.message || 'Gagal mengunduh gambar tiket.');
+    }
+  };
 
   const pilihLokasiLainTersedia = () => {
     const alternatif = daftarAcaraAktif.find(
@@ -597,12 +604,12 @@ export default function GPMWeb({ onKembaliKeHarga, onBukaLogin }) {
                       </div>
 
                       <div className="ticket-scan-instruction">
-                        📱 <strong>Petunjuk:</strong> Tiket ini menampilkan data ringkas demi privasi (NIK tidak ditampilkan di tiket publik sesuai UU PDP). Tunjukkan Kode QR ini bersama KTP fisik kepada petugas di lokasi GPM <strong>sebelum jam selesai berakhir</strong>.
+                        📱 <strong>Petunjuk:</strong> Tunjukkan Kode QR ini bersama KTP fisik kepada petugas di lokasi GPM <strong>sebelum jam pelaksanaan berakhir</strong>.
                       </div>
 
                       <div className="ticket-actions-row">
-                        <button className="btn-ticket-print" onClick={handlePrintTiket}>🖨️ Cetak / Simpan Tiket</button>
-                        <button className="btn-ticket-new" onClick={() => setTiketHasil(null)}>➕ Daftar Lagi</button>
+                        <button type="button" className="btn-ticket-print" onClick={handleUnduhTiketPNG}>📥 Unduh Tiket (PNG)</button>
+                        <button type="button" className="btn-ticket-new" onClick={() => setTiketHasil(null)}>➕ Daftar Lagi</button>
                       </div>
                     </div>
                   </div>

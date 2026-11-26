@@ -473,19 +473,24 @@
 }
 
 .ticket-details-summary p {
-  margin: 5px 0;
+  margin: 6px 0;
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .ticket-details-summary span.lbl {
   color: #6c757d;
   font-weight: 500;
+  flex-shrink: 0;
 }
 
 .ticket-details-summary span.val {
   font-weight: 700;
   color: #212529;
+  text-align: right;
+  word-break: break-word;
 }
 
 .ticket-scan-instruction {
@@ -502,30 +507,55 @@
 .ticket-actions-row {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .btn-ticket-print {
   flex: 1;
-  background: #2a5298;
+  min-width: 170px;
+  background: #8b1e1e;
   color: #ffffff;
   border: none;
-  padding: 10px 14px;
+  padding: 11px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(139, 30, 30, 0.22);
+}
+
+.btn-ticket-print:hover {
+  background: #6b1414;
+}
+
+.btn-ticket-new {
+  flex: 1;
+  min-width: 140px;
+  background: #e9ecef;
+  color: #495057;
+  border: none;
+  padding: 11px 14px;
   border-radius: 8px;
   font-weight: 700;
   font-size: 0.92rem;
   cursor: pointer;
 }
 
-.btn-ticket-new {
-  flex: 1;
-  background: #e9ecef;
-  color: #495057;
-  border: none;
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-weight: 700;
-  font-size: 0.92rem;
-  cursor: pointer;
+@media (max-width: 560px) {
+  .ticket-details-summary p {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .ticket-details-summary span.val {
+    text-align: left;
+  }
+  .ticket-actions-row {
+    flex-direction: column;
+  }
+  .btn-ticket-print,
+  .btn-ticket-new {
+    width: 100%;
+  }
 }
 
 /* Print Friendly Styles */

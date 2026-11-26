@@ -13,7 +13,6 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import QRCodeComponent from './QRCodeComponent';
 import { gpmService } from '../services/GPMService';
 import { jadwalGPMService } from '../services/JadwalGPMService';
 import { masterDataService } from '../services/MasterDataService';
@@ -48,27 +47,32 @@ function PenentuTitikPeta({ posisi, onPilihTitik }) {
   ) : null;
 }
 
-export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan' }) {
+export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'daftar' }) {
   // ─────────────────────────────────────────────
-  // 1. STATE MANAGEMENT
+  // 1. STATE MANAGEMENT (MASTER-DETAIL EVENT WORKSPACE)
   // ─────────────────────────────────────────────
-  const [subTab, setSubTab] = useState(subTabAwal || 'scan'); // 'scan', 'antrean', 'buat-gpm', 'riwayat'
+  const [modeTampilan, setModeTampilan] = useState(
+    subTabAwal === 'buat-gpm' ? 'buat-gpm' : 'daftar'
+  ); // 'daftar' | 'kelola-acara' | 'buat-gpm'
+  const [tabDaftar, setTabDaftar] = useState(subTabAwal === 'riwayat' ? 'riwayat' : 'aktif'); // 'aktif' | 'riwayat'
+  const [tabAcara, setTabAcara] = useState(subTabAwal === 'antrean' ? 'antrean' : 'scan'); // 'scan' | 'antrean'
 
   useEffect(() => {
-    if (subTabAwal) setSubTab(subTabAwal);
+    if (subTabAwal === 'buat-gpm') {
+      setModeTampilan('buat-gpm');
+    } else if (subTabAwal === 'riwayat') {
+      setModeTampilan('daftar');
+      setTabDaftar('riwayat');
+    } else {
+      setModeTampilan('daftar');
+      setTabDaftar('aktif');
+    }
   }, [subTabAwal]);
   
   // Data Acara & Pendaftar
   const [daftarAcara, setDaftarAcara] = useState([]);
   const [acaraTerpilihId, setAcaraTerpilihId] = useState('');
   const [daftarPendaftar, setDaftarPendaftar] = useState([]);
-  const [statistikGlobal, setStatistikGlobal] = useState({
-    total_gpm: 0,
-    gpm_aktif: 0,
-    total_antrean: 0,
-    total_hadir: 0,
-    total_menunggu: 0
-  });
 
   // State Fitur Scan QR Code
   const [inputQRCode, setInputQRCode] = useState('');
@@ -239,17 +243,6 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan'
       } else {
         setDaftarPendaftar([]);
       }
-
-      const totalAntrean = semuaAcara.reduce((acc, a) => acc + (Number(a.antrean_terisi) || 0), 0);
-      const totalHadir = semuaAcara.reduce((acc, a) => acc + (Number(a.total_hadir) || 0), 0);
-      setStatistikGlobal({
-        total_gpm: semuaAcara.length,
-        gpm_aktif: acaraAktif.length,
-        gpm_selesai: riwayat.length,
-        total_antrean: totalAntrean,
-        total_hadir: totalHadir,
-        total_menunggu: Math.max(0, totalAntrean - totalHadir)
-      });
     } catch (err) {
       console.error('[PetugasGPM] Error muat data:', err);
     }
@@ -313,7 +306,8 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan'
       await gpmService.selesaikanAcara(acaraId);
       setNotifSukses(`✅ Kegiatan "${acara.nama_acara}" resmi diselesaikan dan diarsipkan ke menu Riwayat GPM.`);
       await muatDataAwal();
-      setSubTab('riwayat');
+      setModeTampilan('daftar');
+      setTabDaftar('riwayat');
     } catch (err) {
       alert('Gagal menyelesaikan kegiatan: ' + (err.message || 'Terjadi kesalahan sistem'));
     } finally {
@@ -452,9 +446,35 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan'
     }
   };
 
-  // Konfirmasi Kehadiran / Layani Pendaftar
+  const handleBukaKelolaAcara = (acara, tabTarget = 'scan') => {
+    if (!acara) return;
+    handleHentikanScanKamera();
+    setAcaraTerpilihId(acara.id);
+    setHasilScanPendaftar(null);
+    setPesanScanError('');
+    setInputQRCode('');
+    setFilterCariTabel('');
+    setTabAcara(tabTarget);
+    setModeTampilan('kelola-acara');
+    muatPendaftar(acara.id);
+  };
+
+  const handleKembaliKeDaftar = (tabTujuan = null) => {
+    handleHentikanScanKamera();
+    setHasilScanPendaftar(null);
+    setPesanScanError('');
+    if (tabTujuan) setTabDaftar(tabTujuan);
+    setModeTampilan('daftar');
+  };
+
+  // Konfirmasi Kehadiran / Layani Pendaftar (terkunci ke acara yang sedang dibuka)
   const handleKonfirmasiKehadiran = async () => {
     if (!hasilScanPendaftar) return;
+    const idAcaraScan = hasilScanPendaftar.acara_id || hasilScanPendaftar.acara?.id || '';
+    if (modeTampilan === 'kelola-acara' && acaraTerpilihId && idAcaraScan && String(idAcaraScan) !== String(acaraTerpilihId)) {
+      alert('Tiket ini milik kegiatan GPM lain! Silakan buka kegiatan GPM yang sesuai terlebih dahulu.');
+      return;
+    }
     try {
       await gpmService.verifikasiKehadiran(hasilScanPendaftar.kode_barcode, 'Hadir', pengguna?.id || null);
       setStatusVerifikasiSukses(true);
@@ -486,10 +506,14 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan'
   };
 
   // Buka Modal Tambah Pendaftar Manual (Walk-In / Di Tempat saat Pelaksanaan)
-  const handleBukaModalManual = () => {
+  const handleBukaModalManual = (acaraOverrideId = null) => {
+    if (daftarAcara.length === 0) {
+      alert('Belum ada kegiatan GPM yang aktif. Silakan jadwalkan acara GPM terlebih dahulu.');
+      return;
+    }
     setModalTambahManual({
       buka: true,
-      acaraId: acaraTerpilihId || (daftarAcara[0] ? daftarAcara[0].id : ''),
+      acaraId: acaraOverrideId || acaraTerpilihId || (daftarAcara[0] ? daftarAcara[0].id : ''),
       nama: '',
       nik: '',
       telepon: '',
@@ -627,6 +651,8 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan'
       });
 
       await muatDataAwal();
+      setModeTampilan('daftar');
+      setTabDaftar('aktif');
     } catch (err) {
       alert('Gagal menambah acara GPM: ' + err.message);
     } finally {
@@ -670,544 +696,748 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan'
     );
   });
 
+  const acaraSedangDikelola = daftarAcara.find((a) => String(a.id) === String(acaraTerpilihId)) || null;
+
   return (
     <div className="petugas-gpm-wrap">
-      {/* ─────────────────────────────────────────────
-          1. STATISTIK GLOBAL GPM (4 KARTU MODERN)
-          ───────────────────────────────────────────── */}
-      <div className="gpm-stats-grid-row">
-        <div className="gpm-mini-stat-card">
-          <div className="stat-card-icon-box icon-red">📍</div>
-          <div className="stat-card-info">
-            <div className="stat-card-val">{statistikGlobal.total_gpm}</div>
-            <div className="stat-card-label">Total Acara GPM</div>
-            <div className="stat-card-sub">titik pelaksanaan</div>
-          </div>
-        </div>
-
-        <div className="gpm-mini-stat-card">
-          <div className="stat-card-icon-box icon-blue">🎟️</div>
-          <div className="stat-card-info">
-            <div className="stat-card-val">{statistikGlobal.total_antrean}</div>
-            <div className="stat-card-label">Total Antrean</div>
-            <div className="stat-card-sub">warga terdaftar</div>
-          </div>
-        </div>
-
-        <div className="gpm-mini-stat-card">
-          <div className="stat-card-icon-box icon-green">✅</div>
-          <div className="stat-card-info">
-            <div className="stat-card-val">{statistikGlobal.total_hadir}</div>
-            <div className="stat-card-label">Hadir / Terlayani</div>
-            <div className="stat-card-sub">terverifikasi QR</div>
-          </div>
-        </div>
-
-        <div className="gpm-mini-stat-card">
-          <div className="stat-card-icon-box icon-amber">⏳</div>
-          <div className="stat-card-info">
-            <div className="stat-card-val">{statistikGlobal.total_menunggu}</div>
-            <div className="stat-card-label">Antrean Menunggu</div>
-            <div className="stat-card-sub">belum dipindai di lokasi</div>
-          </div>
-        </div>
-      </div>
-
       {notifSukses && (
         <div style={{ background: '#dcfce7', color: '#166534', padding: '14px 18px', borderRadius: '10px', border: '1px solid #bbf7d0', fontWeight: 600 }}>
           {notifSukses}
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────
-          2. NAVIGASI SUBTAB (MODERN PILL TABS)
-          ───────────────────────────────────────────── */}
-      <div className="gpm-officer-subnav">
-        <button
-          className={`subnav-btn ${subTab === 'scan' ? 'active' : ''}`}
-          onClick={() => setSubTab('scan')}
-        >
-          📷 Pindai Kode QR Tiket
-        </button>
-        <button
-          className={`subnav-btn ${subTab === 'antrean' ? 'active' : ''}`}
-          onClick={() => setSubTab('antrean')}
-        >
-          👥 Rekap Antrean & Pendaftar ({daftarPendaftar.length})
-        </button>
-        <button
-          className={`subnav-btn ${subTab === 'buat-gpm' ? 'active' : ''}`}
-          onClick={() => setSubTab('buat-gpm')}
-        >
-          ➕ Jadwalkan Acara & Titik Peta
-        </button>
-        <button
-          className={`subnav-btn ${subTab === 'riwayat' ? 'active' : ''}`}
-          onClick={() => setSubTab('riwayat')}
-        >
-          📜 Riwayat GPM ({daftarRiwayat.length})
-        </button>
-      </div>
-
-      {/* ─────────────────────────────────────────────
-          3. VIEW SUBTAB 1: FITUR SCAN QR CODE
-          ───────────────────────────────────────────── */}
-      {subTab === 'scan' && (
-        <div className="scan-panel-card">
-          <div className="scan-box-header">
-            <div className="scan-box-icon">📷</div>
-            <h2 className="scan-box-title">Verifikasi Kode QR Tiket Antrean Warga</h2>
-            <p className="scan-box-desc">
-              Pindai kode QR tiket masyarakat untuk mencocokkan Nomor Antrean, Nama, dan NIK dengan KTP fisik di lokasi GPM.
-            </p>
-          </div>
-
-          {daftarAcara.length > 1 && (
-            <div style={{ maxWidth: '520px', margin: '0 auto 14px auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 14px' }}>
-              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
-                📍 Lokasi Jaga GPM Saat Ini (Deteksi Otomatis Salah Lokasi):
-              </label>
-              <select
-                value={acaraTerpilihId}
-                onChange={(e) => {
-                  setAcaraTerpilihId(e.target.value);
-                  muatPendaftar(e.target.value);
-                }}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.84rem', fontWeight: 600, background: '#ffffff' }}
+      {/* ═══════════════════════════════════════════════════════════════════
+          MODE 1: HALAMAN UTAMA DAFTAR GPM (AKTIF/DIJADWALKAN + RIWAYAT)
+          ═══════════════════════════════════════════════════════════════════ */}
+      {modeTampilan === 'daftar' && (
+        <>
+          <div className="gpm-workspace-top-bar">
+            <div className="gpm-list-tabs">
+              <button
+                type="button"
+                className={`gpm-list-tab-btn ${tabDaftar === 'aktif' ? 'active' : ''}`}
+                onClick={() => setTabDaftar('aktif')}
               >
-                {daftarAcara.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nama_acara} — {a.lokasi} ({a.tanggal})
-                  </option>
-                ))}
-              </select>
+                🎟️ GPM Aktif / Dijadwalkan ({daftarAcara.length})
+              </button>
+              <button
+                type="button"
+                className={`gpm-list-tab-btn ${tabDaftar === 'riwayat' ? 'active' : ''}`}
+                onClick={() => setTabDaftar('riwayat')}
+              >
+                📜 Riwayat Selesai ({daftarRiwayat.length})
+              </button>
             </div>
-          )}
-
-          {/* Tombol Pemindai Kamera Langsung & Tombol Tambah Manual (Walk-in) */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '18px' }}>
-            {!kameraAktif ? (
-              <button
-                type="button"
-                onClick={handleMulaiScanKamera}
-                style={{
-                  background: '#8b1e1e',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '12px 24px',
-                  borderRadius: '10px',
-                  fontWeight: 700,
-                  fontSize: '0.94rem',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  boxShadow: '0 4px 14px rgba(139, 30, 30, 0.28)',
-                  transition: 'transform 0.15s ease'
-                }}
-              >
-                📷 Buka Kamera Pemindai (Scan QR Langsung)
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleHentikanScanKamera}
-                style={{
-                  background: '#475569',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '10px 22px',
-                  borderRadius: '10px',
-                  fontWeight: 700,
-                  fontSize: '0.9rem',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                ✕ Tutup Kamera
-              </button>
-            )}
 
             <button
               type="button"
-              className="btn-tambah-manual"
-              onClick={handleBukaModalManual}
-              title="Daftarkan warga yang datang di tempat tanpa membawa HP/smartphone"
+              className="gpm-btn-schedule-new"
+              onClick={() => setModeTampilan('buat-gpm')}
             >
-              ➕ Tambah Manual (Di Tempat)
+              ➕ Jadwalkan GPM Baru
             </button>
           </div>
 
-          {/* Kotak Bidik Kamera Scanner */}
-          {kameraAktif && (
-            <div style={{ maxWidth: '380px', margin: '0 auto 22px auto', background: '#0f172a', borderRadius: '14px', overflow: 'hidden', padding: '10px', boxShadow: '0 6px 20px rgba(0,0,0,0.25)' }}>
-              <div id="webQrReader" style={{ width: '100%', borderRadius: '10px', overflow: 'hidden' }}></div>
-              <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem', margin: '8px 0 2px 0' }}>
-                Arahkan kamera ke layar ponsel warga atau lembar tiket antrean
-              </p>
-            </div>
-          )}
-
-          {/* Garis Pemisah Opsi Manual */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: '18px auto', maxWidth: '620px' }}>
-            <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }}></div>
-            <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Atau Masukkan Kode Tiket Manual (Laptop/PC)</span>
-            <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }}></div>
-          </div>
-
-          <form onSubmit={handleEksekusiScan} className="scan-input-row">
-            <input
-              type="text"
-              className="scan-input-text"
-              placeholder="Masukan kode QR tiket (Contoh: GPM-TIKA-001-A9F2)"
-              value={inputQRCode}
-              onChange={(e) => setInputQRCode(e.target.value)}
-            />
-            <button type="submit" className="btn-exec-scan" disabled={sedangScan}>
-              <span>{sedangScan ? 'Memindai...' : '🔍 Pindai & Verifikasi'}</span>
-            </button>
-          </form>
-
-          {pesanScanError && (
-            <div style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', padding: '14px 18px', borderRadius: '10px', marginTop: '18px', maxWidth: '620px', margin: '18px auto 0 auto' }}>
-              ⚠️ {pesanScanError}
-            </div>
-          )}
-
-          {/* KARTU HASIL SCAN (RINGKAS: NOMOR ANTREAN, NAMA, NIK + DETEKSI SALAH LOKASI) */}
-          {hasilScanPendaftar && (() => {
-            const parsedScan = gpmService.parseDataPendaftar(hasilScanPendaftar);
-            const idAcaraScan = parsedScan.acara_id || parsedScan.acara?.id || '';
-            const salahLokasi = Boolean(
-              acaraTerpilihId &&
-              idAcaraScan &&
-              String(idAcaraScan) !== String(acaraTerpilihId)
-            );
-            return (
-              <div className="scan-result-profile-card">
-                <div className="result-card-banner">
-                  <span className="result-banner-title">
-                    <span>✓</span> DATA PENDAFTAR VALID
-                  </span>
-                  <span className={`badge-status-attend ${parsedScan.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu'}`}>
-                    {parsedScan.status_kehadiran === 'Hadir' ? '✓ Sudah Hadir' : '⏳ Menunggu Verifikasi'}
-                  </span>
+          {/* TAB 1A: DAFTAR GPM AKTIF / DIJADWALKAN */}
+          {tabDaftar === 'aktif' && (
+            <div className="gpm-history-panel">
+              <div className="history-header-bar">
+                <div>
+                  <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>
+                    🎟️ Daftar GPM Aktif &amp; Dijadwalkan
+                  </h2>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>
+                    Pilih salah satu acara GPM di bawah untuk membuka ruang kerja (Pindai QR Tiket, Rekap Antrean, dan Pendaftaran Manual).
+                  </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={muatDataAwal}
+                  style={{ padding: '8px 14px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.84rem' }}
+                >
+                  🔄 Segarkan
+                </button>
+              </div>
 
-                <div className="result-card-body">
-                  {salahLokasi && (
-                    <div style={{ background: '#fef2f2', color: '#991b1b', border: '1.5px solid #fca5a5', padding: '11px 14px', borderRadius: '10px', fontSize: '0.84rem', fontWeight: 700, marginBottom: '14px' }}>
-                      ⚠️ Perhatian — Salah Lokasi/Jadwal: Tiket ini terdaftar untuk{' '}
-                      <strong>{parsedScan.acara?.nama_acara || 'kegiatan GPM lain'}</strong>
-                      {parsedScan.acara?.lokasi ? ` (${parsedScan.acara.lokasi})` : ''}.
-                    </div>
-                  )}
-
-                  <div className="result-data-grid" style={{ width: '100%' }}>
-                    <div className="data-item-col">
-                      <span className="data-item-lbl">Nomor Antrean</span>
-                      <span className="data-item-val big-queue">
-                        #{String(parsedScan.nomor_antrean || 1).padStart(3, '0')}
-                      </span>
-                    </div>
-
-                    <div className="data-item-col">
-                      <span className="data-item-lbl">Nama Lengkap</span>
-                      <span className="data-item-val" style={{ fontSize: '1.08rem', fontWeight: 800 }}>
-                        {parsedScan.nama_bersih}
-                      </span>
-                    </div>
-
-                    <div className="data-item-col" style={{ gridColumn: parsedScan.no_kk ? undefined : '1 / -1' }}>
-                      <span className="data-item-lbl">NIK (16 Digit — Cocokkan dengan KTP)</span>
-                      <span className="data-item-val" style={{ fontFamily: 'monospace', fontSize: '1.12rem', fontWeight: 800, letterSpacing: '1px', color: '#0f172a' }}>
-                        {parsedScan.nik || '-'}
-                      </span>
-                    </div>
-
-                    {parsedScan.no_kk && (
-                      <div className="data-item-col">
-                        <span className="data-item-lbl">No. Kartu Keluarga (Opsional Mode Keluarga)</span>
-                        <span className="data-item-val" style={{ fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.6px' }}>
-                          {parsedScan.no_kk}
-                        </span>
-                      </div>
+              {daftarAcara.length === 0 ? (
+                <div className="empty-history-box">
+                  <span style={{ fontSize: '2.6rem', display: 'block', marginBottom: '10px' }}>📭</span>
+                  <h4 style={{ margin: '0 0 6px 0', color: '#0f172a', fontSize: '1.08rem' }}>
+                    Belum Ada Kegiatan GPM yang Dijadwalkan
+                  </h4>
+                  <p style={{ margin: '0 auto 18px auto', maxWidth: '460px', fontSize: '0.86rem', color: '#64748b', lineHeight: 1.5 }}>
+                    Jadwalkan acara GPM terlebih dahulu agar muncul di sini dan siap menerima pendaftaran warga, pemindaian QR tiket, maupun pendaftaran manual di lokasi.
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="gpm-btn-schedule-new"
+                      onClick={() => setModeTampilan('buat-gpm')}
+                    >
+                      ➕ Jadwalkan GPM Pertama
+                    </button>
+                    {daftarRiwayat.length > 0 && (
+                      <button
+                        type="button"
+                        className="btn-action-view"
+                        style={{ padding: '10px 16px', fontSize: '0.86rem' }}
+                        onClick={() => setTabDaftar('riwayat')}
+                      >
+                        📜 Lihat {daftarRiwayat.length} Riwayat GPM Selesai
+                      </button>
                     )}
                   </div>
+                </div>
+              ) : (
+                <div className="gpm-active-cards-grid">
+                  {daftarAcara.map((acara) => {
+                    const st = acara.statusOperasional;
+                    const menungguCount = Math.max(0, (st.terisi || 0) - (st.totalHadir || 0));
+                    const satuan = String(acara.mode_penerima || 'individu').toLowerCase() === 'keluarga' ? 'KK' : 'Warga';
+                    return (
+                      <div key={acara.id} className="gpm-active-event-card">
+                        <div className="gpm-aec-top">
+                          <span className={`gpm-aec-status-pill ${st.kuotaPenuh ? 'is-full' : 'is-open'}`}>
+                            {st.label}
+                          </span>
+                          <span className="gpm-aec-mode-pill">
+                            {satuan === 'KK' ? '👨‍👩‍👧‍👦 1 KK' : '👤 1 NIK'}
+                          </span>
+                        </div>
 
-                  {parsedScan.acara?.terkunci_waktu || String(parsedScan.acara?.status || '').toLowerCase() === 'selesai' ? (
-                    <div style={{ background: '#fef2f2', color: '#991b1b', border: '1.5px solid #fca5a5', padding: '12px 16px', borderRadius: '10px', fontWeight: 700, fontSize: '0.88rem', marginTop: '14px' }}>
-                      🔒 Verifikasi QR Dikunci: Jadwal kegiatan GPM ini telah berakhir ({parsedScan.acara?.jam_selesai || '-'} WITA / Selesai). Tiket tidak dapat diverifikasi lagi.
-                    </div>
-                  ) : parsedScan.status_kehadiran === 'Hadir' ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '14px' }}>
-                      <div className="badge-verified-done">
-                        ✅ Warga ini telah diverifikasi hadir ({parsedScan.status_pengambilan === 'Sudah Diambil' ? '📦 Pangan Sudah Diambil' : '⏳ Belum Mengambil Pangan'}).
-                      </div>
-                      {parsedScan.status_pengambilan !== 'Sudah Diambil' && (
+                        <h3 className="gpm-aec-title">{acara.nama_acara}</h3>
+                        <p className="gpm-aec-sub">📍 {acara.lokasi} (Kec. {acara.kecamatan})</p>
+                        <p className="gpm-aec-sub">📅 {jadwalGPMService.formatTanggalID(acara.tanggal)} · ⏰ {acara.jam_mulai}–{acara.jam_selesai} WITA</p>
+
+                        <div className="gpm-aec-metrics">
+                          <div className="gpm-aec-m">
+                            <span>Kuota</span>
+                            <strong>{st.kuotaMaks}</strong>
+                          </div>
+                          <div className="gpm-aec-m">
+                            <span>Daftar</span>
+                            <strong style={{ color: '#1d4ed8' }}>{st.terisi}</strong>
+                          </div>
+                          <div className="gpm-aec-m">
+                            <span>Hadir</span>
+                            <strong style={{ color: '#15803d' }}>{st.totalHadir}</strong>
+                          </div>
+                          <div className="gpm-aec-m">
+                            <span>Menunggu</span>
+                            <strong style={{ color: '#b45309' }}>{menungguCount}</strong>
+                          </div>
+                        </div>
+
+                        <div className="gpm-aec-progress">
+                          <div className="gpm-aec-progress-fill" style={{ width: `${st.persenTerisi}%` }} />
+                        </div>
+
+                        {acara.komoditas_tersedia && (
+                          <div className="gpm-aec-komoditas">
+                            🌾 {acara.komoditas_tersedia}
+                          </div>
+                        )}
+
                         <button
                           type="button"
-                          className="btn-verify-success"
-                          style={{ background: '#0369a1' }}
-                          onClick={() => handleKonfirmasiPengambilan(parsedScan.id, true)}
+                          className="gpm-aec-open-btn"
+                          onClick={() => handleBukaKelolaAcara(acara, 'scan')}
                         >
-                          📦 Konfirmasi Pengambilan Bahan Pangan
+                          📂 Kelola Acara (Scan QR &amp; Antrean) →
                         </button>
-                      )}
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn-verify-success"
-                      style={{ marginTop: '14px' }}
-                      onClick={handleKonfirmasiKehadiran}
-                    >
-                      <span>✓</span> Konfirmasi Kehadiran &amp; Layani Antrean #{parsedScan.nomor_antrean}
-                    </button>
-                  )}
+
+                        <div className="gpm-aec-secondary-row">
+                          <button
+                            type="button"
+                            className="btn-action-view"
+                            style={{ flex: 1 }}
+                            disabled={!st.bisaDaftar}
+                            onClick={() => handleBukaModalManual(acara.id)}
+                          >
+                            ➕ Manual
+                          </button>
+                          {isKabid && (
+                            <button
+                              type="button"
+                              className="btn-action-view"
+                              style={{ flex: 1, color: '#1d4ed8', background: '#eff6ff', borderColor: '#bfdbfe' }}
+                              onClick={() => handleBukaModalUbahKuota(acara)}
+                            >
+                              🔧 Kuota
+                            </button>
+                          )}
+                          {isKabid && (
+                            <button
+                              type="button"
+                              className="btn-action-delete"
+                              style={{ marginLeft: 0, flex: 1 }}
+                              disabled={sedangSelesaikanAcara}
+                              onClick={() => handleSelesaikanAcara(acara.id)}
+                            >
+                              🔒 Selesai
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 1B: RIWAYAT GPM SELESAI */}
+          {tabDaftar === 'riwayat' && (
+            <div className="gpm-history-panel">
+              <div className="history-header-bar">
+                <div>
+                  <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>
+                    📜 Riwayat Kegiatan Gerakan Pangan Murah (GPM)
+                  </h2>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>
+                    Arsip kegiatan GPM yang telah diselesaikan atau melewati jam tutup WITA. {isKabid ? 'Kepala Bidang dapat mengunduh Excel dan menghapus arsip.' : 'Staf dapat meninjau antrean dan mengunduh Excel.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={muatDataAwal}
+                  style={{ padding: '8px 14px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.84rem' }}
+                >
+                  🔄 Segarkan
+                </button>
               </div>
-            );
-          })()}
-        </div>
+
+              {daftarRiwayat.length === 0 ? (
+                <div className="empty-history-box">
+                  <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '8px' }}>📭</span>
+                  <h4 style={{ margin: '0 0 6px 0', color: '#1e293b' }}>Belum Ada Riwayat Kegiatan GPM</h4>
+                  <p style={{ margin: 0, fontSize: '0.86rem', color: '#64748b' }}>
+                    Kegiatan GPM yang telah diselesaikan akan otomatis terarsip di sini.
+                  </p>
+                </div>
+              ) : (
+                <div className="history-cards-grid">
+                  {daftarRiwayat.map((acara) => (
+                    <div key={acara.id} className="history-card-item">
+                      <div className="history-card-head">
+                        <div>
+                          <span className="badge-closed-tag">✓ Kegiatan Selesai</span>
+                          <h3 className="history-item-title">{acara.nama_acara}</h3>
+                          <p className="history-item-sub">📍 {acara.lokasi} (Kec. {acara.kecamatan})</p>
+                        </div>
+                      </div>
+
+                      <div className="history-card-meta">
+                        <div className="meta-col">
+                          <span className="meta-lbl">Pelaksanaan</span>
+                          <span className="meta-val">📅 {acara.tanggal} ({acara.jam_mulai} - {acara.jam_selesai} WITA)</span>
+                        </div>
+                        <div className="meta-stats-row meta-stats-row-3">
+                          <div className="stat-pill">
+                            <span className="stat-pill-num">{acara.kuota_maksimal || 0}</span>
+                            <span className="stat-pill-label">Kuota</span>
+                          </div>
+                          <div className="stat-pill">
+                            <span className="stat-pill-num" style={{ color: '#1d4ed8' }}>{acara.antrean_terisi || 0}</span>
+                            <span className="stat-pill-label">Daftar</span>
+                          </div>
+                          <div className="stat-pill">
+                            <span className="stat-pill-num" style={{ color: '#15803d' }}>{acara.total_hadir || 0}</span>
+                            <span className="stat-pill-label">Hadir</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="history-card-actions">
+                        <button
+                          type="button"
+                          className="btn-action-view"
+                          onClick={() => handleBukaDetailRiwayat(acara)}
+                        >
+                          👁️ Lihat Antrean
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-action-download"
+                          onClick={() => handleEksporLangsungRiwayat(acara)}
+                        >
+                          📊 Excel (.xlsx)
+                        </button>
+                        {isKabid && (
+                          <button
+                            type="button"
+                            className="btn-action-delete"
+                            onClick={() => handleHapusRiwayat(acara.id)}
+                            title="Hapus riwayat kegiatan ini (Khusus Kepala Bidang)"
+                          >
+                            🗑️ Hapus
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
-      {/* ─────────────────────────────────────────────
-          4. VIEW SUBTAB 2: DATA ORANG-ORANG PENDAFTAR
-          ───────────────────────────────────────────── */}
-      {subTab === 'antrean' && (
-        <div className="gpm-table-panel">
-          <div className="table-filter-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '14px' }}>
-            <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-              <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#555', display: 'block', marginBottom: '4px' }}>
-                  PILIH ACARA GPM AKTIF:
-                </label>
-                <select
-                  className="filter-select-event"
-                  value={acaraTerpilihId}
-                  onChange={(e) => {
-                    setAcaraTerpilihId(e.target.value);
-                    muatPendaftar(e.target.value);
-                  }}
-                >
-                  {daftarAcara.length === 0 ? (
-                    <option value="">(Tidak ada acara GPM aktif)</option>
-                  ) : (
-                    daftarAcara.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.nama_acara} ({a.lokasi})
-                      </option>
-                    ))
-                  )}
-                </select>
+      {/* ═══════════════════════════════════════════════════════════════════
+          MODE 2: RUANG KERJA ACARA (EVENT WORKSPACE — TERKUNCI KE 1 ACARA)
+          ═══════════════════════════════════════════════════════════════════ */}
+      {modeTampilan === 'kelola-acara' && (() => {
+        if (!acaraSedangDikelola) {
+          return (
+            <div className="gpm-history-panel">
+              <div className="empty-history-box">
+                <h4 style={{ margin: '0 0 8px 0', color: '#0f172a' }}>Acara GPM Sudah Selesai atau Tidak Aktif</h4>
+                <p style={{ margin: '0 0 14px 0', fontSize: '0.86rem', color: '#64748b' }}>
+                  Acara ini sudah berpindah ke Riwayat atau belum dipilih.
+                </p>
+                <button type="button" className="gpm-btn-schedule-new" onClick={() => handleKembaliKeDaftar('aktif')}>
+                  ← Kembali ke Daftar GPM
+                </button>
+              </div>
+            </div>
+          );
+        }
+        const stAcara = acaraSedangDikelola.statusOperasional;
+        const hadirRiil = Math.max(
+          daftarPendaftar.filter((p) => p.status_kehadiran === 'Hadir').length,
+          stAcara.totalHadir || 0
+        );
+        const daftarRiil = Math.max(daftarPendaftar.length, stAcara.terisi || 0);
+        const menungguRiil = Math.max(0, daftarRiil - hadirRiil);
+        const penuhAtauSelesai = Boolean(!stAcara.bisaDaftar);
+
+        return (
+          <>
+            {/* HEADER KONTEKS ACARA YANG SEDANG DIKELOLA */}
+            <div className="gpm-event-workspace-banner">
+              <div className="gpm-ewb-top">
+                <button type="button" className="gpm-btn-back-list" onClick={() => handleKembaliKeDaftar()}>
+                  ← Kembali ke Daftar GPM
+                </button>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span className={`gpm-aec-status-pill ${stAcara.kuotaPenuh ? 'is-full' : 'is-open'}`}>
+                    {stAcara.label}
+                  </span>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#64748b' }}>
+                    ⏰ Auto-close {acaraSedangDikelola.jam_selesai} WITA
+                  </span>
+                </div>
               </div>
 
-              <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#555', display: 'block', marginBottom: '4px' }}>
-                  CARI PENDAFTAR / KODE QR:
-                </label>
-                <input
-                  type="text"
-                  placeholder="Cari nama, nomor telepon, kode QR..."
-                  className="filter-search-box"
-                  value={filterCariTabel}
-                  onChange={(e) => setFilterCariTabel(e.target.value)}
-                />
+              <div className="gpm-ewb-info">
+                <h2>{acaraSedangDikelola.nama_acara}</h2>
+                <p>
+                  📍 {acaraSedangDikelola.lokasi} (Kec. {acaraSedangDikelola.kecamatan}) · 📅 {jadwalGPMService.formatTanggalID(acaraSedangDikelola.tanggal)} ({acaraSedangDikelola.jam_mulai}–{acaraSedangDikelola.jam_selesai} WITA)
+                </p>
+              </div>
+
+              <div className="gpm-event-kpi-strip">
+                <div className="gpm-ekpi">
+                  <span>Kuota Acara</span>
+                  <strong>{stAcara.kuotaMaks}</strong>
+                </div>
+                <div className="gpm-ekpi">
+                  <span>Terdaftar</span>
+                  <strong style={{ color: '#1d4ed8' }}>{daftarRiil} <small>(Sisa {stAcara.sisaKuota})</small></strong>
+                </div>
+                <div className="gpm-ekpi">
+                  <span>Sudah Hadir</span>
+                  <strong style={{ color: '#15803d' }}>{hadirRiil}</strong>
+                </div>
+                <div className="gpm-ekpi">
+                  <span>Menunggu Scan</span>
+                  <strong style={{ color: '#b45309' }}>{menungguRiil}</strong>
+                </div>
+              </div>
+
+              <div className="gpm-ewb-actions">
+                <button
+                  type="button"
+                  className="btn-tambah-manual"
+                  disabled={penuhAtauSelesai}
+                  style={penuhAtauSelesai ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+                  onClick={() => handleBukaModalManual(acaraSedangDikelola.id)}
+                >
+                  {stAcara.kuotaPenuh ? '🚫 Kuota Penuh' : '➕ Daftar Manual (Di Tempat)'}
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-export-csv"
+                  onClick={() => gpmService.eksporKeExcel(acaraSedangDikelola, daftarPendaftar, { nama: pengguna?.nama || '' })}
+                >
+                  📊 Excel (.xlsx)
+                </button>
+
+                {isKabid && (
+                  <button
+                    type="button"
+                    className="btn-action-view"
+                    style={{ padding: '10px 14px', color: '#1d4ed8', background: '#eff6ff', borderColor: '#93c5fd' }}
+                    onClick={() => handleBukaModalUbahKuota(acaraSedangDikelola)}
+                  >
+                    🔧 Atur Kuota
+                  </button>
+                )}
+
+                {isKabid && (
+                  <button
+                    type="button"
+                    className="btn-selesaikan-gpm"
+                    disabled={sedangSelesaikanAcara}
+                    onClick={() => handleSelesaikanAcara(acaraSedangDikelola.id)}
+                  >
+                    {sedangSelesaikanAcara ? 'Memproses...' : '🔒 Selesaikan Acara'}
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Tombol Aksi Acara: Tambah Manual (Tunduk Kuota), Ubah Kuota (Kabid), Unduh CSV & Selesaikan Lebih Awal */}
-            {(() => {
-              const acaraAktifDipilih = daftarAcara.find((a) => a.id === acaraTerpilihId);
-              const stAcara = acaraAktifDipilih?.statusOperasional || null;
-              const penuhAtauSelesai = Boolean(stAcara && !stAcara.bisaDaftar);
-              return (
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    className="btn-tambah-manual"
-                    onClick={handleBukaModalManual}
-                    disabled={!acaraAktifDipilih || penuhAtauSelesai}
-                    style={!acaraAktifDipilih || penuhAtauSelesai ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
-                    title={
-                      penuhAtauSelesai
-                        ? 'Kuota habis atau acara berakhir. Kepala Bidang dapat menambah kuota terlebih dahulu.'
-                        : 'Daftarkan warga yang hadir di tempat tanpa membawa HP/smartphone (mengikuti kuota acara)'
-                    }
-                  >
-                    {stAcara?.kuotaPenuh ? '🚫 Kuota Penuh' : '➕ Tambah Manual (Di Tempat)'}
-                  </button>
+            {/* 2 SUB-TAB FOKUS DI DALAM ACARA: PINDAI QR & REKAP ANTREAN */}
+            <div className="gpm-officer-subnav gpm-inner-two-tabs">
+              <button
+                type="button"
+                className={`subnav-btn ${tabAcara === 'scan' ? 'active' : ''}`}
+                onClick={() => setTabAcara('scan')}
+              >
+                📷 Pindai QR Tiket
+              </button>
+              <button
+                type="button"
+                className={`subnav-btn ${tabAcara === 'antrean' ? 'active' : ''}`}
+                onClick={() => {
+                  handleHentikanScanKamera();
+                  setTabAcara('antrean');
+                }}
+              >
+                👥 Rekap Antrean &amp; Pendaftar ({daftarPendaftar.length})
+              </button>
+            </div>
 
-                  {acaraAktifDipilih && isKabid && (
+            {/* SUB-TAB A: PINDAI QR TIKET (TERKUNCI KE ACARA INI) */}
+            {tabAcara === 'scan' && (
+              <div className="scan-panel-card">
+                <div className="scan-box-header">
+                  <div className="scan-box-icon">📷</div>
+                  <h2 className="scan-box-title">Pindai QR Tiket — {acaraSedangDikelola.nama_acara}</h2>
+                  <p className="scan-box-desc">
+                    Cocokkan Nomor Antrean, Nama, dan NIK warga dengan KTP fisik. Tiket dari acara GPM lain akan otomatis ditolak.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '18px' }}>
+                  {!kameraAktif ? (
                     <button
                       type="button"
-                      onClick={() => handleBukaModalUbahKuota(acaraAktifDipilih)}
+                      onClick={handleMulaiScanKamera}
                       style={{
-                        background: '#eff6ff',
-                        color: '#1d4ed8',
-                        border: '1.5px solid #93c5fd',
-                        padding: '9px 14px',
-                        borderRadius: '8px',
+                        background: '#8b1e1e',
+                        color: '#ffffff',
+                        border: 'none',
+                        padding: '12px 24px',
+                        borderRadius: '10px',
                         fontWeight: 700,
-                        fontSize: '0.84rem',
-                        cursor: 'pointer'
+                        fontSize: '0.94rem',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        boxShadow: '0 4px 14px rgba(139, 30, 30, 0.28)'
                       }}
-                      title="Atur atau tambah kuota antrean acara ini (Khusus Kepala Bidang / Superadmin)"
                     >
-                      🔧 Atur Kuota ({stAcara?.terisi ?? 0}/{stAcara?.kuotaMaks ?? acaraAktifDipilih.kuota_maksimal})
+                      📷 Buka Kamera Pemindai (Scan QR)
                     </button>
-                  )}
-
-                  {acaraAktifDipilih && (
+                  ) : (
                     <button
                       type="button"
-                      onClick={() => gpmService.eksporKeExcel(acaraAktifDipilih, daftarPendaftar, { nama: pengguna?.nama || '' })}
-                      className="btn-export-csv"
-                      title="Unduh rekapitulasi data pendaftar & nomor antrean dalam format Microsoft Excel (.xlsx)"
+                      onClick={handleHentikanScanKamera}
+                      style={{
+                        background: '#475569',
+                        color: '#ffffff',
+                        border: 'none',
+                        padding: '10px 22px',
+                        borderRadius: '10px',
+                        fontWeight: 700,
+                        fontSize: '0.9rem',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
                     >
-                      📊 Export Excel (.xlsx)
-                    </button>
-                  )}
-
-                  {acaraAktifDipilih && isKabid && (
-                    <button
-                      type="button"
-                      onClick={() => handleSelesaikanAcara(acaraTerpilihId)}
-                      disabled={sedangSelesaikanAcara}
-                      className="btn-selesaikan-gpm"
-                      title="Tutup lebih awal sebelum jam selesai WITA dan arsipkan ke Riwayat GPM (Khusus Kepala Bidang)"
-                    >
-                      {sedangSelesaikanAcara ? 'Memproses...' : '🔒 Selesaikan Lebih Awal'}
+                      ✕ Tutup Kamera
                     </button>
                   )}
                 </div>
-              );
-            })()}
-          </div>
 
-          {/* Info Kuota & Jadwal Auto-Close Acara Terpilih */}
-          {(() => {
-            const acaraAktifDipilih = daftarAcara.find((a) => a.id === acaraTerpilihId);
-            if (!acaraAktifDipilih) return null;
-            const st = acaraAktifDipilih.statusOperasional;
-            return (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', background: st.kuotaPenuh ? '#fef2f2' : '#f8fafc', border: st.kuotaPenuh ? '1px solid #fecaca' : '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 14px', marginBottom: '14px', fontSize: '0.84rem' }}>
-                <div>
-                  <strong>{st.label}</strong> · Kuota terisi: <strong>{st.terisi} / {st.kuotaMaks}</strong> (Sisa: <strong style={{ color: st.kuotaPenuh ? '#dc2626' : '#15803d' }}>{st.sisaKuota}</strong>)
-                  {st.kuotaPenuh && !isKabid && <span style={{ color: '#b91c1c', marginLeft: '8px' }}>— Minta Kepala Bidang untuk menambah kuota jika ada stok tambahan.</span>}
+                {kameraAktif && (
+                  <div style={{ maxWidth: '380px', margin: '0 auto 22px auto', background: '#0f172a', borderRadius: '14px', overflow: 'hidden', padding: '10px', boxShadow: '0 6px 20px rgba(0,0,0,0.25)' }}>
+                    <div id="webQrReader" style={{ width: '100%', borderRadius: '10px', overflow: 'hidden' }}></div>
+                    <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem', margin: '8px 0 2px 0' }}>
+                      Arahkan kamera ke layar ponsel warga atau gambar tiket QR
+                    </p>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: '18px auto', maxWidth: '620px' }}>
+                  <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }}></div>
+                  <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Atau Masukkan Kode Tiket Manual</span>
+                  <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }}></div>
                 </div>
-                <span style={{ color: '#64748b', fontWeight: 600 }}>
-                  ⏰ Auto-close otomatis: {acaraAktifDipilih.tanggal} pukul {acaraAktifDipilih.jam_selesai} WITA
-                </span>
-              </div>
-            );
-          })()}
 
-          <div style={{ overflowX: 'auto' }}>
-            <table className="pendaftar-data-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '80px' }}>No. Urut</th>
-                  <th>Nama Lengkap & NIK</th>
-                  <th>Jalur Pendaftaran</th>
-                  <th>No. Telepon / WA</th>
-                  <th>Kode QR</th>
-                  <th>Waktu Mendaftar</th>
-                  <th>Status Kehadiran</th>
-                  <th style={{ textAlign: 'center' }}>Aksi Petugas</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendaftarTerfilter.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" style={{ textAlign: 'center', padding: '30px', color: '#888' }}>
-                      Belum ada pendaftar untuk acara ini atau tidak cocok dengan filter pencarian.
-                    </td>
-                  </tr>
-                ) : (
-                  pendaftarTerfilter.map((item) => {
-                    const parsed = gpmService.parseDataPendaftar(item);
-                    return (
-                      <tr key={item.id}>
-                        <td style={{ fontWeight: 800, color: '#8b1e1e' }}>
-                          #{String(parsed.nomor_antrean || 1).padStart(3, '0')}
-                        </td>
-                        <td>
-                          <div style={{ fontWeight: 700, color: '#1e293b' }}>{parsed.nama_bersih}</div>
-                          <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
-                            NIK: {parsed.nik && parsed.nik !== '-' ? parsed.nik : <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>Tidak tercatat</span>}
+                <form onSubmit={handleEksekusiScan} className="scan-input-row">
+                  <input
+                    type="text"
+                    className="scan-input-text"
+                    placeholder="Masukan kode QR tiket (Contoh: GPM-TIKA-001-A9F2)"
+                    value={inputQRCode}
+                    onChange={(e) => setInputQRCode(e.target.value)}
+                  />
+                  <button type="submit" className="btn-exec-scan" disabled={sedangScan}>
+                    <span>{sedangScan ? 'Memindai...' : '🔍 Pindai & Verifikasi'}</span>
+                  </button>
+                </form>
+
+                {pesanScanError && (
+                  <div style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', padding: '14px 18px', borderRadius: '10px', margin: '18px auto 0 auto', maxWidth: '620px' }}>
+                    ⚠️ {pesanScanError}
+                  </div>
+                )}
+
+                {/* KARTU HASIL SCAN (RINGKAS: NOMOR ANTREAN, NAMA, NIK + TOLAK SALAH ACARA) */}
+                {hasilScanPendaftar && (() => {
+                  const parsedScan = gpmService.parseDataPendaftar(hasilScanPendaftar);
+                  const idAcaraScan = parsedScan.acara_id || parsedScan.acara?.id || '';
+                  const salahLokasi = Boolean(
+                    idAcaraScan && String(idAcaraScan) !== String(acaraSedangDikelola.id)
+                  );
+                  return (
+                    <div className="scan-result-profile-card" style={salahLokasi ? { borderColor: '#dc2626' } : undefined}>
+                      <div className="result-card-banner" style={salahLokasi ? { background: 'linear-gradient(135deg, #dc2626, #991b1b)' } : undefined}>
+                        <span className="result-banner-title">
+                          <span>{salahLokasi ? '⚠️' : '✓'}</span> {salahLokasi ? 'TIKET BUKAN UNTUK ACARA INI' : 'DATA PENDAFTAR VALID'}
+                        </span>
+                        <span className={`badge-status-attend ${parsedScan.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu'}`}>
+                          {parsedScan.status_kehadiran === 'Hadir' ? '✓ Sudah Hadir' : '⏳ Menunggu Verifikasi'}
+                        </span>
+                      </div>
+
+                      <div className="result-card-body">
+                        {salahLokasi && (
+                          <div style={{ background: '#fef2f2', color: '#991b1b', border: '1.5px solid #fca5a5', padding: '11px 14px', borderRadius: '10px', fontSize: '0.84rem', fontWeight: 700, marginBottom: '14px' }}>
+                            🚫 Tiket ini terdaftar untuk acara lain: <strong>{parsedScan.acara?.nama_acara || 'kegiatan GPM lain'}</strong>
+                            {parsedScan.acara?.lokasi ? ` (${parsedScan.acara.lokasi})` : ''}. Verifikasi dikunci agar tidak salah lokasi.
                           </div>
-                        </td>
-                        <td>
-                          <span className={parsed.jalur_pendaftaran === 'Langsung' ? 'badge-jalur-langsung' : 'badge-jalur-daring'}>
-                            {parsed.jalur_pendaftaran === 'Langsung' ? '📍 Langsung' : '🌐 Daring'}
-                          </span>
-                        </td>
-                        <td>{parsed.nomor_telepon || '-'}</td>
-                        <td>
-                          <span style={{ fontFamily: 'monospace', fontWeight: 700, background: '#f1f5f9', padding: '3px 6px', borderRadius: '4px' }}>
-                            {parsed.kode_barcode}
-                          </span>
-                        </td>
-                        <td style={{ fontSize: '0.82rem', color: '#666' }}>
-                          {parsed.waktu_mendaftar ? new Date(parsed.waktu_mendaftar).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WITA' : '-'}
-                        </td>
-                        <td>
-                          <span className={`badge-status-attend ${parsed.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu'}`}>
-                            {parsed.status_kehadiran === 'Hadir' ? '✓ Hadir' : 'Menunggu'}
-                          </span>
-                          {parsed.status_kehadiran === 'Hadir' && (
-                            <div style={{ marginTop: '4px', fontSize: '0.72rem', fontWeight: 700, color: item.status_pengambilan === 'Sudah Diambil' ? '#15803d' : '#b45309' }}>
-                              {item.status_pengambilan === 'Sudah Diambil' ? '📦 Sudah Diambil' : '⏳ Belum Diambil'}
+                        )}
+
+                        <div className="result-data-grid" style={{ width: '100%' }}>
+                          <div className="data-item-col">
+                            <span className="data-item-lbl">Nomor Antrean</span>
+                            <span className="data-item-val big-queue">
+                              #{String(parsedScan.nomor_antrean || 1).padStart(3, '0')}
+                            </span>
+                          </div>
+
+                          <div className="data-item-col">
+                            <span className="data-item-lbl">Nama Lengkap</span>
+                            <span className="data-item-val" style={{ fontSize: '1.08rem', fontWeight: 800 }}>
+                              {parsedScan.nama_bersih}
+                            </span>
+                          </div>
+
+                          <div className="data-item-col" style={{ gridColumn: parsedScan.no_kk ? undefined : '1 / -1' }}>
+                            <span className="data-item-lbl">NIK (16 Digit — Cocokkan dengan KTP)</span>
+                            <span className="data-item-val" style={{ fontFamily: 'monospace', fontSize: '1.12rem', fontWeight: 800, letterSpacing: '1px', color: '#0f172a' }}>
+                              {parsedScan.nik || '-'}
+                            </span>
+                          </div>
+
+                          {parsedScan.no_kk && (
+                            <div className="data-item-col">
+                              <span className="data-item-lbl">No. Kartu Keluarga (Opsional)</span>
+                              <span className="data-item-val" style={{ fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.6px' }}>
+                                {parsedScan.no_kk}
+                              </span>
                             </div>
                           )}
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
-                            <button
-                              type="button"
-                              className={parsed.status_kehadiran === 'Hadir' ? 'btn-cancel-attend' : 'btn-mark-attend'}
-                              onClick={() => handleToggleKehadiranTabel(item)}
-                            >
-                              {parsed.status_kehadiran === 'Hadir' ? 'Batalkan' : '✓ Tandai Hadir'}
-                            </button>
-                            {parsed.status_kehadiran === 'Hadir' && item.status_pengambilan !== 'Sudah Diambil' && (
+                        </div>
+
+                        {salahLokasi ? null : parsedScan.acara?.terkunci_waktu || String(parsedScan.acara?.status || '').toLowerCase() === 'selesai' ? (
+                          <div style={{ background: '#fef2f2', color: '#991b1b', border: '1.5px solid #fca5a5', padding: '12px 16px', borderRadius: '10px', fontWeight: 700, fontSize: '0.88rem', marginTop: '14px' }}>
+                            🔒 Verifikasi QR Dikunci: Jadwal kegiatan GPM ini telah berakhir ({parsedScan.acara?.jam_selesai || '-'} WITA / Selesai).
+                          </div>
+                        ) : parsedScan.status_kehadiran === 'Hadir' ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '14px' }}>
+                            <div className="badge-verified-done">
+                              ✅ Warga ini telah diverifikasi hadir ({parsedScan.status_pengambilan === 'Sudah Diambil' ? '📦 Pangan Sudah Diambil' : '⏳ Belum Mengambil Pangan'}).
+                            </div>
+                            {parsedScan.status_pengambilan !== 'Sudah Diambil' && (
                               <button
                                 type="button"
-                                className="btn-mark-attend"
-                                style={{ background: '#0369a1', fontSize: '0.72rem', padding: '4px 8px' }}
-                                onClick={() => handleKonfirmasiPengambilan(item.id, false)}
+                                className="btn-verify-success"
+                                style={{ background: '#0369a1' }}
+                                onClick={() => handleKonfirmasiPengambilan(parsedScan.id, true)}
                               >
-                                📦 Ambil Pangan
+                                📦 Konfirmasi Pengambilan Bahan Pangan
                               </button>
                             )}
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn-verify-success"
+                            style={{ marginTop: '14px' }}
+                            onClick={handleKonfirmasiKehadiran}
+                          >
+                            <span>✓</span> Konfirmasi Kehadiran &amp; Layani Antrean #{parsedScan.nomor_antrean}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
 
-      {/* ─────────────────────────────────────────────
-          5. VIEW SUBTAB 3: TAMBAH ACARA & TITIK PETA LANGSUNG
-          ───────────────────────────────────────────── */}
-      {subTab === 'buat-gpm' && (
+            {/* SUB-TAB B: REKAP ANTREAN & PENDAFTAR (KHUSUS ACARA INI) */}
+            {tabAcara === 'antrean' && (
+              <div className="gpm-table-panel">
+                <div className="table-filter-bar">
+                  <div style={{ flex: 1, minWidth: '220px' }}>
+                    <input
+                      type="text"
+                      placeholder="🔍 Cari nama warga, NIK, no. HP, atau kode QR..."
+                      className="filter-search-box"
+                      style={{ width: '100%' }}
+                      value={filterCariTabel}
+                      onChange={(e) => setFilterCariTabel(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-action-view"
+                    style={{ padding: '10px 14px' }}
+                    onClick={() => muatPendaftar(acaraSedangDikelola.id)}
+                  >
+                    🔄 Segarkan Antrean
+                  </button>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="pendaftar-data-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '80px' }}>No. Urut</th>
+                        <th>Nama Lengkap &amp; NIK</th>
+                        <th>Jalur</th>
+                        <th>No. Telepon</th>
+                        <th>Kode QR</th>
+                        <th>Waktu Daftar</th>
+                        <th>Status</th>
+                        <th style={{ textAlign: 'center' }}>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendaftarTerfilter.length === 0 ? (
+                        <tr>
+                          <td colSpan="8" style={{ textAlign: 'center', padding: '30px', color: '#888' }}>
+                            Belum ada pendaftar untuk acara ini atau tidak cocok dengan filter pencarian.
+                          </td>
+                        </tr>
+                      ) : (
+                        pendaftarTerfilter.map((item) => {
+                          const parsed = gpmService.parseDataPendaftar(item);
+                          return (
+                            <tr key={item.id}>
+                              <td style={{ fontWeight: 800, color: '#8b1e1e' }}>
+                                #{String(parsed.nomor_antrean || 1).padStart(3, '0')}
+                              </td>
+                              <td>
+                                <div style={{ fontWeight: 700, color: '#1e293b' }}>{parsed.nama_bersih}</div>
+                                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px', fontFamily: 'monospace' }}>
+                                  NIK: {parsed.nik && parsed.nik !== '-' ? parsed.nik : <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>Tidak tercatat</span>}
+                                </div>
+                              </td>
+                              <td>
+                                <span className={parsed.jalur_pendaftaran === 'Langsung' ? 'badge-jalur-langsung' : 'badge-jalur-daring'}>
+                                  {parsed.jalur_pendaftaran === 'Langsung' ? '📍 Langsung' : '🌐 Daring'}
+                                </span>
+                              </td>
+                              <td>{parsed.nomor_telepon || '-'}</td>
+                              <td>
+                                <span style={{ fontFamily: 'monospace', fontWeight: 700, background: '#f1f5f9', padding: '3px 6px', borderRadius: '4px' }}>
+                                  {parsed.kode_barcode}
+                                </span>
+                              </td>
+                              <td style={{ fontSize: '0.82rem', color: '#666' }}>
+                                {parsed.waktu_mendaftar ? new Date(parsed.waktu_mendaftar).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WITA' : '-'}
+                              </td>
+                              <td>
+                                <span className={`badge-status-attend ${parsed.status_kehadiran === 'Hadir' ? 'hadir' : 'menunggu'}`}>
+                                  {parsed.status_kehadiran === 'Hadir' ? '✓ Hadir' : 'Menunggu'}
+                                </span>
+                                {parsed.status_kehadiran === 'Hadir' && (
+                                  <div style={{ marginTop: '4px', fontSize: '0.72rem', fontWeight: 700, color: item.status_pengambilan === 'Sudah Diambil' ? '#15803d' : '#b45309' }}>
+                                    {item.status_pengambilan === 'Sudah Diambil' ? '📦 Sudah Diambil' : '⏳ Belum Diambil'}
+                                  </div>
+                                )}
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+                                  <button
+                                    type="button"
+                                    className={parsed.status_kehadiran === 'Hadir' ? 'btn-cancel-attend' : 'btn-mark-attend'}
+                                    onClick={() => handleToggleKehadiranTabel(item)}
+                                  >
+                                    {parsed.status_kehadiran === 'Hadir' ? 'Batalkan' : '✓ Tandai Hadir'}
+                                  </button>
+                                  {parsed.status_kehadiran === 'Hadir' && item.status_pengambilan !== 'Sudah Diambil' && (
+                                    <button
+                                      type="button"
+                                      className="btn-mark-attend"
+                                      style={{ background: '#0369a1', fontSize: '0.72rem', padding: '4px 8px' }}
+                                      onClick={() => handleKonfirmasiPengambilan(item.id, false)}
+                                    >
+                                      📦 Ambil Pangan
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        );
+      })()}
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          MODE 3: FORM JADWALKAN ACARA GPM BARU & TITIK PETA INTERAKTIF
+          ═══════════════════════════════════════════════════════════════════ */}
+      {modeTampilan === 'buat-gpm' && (
         <div className="scan-panel-card">
-          <div style={{ marginBottom: '20px', borderBottom: '2px solid #f1f3f5', paddingBottom: '12px' }}>
-            <h2 style={{ margin: 0, fontSize: '1.3rem', color: '#1a1a1a', fontWeight: 800 }}>
-              📍 Penjadwalan & Titik Peta Gerakan Pangan Murah (GPM)
-            </h2>
-            <p style={{ margin: '4px 0 0 0', color: '#6c757d', fontSize: '0.9rem' }}>
-              Petugas mengisi nama acara, tanggal, dan <strong>cukup klik titik langsung di peta</strong> untuk menentukan lokasi acara tanpa perlu mengetik angka koordinat manual.
-            </p>
+          <div style={{ marginBottom: '20px', borderBottom: '2px solid #f1f3f5', paddingBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#1a1a1a', fontWeight: 800 }}>
+                📍 Jadwalkan Acara GPM &amp; Titik Peta Baru
+              </h2>
+              <p style={{ margin: '4px 0 0 0', color: '#6c757d', fontSize: '0.88rem' }}>
+                Isi jadwal pelaksanaan dan <strong>klik titik langsung di peta</strong> untuk menentukan lokasi acara GPM.
+              </p>
+            </div>
+            <button type="button" className="gpm-btn-back-list" onClick={() => handleKembaliKeDaftar()}>
+              ← Kembali ke Daftar GPM
+            </button>
           </div>
 
           <form onSubmit={handleSimpanAcaraGPM} className="gpm-add-event-form">
@@ -1250,7 +1480,7 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan'
                     onClick={() => setTampilkanFormKecamatan(!tampilkanFormKecamatan)}
                     style={{ background: 'none', border: 'none', color: '#8b1e1e', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
                   >
-                    {tampilkanFormKecamatan ? 'Tutup Formulir' : '➕ Tambah Kecamatan Baru (Ketua)'}
+                    {tampilkanFormKecamatan ? 'Tutup Formulir' : '+ Tambah Kecamatan'}
                   </button>
                 )}
               </div>
@@ -1629,99 +1859,6 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan'
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────
-          6. VIEW SUBTAB 4: RIWAYAT GPM & REKAPITULASI DATA
-          ───────────────────────────────────────────── */}
-      {subTab === 'riwayat' && (
-        <div className="gpm-history-panel">
-          <div className="history-header-bar">
-            <div>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>
-                📜 Riwayat Kegiatan Gerakan Pangan Murah (GPM)
-              </h2>
-              <p style={{ margin: 0, fontSize: '0.86rem', color: '#64748b' }}>
-                Arsip kegiatan GPM yang telah diselesaikan. {isKabid ? 'Kepala Bidang dapat mengunduh rekap dan menghapus arsip riwayat.' : 'Staf dapat melihat rekapitulasi dan mengunduh data.'}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={muatDataAwal}
-              style={{ padding: '8px 14px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
-            >
-              🔄 Segarkan Riwayat
-            </button>
-          </div>
-
-          {daftarRiwayat.length === 0 ? (
-            <div className="empty-history-box">
-              <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '8px' }}>📭</span>
-              <h4 style={{ margin: '0 0 6px 0', color: '#1e293b' }}>Belum Ada Riwayat Kegiatan GPM</h4>
-              <p style={{ margin: 0, fontSize: '0.86rem', color: '#64748b' }}>
-                Kegiatan GPM yang telah diselesaikan oleh Kepala Bidang akan otomatis diarsipkan di sini.
-              </p>
-            </div>
-          ) : (
-            <div className="history-cards-grid">
-              {daftarRiwayat.map((acara) => (
-                <div key={acara.id} className="history-card-item">
-                  <div className="history-card-head">
-                    <div>
-                      <span className="badge-closed-tag">✓ Kegiatan Selesai</span>
-                      <h3 className="history-item-title">{acara.nama_acara}</h3>
-                      <p className="history-item-sub">📍 {acara.lokasi} (Kec. {acara.kecamatan})</p>
-                    </div>
-                  </div>
-
-                  <div className="history-card-meta">
-                    <div className="meta-col">
-                      <span className="meta-lbl">Pelaksanaan</span>
-                      <span className="meta-val">📅 {acara.tanggal} ({acara.jam_mulai} - {acara.jam_selesai} WITA)</span>
-                    </div>
-                    <div className="meta-stats-row">
-                      <div className="stat-pill">
-                        <span className="stat-pill-num">{acara.kuota_maksimal || 0}</span>
-                        <span className="stat-pill-label">Total Kuota</span>
-                      </div>
-                      <div className="stat-pill">
-                        <span className="stat-pill-num">{acara.antrean_terisi || 0}</span>
-                        <span className="stat-pill-label">Warga Mendaftar</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="history-card-actions">
-                    <button
-                      type="button"
-                      className="btn-action-view"
-                      onClick={() => handleBukaDetailRiwayat(acara)}
-                    >
-                      👁️ Lihat Antrean
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-action-download"
-                      onClick={() => handleEksporLangsungRiwayat(acara)}
-                    >
-                      📊 Unduh Excel (.xlsx)
-                    </button>
-                    {isKabid && (
-                      <button
-                        type="button"
-                        className="btn-action-delete"
-                        onClick={() => handleHapusRiwayat(acara.id)}
-                        title="Hapus riwayat kegiatan ini (Khusus Kepala Bidang)"
-                      >
-                        🗑️ Hapus
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* MODAL LIHAT DETAIL & ANTREAN RIWAYAT GPM */}
       {modalRiwayatDetail.buka && modalRiwayatDetail.acara && (
         <div className="modal-overlay-backdrop" onClick={() => setModalRiwayatDetail({ buka: false, acara: null, pendaftar: [] })}>
@@ -1858,18 +1995,24 @@ export default function PetugasGPMManager({ token, pengguna, subTabAwal = 'scan'
                   <label style={{ display: 'block', fontWeight: 700, fontSize: '0.85rem', marginBottom: '6px', color: '#334155' }}>
                     Lokasi Kegiatan GPM <span style={{ color: '#ef4444' }}>*</span>
                   </label>
-                  <select
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
-                    value={modalTambahManual.acaraId}
-                    onChange={(e) => setModalTambahManual(prev => ({ ...prev, acaraId: e.target.value }))}
-                    required
-                  >
-                    {daftarAcara.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.nama_acara} ({a.lokasi})
-                      </option>
-                    ))}
-                  </select>
+                  {modeTampilan === 'kelola-acara' && acaraSedangDikelola ? (
+                    <div style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: '0.88rem', fontWeight: 700, color: '#0f172a' }}>
+                      🔒 {acaraSedangDikelola.nama_acara} ({acaraSedangDikelola.lokasi})
+                    </div>
+                  ) : (
+                    <select
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                      value={modalTambahManual.acaraId}
+                      onChange={(e) => setModalTambahManual(prev => ({ ...prev, acaraId: e.target.value }))}
+                      required
+                    >
+                      {daftarAcara.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.nama_acara} ({a.lokasi})
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div style={{ marginBottom: '14px' }}>
